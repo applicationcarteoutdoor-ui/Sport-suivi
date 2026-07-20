@@ -452,6 +452,9 @@
   cursor: pointer;
 }
 .ligne-commande-retirer { color: var(--alerte); border-color: var(--alerte); }
+/* Bouton « Monter » : le même chevron-bas que « Descendre », retourné. Sans cette règle les deux
+   flèches pointaient vers le bas et les deux boutons étaient indiscernables. */
+.chevron-inverse { transform: rotate(180deg); }
 
 .ligne-exercice-reglages {
   display: grid;
@@ -529,7 +532,10 @@
   cursor: pointer;
 }
 
-.tuile-detail {
+/* ⚠ .tuile-lancement est la TUILE (le bouton de la rangée « Lancer » de l'accueil). Cette règle
+   s'appelait .tuile-detail par erreur : le JS (views/accueil.js) réserve .tuile-detail au
+   SOUS-TEXTE de la tuile — la rangée entière restait donc sans style, sans aucune erreur. */
+.tuile-lancement {
   width: 148px;
   min-height: 132px;
   display: flex;
@@ -548,6 +554,7 @@
 }
 .tuile-icone { color: var(--accent); }
 .tuile-nom { font-weight: 600; font-size: var(--txt-s); line-height: 1.2; }
+.tuile-detail { font-size: var(--txt-xs); color: var(--texte-attenue); line-height: 1.3; }
 .pastille-origine {
   font-size: var(--txt-xs);
   padding: 1px var(--esp-2);
@@ -769,6 +776,22 @@
 .courbe-legende-item[aria-pressed='false'] .courbe-legende-nom { text-decoration: line-through; }
 .courbe-legende-marque { width: 12px; height: 12px; flex: 0 0 auto; }
 .courbe-legende-nom { font-size: var(--txt-xs); }
+
+/* ── Couleurs des séries comparées (1 à 4) ──────────────────────────────────
+   ui/chart.js pose data-serie="1..4" sur chaque tracé et sur sa pastille de légende, et promet
+   que le CSS les résout « via currentColor et les variables de thème ». Sans ces règles, les
+   quatre courbes héritaient toutes du bleu accent de .courbe et seule la forme des points les
+   distinguait. La propriété --serie-couleur, posée en ligne quand l'appelant fournit une couleur
+   explicite, garde toujours le dernier mot. Variables de thème uniquement, jamais de couleur en
+   dur : la bascule clair/sombre reste gratuite. */
+.courbe-serie[data-serie='1'],
+.courbe-legende-marque[data-serie='1'] { color: var(--serie-couleur, var(--accent)); }
+.courbe-serie[data-serie='2'],
+.courbe-legende-marque[data-serie='2'] { color: var(--serie-couleur, var(--succes)); }
+.courbe-serie[data-serie='3'],
+.courbe-legende-marque[data-serie='3'] { color: var(--serie-couleur, var(--alerte)); }
+.courbe-serie[data-serie='4'],
+.courbe-legende-marque[data-serie='4'] { color: var(--serie-couleur, var(--texte)); }
 
 /* Comparer des kilos a des minutes n'a pas de sens : on le REFUSE explicitement plutot que de
    tracer un graphe absurde. */

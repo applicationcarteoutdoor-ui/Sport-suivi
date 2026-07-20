@@ -28,7 +28,7 @@ import { champsSaisieEntree, champsSaisie, pasChamp } from '../data/schema.js';
 import * as session from '../domain/session.js';
 import * as prefill from '../domain/prefill.js';
 import * as router from '../ui/router.js';
-import { icone } from '../ui/icons.js';
+import { icone, iconePourExercice } from '../ui/icons.js';
 import * as sheet from '../ui/sheet.js';
 import * as toast from '../ui/toast.js';
 import * as stepper from '../ui/stepper.js';
@@ -138,8 +138,12 @@ export function mount(conteneur, params) {
   }
 
   function iconeDe(entree) {
+    // ⚠ iconePourExercice et non ex.icone : seuls les exercices du CATALOGUE portent un champ
+    //   `icone` (synchronise par data/catalog.js). Un exercice cree par l'utilisateur n'en a pas
+    //   (schema.nouvelExercice) et retombait sur le pictogramme generique, alors que le reste de
+    //   l'application (composeur, accueil, historique) resout via l'id puis le pack.
     const ex = store.exercice(entree.exerciceId);
-    return (ex && ex.icone) || 'exercice';
+    return iconePourExercice(ex || entree.exerciceId);
   }
 
   function sousTexteSport(entree) {
@@ -198,7 +202,14 @@ export function mount(conteneur, params) {
         if (serie.kind === 'echauffement') btn.setAttribute('data-kind', 'echauffement');
         const meta = store.meta();
         const p = prefill.valeursPour(entree.exerciceId, entree, seance, (meta && meta.lastPerf) || {});
-        const t = texteCellule(entree, Object.assign({}, p.champs, serie));
+        // ⚠ Fusion champ par champ, PAS Object.assign(p.champs, serie) : une serie proposee porte
+        //   TOUS ses champs a null (nouvelleSerie), et ces null ecrasaient le prefill — la case en
+        //   attente affichait « · » au lieu du chiffre de la derniere fois, sans aucune erreur.
+        const fantome = Object.assign({}, p.champs);
+        for (const c of champsSaisieEntree(entree)) {
+          if (estNombre(serie[c])) fantome[c] = serie[c];
+        }
+        const t = texteCellule(entree, fantome);
         btn.appendChild(h('span', { class: 'tab-cellule-grand' }, t.grand || '·'));
         if (t.petit) btn.appendChild(h('span', { class: 'tab-cellule-petit' }, t.petit));
       } else if (serie) {
@@ -636,6 +647,12 @@ export function mount(conteneur, params) {
         // Dernier filet : la seance en cours survit a la navigation et au kill.
         hot.ecrire(seance, null, {});
       }
+      // ⚠ Feuille et pave vivent dans la zone A, HORS du sous-arbre retire ci-dessous : sans
+      //   fermeture explicite, un retour Android pendant l'edition d'une serie laissait la
+      //   feuille (et les ecouteurs pointeur de ses steppers, detruits par son onFermer) ouverte
+      //   par-dessus l'ecran suivant. Idempotent : sans rien d'ouvert, ces appels ne font rien.
+      try { sheet.fermer(); } catch (_) { /* deja fermee */ }
+      try { keypad.fermer(); } catch (_) { /* deja ferme */ }
       for (const off of desabonnements) { try { off(); } catch (_) { /* deja detache */ } }
       racine.remove();
       coquille.removeAttribute('data-seance');
