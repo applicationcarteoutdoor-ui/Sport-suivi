@@ -1,0 +1,73 @@
+{
+  "version": "2026-07-20-03",
+  "kill": false,
+  "_note_outils": "verif.html et tests.html sont volontairement HORS de cette liste : ce sont des outils de diagnostic. Les precacher les ferait servir en cache-first, donc auditer le cache qu'ils sont censes verifier, et une version corrigee n'arriverait qu'apres un cycle complet de mise a jour. Ils exigent une connexion, c'est assume et documente dans le README.",
+  "assets": [
+    "./",
+    "./index.html",
+    "./manifest.json",
+
+    "./css/tokens.css",
+    "./css/base.css",
+    "./css/components.css",
+    "./css/views.css",
+    "./css/v2.css",
+
+    "./js/boot.js",
+    "./js/config.js",
+
+    "./js/lib/dom.js",
+    "./js/lib/bus.js",
+    "./js/lib/idb.js",
+    "./js/lib/ids.js",
+    "./js/lib/dates.js",
+    "./js/lib/num.js",
+
+    "./js/data/schema.js",
+    "./js/data/catalog.js",
+    "./js/data/packs.js",
+    "./js/data/templates.js",
+    "./js/data/migrations.js",
+    "./js/data/store.js",
+    "./js/data/hot.js",
+    "./js/data/prefs.js",
+    "./js/data/backup.js",
+
+    "./js/domain/metrics.js",
+    "./js/domain/prefill.js",
+    "./js/domain/progression.js",
+    "./js/domain/session.js",
+
+    "./js/ui/icons.js",
+    "./js/ui/drawer-minuteur.js",
+    "./js/ui/router.js",
+    "./js/ui/chart.js",
+    "./js/ui/keypad.js",
+    "./js/ui/stepper.js",
+    "./js/ui/set-row.js",
+    "./js/ui/timer-view.js",
+    "./js/ui/sheet.js",
+    "./js/ui/toast.js",
+    "./js/ui/picker-exercice.js",
+    "./js/ui/update.js",
+    "./js/ui/install.js",
+
+    "./js/views/accueil.js",
+    "./js/views/seance.js",
+    "./js/views/seance-tableau.js",
+    "./js/views/seance-fin.js",
+    "./js/views/historique.js",
+    "./js/views/seance-detail.js",
+    "./js/views/progression.js",
+    "./js/views/exercices.js",
+    "./js/views/modeles.js",
+    "./js/views/composeur.js",
+    "./js/views/reglages.js",
+
+    "./icons/icon-192.png",
+    "./icons/icon-512.png",
+    "./icons/icon-512-maskable.png",
+    "./icons/apple-touch-icon-180.png",
+    "./icons/favicon.svg"
+  ]
+}

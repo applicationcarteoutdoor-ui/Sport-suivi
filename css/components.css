@@ -1,0 +1,1313 @@
+/* components.css — les fragments reutilisables.
+   Convention : un composant = un bloc de classes en francais, kebab-case, sans BEM. Les ETATS
+   passent par un attribut `data-*` et non par une classe supplementaire, parce que les fragments
+   vivants (ligne de serie, stepper, minuteur) sont mutes par setAttribute cible et jamais
+   reconstruits : `el.dataset.etat = 'faite'` est une mutation d'un seul attribut, la ou un
+   classList.remove/add en enchaine trois. */
+
+/* ═════════════════════════════ Boutons ═════════════════════════════ */
+
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-2);
+  min-height: var(--cible-tactile);
+  padding: 0 var(--esp-4);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  color: var(--texte);
+  font-size: var(--txt-m);
+  font-weight: 600;
+  border: 1px solid var(--bordure);
+  transition: background var(--duree-courte) linear, transform var(--duree-courte) linear;
+}
+
+/* Retour tactile immediat : sur mobile il n'y a pas de :hover, l'etat actif EST le seul retour
+   visuel entre l'appui et l'effet. */
+.bouton:active {
+  transform: scale(0.98);
+  background: var(--bordure);
+}
+
+.bouton-primaire {
+  background: var(--accent);
+  color: var(--accent-contraste);
+  border-color: transparent;
+}
+
+.bouton-primaire:active {
+  background: var(--accent);
+  filter: brightness(0.92);
+}
+
+.bouton-danger {
+  color: var(--alerte);
+  border-color: var(--alerte);
+  background: var(--alerte-doux);
+}
+
+.bouton-fantome {
+  background: transparent;
+  border-color: transparent;
+  color: var(--texte-attenue);
+  font-weight: 500;
+}
+
+.bouton-geant {
+  min-height: var(--cible-geante);
+  width: 100%;
+  font-size: var(--txt-xl);
+}
+
+/* Bouton a icone seule : reste carre et au gabarit tactile. */
+.bouton-icone {
+  min-width: var(--cible-tactile);
+  padding: 0;
+}
+
+.bouton-large {
+  width: 100%;
+}
+
+/* ═════════════════════════════ Stepper ═════════════════════════════ */
+/* [ − ] [ valeur ] [ + ] — l'outil de saisie par defaut. Les deux boutons font 56 px et la zone
+   de valeur est TAPABLE (elle ouvre le pave numerique) : c'est un troisieme controle, pas un
+   affichage. */
+
+.stepper {
+  display: grid;
+  grid-template-columns: var(--cible-tactile) 1fr var(--cible-tactile);
+  align-items: stretch;
+  min-height: var(--cible-tactile);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.stepper-bouton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cible-tactile);
+  min-height: var(--cible-tactile);
+  font-size: var(--txt-xl);
+  font-weight: 700;
+  color: var(--texte);
+  background: var(--surface-haute);
+}
+
+.stepper-bouton:active {
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+
+.stepper-bouton:disabled {
+  color: var(--texte-attenue);
+}
+
+/* Zone de valeur : tapable, donc traitee comme un bouton (gabarit, retour actif), mais rendue en
+   <output> puisque l'application n'a AUCUN <input> en seance. */
+.stepper-valeur {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 var(--esp-2);
+  font-size: var(--txt-xl);
+  font-weight: 700;
+  background: transparent;
+  color: var(--texte);
+}
+
+.stepper-valeur:active {
+  background: var(--accent-doux);
+}
+
+.stepper-unite {
+  font-size: var(--txt-s);
+  font-weight: 500;
+  color: var(--texte-attenue);
+}
+
+/* Pastille « Ouvrir le pave » : apparait quand l'appui long a atteint son plafond de +/- 10 pas.
+   Au-dela, continuer a incrementer est plus lent que taper le nombre. */
+.stepper-astuce {
+  display: block;
+  margin-top: var(--esp-1);
+  padding: var(--esp-1) var(--esp-3);
+  border-radius: var(--rayon-plein);
+  background: var(--accent-doux);
+  color: var(--accent);
+  font-size: var(--txt-s);
+  font-weight: 600;
+  text-align: center;
+}
+
+.stepper-astuce[hidden] {
+  display: none;
+}
+
+/* Le stepper signale son incrementation par un flash de la valeur, pas par une animation de
+   position : le doigt est POSE dessus pendant l'acceleration. */
+.stepper[data-actif='oui'] .stepper-valeur {
+  color: var(--accent);
+}
+
+/* ═════════════════════════════ Ligne de serie ═════════════════════════════ */
+/* Quatre etats exclusifs portes par data-etat : a-faire | en-edition | faite | non-faite.
+   ⚠ Tap = edition, appui long = suppression. Aucun bouton « modifier » : il volerait 44 px de
+   large sur chacune des 24 lignes d'une seance. */
+
+.ligne-serie {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: var(--cible-tactile);
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--rayon-m);
+  border: 1px solid transparent;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  transition: background var(--duree-courte) linear;
+}
+
+.ligne-serie-numero {
+  color: var(--texte-attenue);
+  font-size: var(--txt-s);
+  font-weight: 600;
+  text-align: center;
+}
+
+.ligne-serie-valeurs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--esp-2);
+  font-size: var(--txt-l);
+  font-weight: 600;
+}
+
+.ligne-serie-annexe {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+/* Etat 1 — a faire : la ligne en attente, discrete mais lisible. */
+.ligne-serie[data-etat='a-faire'] {
+  background: var(--surface);
+  border-color: var(--bordure);
+}
+
+/* Etat 2 — en edition : la ligne courante, celle qui porte les steppers. Elle s'ouvre en colonne
+   parce qu'un stepper de 56 px ne cohabite pas avec une grille de 3 colonnes sur 360 px. */
+.ligne-serie[data-etat='en-edition'] {
+  display: block;
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: var(--ombre-1);
+  padding: var(--esp-3);
+}
+
+.ligne-serie[data-etat='en-edition'] .ligne-serie-valeurs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-2);
+  margin-top: var(--esp-2);
+}
+
+/* Un seul champ de saisie (modes 'poids-du-corps' et 'temps') : il prend toute la largeur. */
+.ligne-serie[data-etat='en-edition'] .ligne-serie-valeurs > *:only-child {
+  grid-column: 1 / -1;
+}
+
+/* Etat 3 — faite : figee. Le vert n'est pas decoratif, c'est le seul repere de progression quand
+   on releve les yeux entre deux series. */
+.ligne-serie[data-etat='faite'] {
+  background: var(--succes-doux);
+}
+
+.ligne-serie[data-etat='faite'] .ligne-serie-numero {
+  color: var(--succes);
+}
+
+/* Etat 4 — non faite : conservee a l'ecran et dans les donnees, EXCLUE de tout agregat. Barree
+   plutot que supprimee : « je n'ai pas fait ma 4e serie » est une information d'entrainement. */
+.ligne-serie[data-etat='non-faite'] {
+  background: transparent;
+  border-color: var(--bordure);
+  color: var(--texte-attenue);
+}
+
+.ligne-serie[data-etat='non-faite'] .ligne-serie-valeurs {
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+/* Serie d'echauffement : distinguee sans etre devalorisee (elle compte pour l'utilisateur, pas
+   pour les statistiques). */
+.ligne-serie-etiquette {
+  padding: 2px var(--esp-2);
+  border-radius: var(--rayon-plein);
+  background: var(--surface-haute);
+  color: var(--texte-attenue);
+  font-size: var(--txt-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Serie ratee (« rackee avant la fin ») : liseree, jamais masquee. */
+.ligne-serie[data-echec='oui'] {
+  box-shadow: inset 3px 0 0 0 var(--alerte);
+}
+
+/* Appui long en cours : retour visuel AVANT le declenchement de la suppression, sinon le geste
+   parait ne rien faire pendant 500 ms. */
+.ligne-serie[data-appui='long'] {
+  background: var(--alerte-doux);
+}
+
+/* Actions sous le bloc de saisie : « + Serie » et « Non faite ». */
+.ligne-serie-actions {
+  display: flex;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3) var(--esp-3);
+}
+
+.ligne-serie-actions .bouton {
+  flex: 1;
+  min-height: var(--cible-mini);
+  font-size: var(--txt-s);
+}
+
+/* Rappel « Derniere fois » : NON editable, c'est le coeur de la valeur de l'application. */
+.rappel-precedent {
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-haute);
+  border-radius: 0 var(--rayon-s) var(--rayon-s) 0;
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+.rappel-precedent-valeurs {
+  color: var(--texte);
+  font-weight: 600;
+}
+
+/* ═════════════════════════════ Barre d'action basse ═════════════════════════════ */
+/* Deux zones FIXES, jamais quatre roles : le minuteur a gauche (toujours present, gris quand
+   inactif), le bouton primaire a droite (jamais remplace, jamais deplace). C'est ce qui rend le
+   geste de validation automatique au bout de trois series. */
+
+.barre-action {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-barre);
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: var(--esp-3);
+  align-items: stretch;
+  padding: var(--esp-3);
+  /* L'encoche basse s'ajoute au padding : sur iPhone, un padding fixe laisse le bouton sous la
+     barre d'accueil, qui intercepte le geste. */
+  padding-bottom: calc(var(--esp-3) + var(--safe-bas));
+  background: var(--surface);
+  border-top: 1px solid var(--bordure);
+  box-shadow: var(--ombre-3);
+}
+
+.barre-action-minuteur {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 88px;
+  min-height: var(--cible-geante);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  color: var(--texte-attenue);
+  border: 1px solid var(--bordure);
+}
+
+.barre-action-minuteur[data-etat='actif'] {
+  color: var(--texte);
+  border-color: var(--accent);
+}
+
+/* Repos termine : bordure d'ecran coloree + minuteur en alerte. Le visuel est le SEUL canal
+   fiable sur les deux plateformes (iOS suspend l'audio en arriere-plan, ne vibre jamais). */
+.barre-action-minuteur[data-etat='fini'] {
+  color: var(--succes);
+  border-color: var(--succes);
+  background: var(--succes-doux);
+}
+
+.minuteur {
+  font-size: var(--txt-xl);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.minuteur-mention {
+  font-size: var(--txt-xs);
+  color: inherit;
+}
+
+/* Bascule demarrer/arreter, dans les 88 px de la zone. Volontairement plus petite que le gabarit
+   tactile : elle partage la zone avec la valeur, et la cible pleine taille est ailleurs (le
+   panneau du minuteur). Une bascule geante ici mangerait la place du bouton primaire. */
+.minuteur-bascule {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--cible-mini);
+  min-height: var(--esp-6);
+  border-radius: var(--rayon-s);
+  color: inherit;
+  font-size: var(--txt-s);
+  line-height: 1;
+}
+
+.barre-action-primaire {
+  min-height: var(--cible-geante);
+  font-size: var(--txt-xl);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Liseré de fin de repos pose sur la coquille entiere. Pas d'animation clignotante : elle est
+   inutilisable pour les personnes photosensibles et le mouvement est reduit sur demande. */
+.coquille[data-repos='fini']::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  border: 4px solid var(--succes);
+  z-index: var(--z-barre);
+}
+
+/* ═════════════════════════════ Feuille basse ═════════════════════════════ */
+/* Une feuille est un PARAMETRE de la route courante, jamais une route : #/seance n'est donc
+   jamais demonte par une saisie. Le conteneur vit dans index.html (zone A) et n'est jamais
+   reconstruit ; seul son contenu et son attribut data-ouvert changent. */
+
+.feuille-conteneur {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-feuille);
+  display: flex;
+  align-items: flex-end;
+  /* visibility (et non display) : la transition de fermeture doit pouvoir se jouer. */
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.feuille-conteneur[data-ouvert='oui'] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.feuille-voile {
+  position: absolute;
+  inset: 0;
+  background: var(--voile);
+  opacity: 0;
+  transition: opacity var(--duree-moyenne) var(--courbe-sortie);
+}
+
+.feuille-conteneur[data-ouvert='oui'] .feuille-voile {
+  opacity: 1;
+}
+
+.feuille {
+  position: relative;
+  width: 100%;
+  max-width: var(--largeur-max);
+  margin: 0 auto;
+  max-height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--rayon-xl) var(--rayon-xl) 0 0;
+  box-shadow: var(--ombre-3);
+  transform: translateY(100%);
+  transition: transform var(--duree-moyenne) var(--courbe-sortie);
+  padding-bottom: var(--safe-bas);
+}
+
+.feuille-conteneur[data-ouvert='oui'] .feuille {
+  transform: translateY(0);
+}
+
+/* Poignee : indique que la feuille se ferme par le bas sans ajouter de texte. */
+.feuille-poignee {
+  width: 40px;
+  height: 4px;
+  margin: var(--esp-2) auto 0;
+  border-radius: var(--rayon-plein);
+  background: var(--bordure-forte);
+}
+
+.feuille-entete {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-3) var(--esp-4);
+  border-bottom: 1px solid var(--bordure);
+}
+
+.feuille-titre {
+  flex: 1;
+  font-size: var(--txt-l);
+  font-weight: 700;
+}
+
+.feuille-corps {
+  padding: var(--esp-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.feuille-actions {
+  display: flex;
+  gap: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4) var(--esp-4);
+  border-top: 1px solid var(--bordure);
+}
+
+.feuille-actions .bouton {
+  flex: 1;
+}
+
+/* Barre de recherche du selecteur d'exercice. Ici un <input> est legitime : on saisit du TEXTE,
+   pas un nombre, et le clavier systeme est le bon outil. */
+.champ-recherche {
+  width: 100%;
+  min-height: var(--cible-tactile);
+  padding: 0 var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  font-size: max(var(--txt-m), 1rem);
+}
+
+/* ═════════════════════════════ Pave numerique ═════════════════════════════ */
+/* Remplace le clavier systeme : supprime d'un coup le zoom iOS, le conflit virgule/point et le
+   champ masque par le clavier. `champs` est un TABLEAU : reps -> Suivant -> charge -> OK, en une
+   seule feuille et sans re-rendu. */
+
+.pave {
+  z-index: var(--z-pave);
+}
+
+/* Hotes de la zone A (#conteneur-pave, #zone-toast). Ce sont de purs points d'ancrage : le pave
+   et le toast qu'on y injecte se positionnent EUX-MEMES en position fixe. L'hote ne doit donc
+   creer aucune boite qui prendrait de la hauteur en fin de document. La regle existe pour que
+   ces deux classes d'index.html soient reellement definies, et pour qu'aucune feuille de style
+   ulterieure ne leur ajoute une marge par inadvertance. */
+.pave-hote,
+.zone-toast {
+  margin: 0;
+  padding: 0;
+}
+
+.pave-champs {
+  display: flex;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-3);
+}
+
+.pave-champ {
+  flex: 1;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  text-align: center;
+}
+
+/* Champ en cours de saisie dans l'enchainement. */
+.pave-champ[data-actif='oui'] {
+  border-color: var(--accent);
+  background: var(--accent-doux);
+}
+
+.pave-champ-label {
+  display: block;
+  font-size: var(--txt-xs);
+  color: var(--texte-attenue);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pave-affichage {
+  font-size: var(--txt-xxl);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pave-touches {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--esp-2);
+}
+
+.pave-touche {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Plus haut que la cible minimale : le pave est utilise a une main, pouce en extension. */
+  min-height: 64px;
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  border: 1px solid var(--bordure);
+  font-size: var(--txt-xl);
+  font-weight: 600;
+}
+
+.pave-touche:active {
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+
+.pave-touche[data-role='effacer'] {
+  color: var(--alerte);
+}
+
+.pave-touche[data-role='valider'] {
+  background: var(--accent);
+  color: var(--accent-contraste);
+  border-color: transparent;
+  grid-column: 1 / -1;
+}
+
+/* ═════════════════════════════ Toast ═════════════════════════════ */
+/* 10 secondes, et non 3 : entre deux series le telephone repart en poche. « Annuler » doit
+   encore etre la au retour. */
+
+.toast {
+  position: fixed;
+  left: var(--esp-3);
+  right: var(--esp-3);
+  /* Au-DESSUS de la barre d'action : un toast qui recouvre « Valider la serie » transforme un
+     appui de validation en annulation. */
+  bottom: calc(var(--hauteur-barre-action) + var(--safe-bas) + var(--esp-3));
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  max-width: var(--largeur-max);
+  margin: 0 auto;
+  padding: var(--esp-3) var(--esp-3) var(--esp-3) var(--esp-4);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  border: 1px solid var(--bordure-forte);
+  box-shadow: var(--ombre-2);
+  transform: translateY(8px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duree-courte) linear, transform var(--duree-courte) var(--courbe-sortie);
+}
+
+.toast[data-ouvert='oui'] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Sur les ecrans sans barre d'action (accueil, historique, reglages), le toast se cale au-dessus
+   de la navigation basse. */
+.toast[data-ancrage='nav'] {
+  bottom: calc(var(--hauteur-nav) + var(--safe-bas) + var(--esp-3));
+}
+
+.toast-texte {
+  flex: 1;
+  font-size: var(--txt-m);
+}
+
+.toast-annuler {
+  min-height: var(--cible-mini);
+  padding: 0 var(--esp-3);
+  border-radius: var(--rayon-s);
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--txt-s);
+}
+
+/* ═════════════════════════════ Bandeau de mise a jour ═════════════════════════════ */
+/* ⚠ Jamais affiche tant qu'une seance est active : la proposition est mise en file jusqu'a la
+   cloture. Aucun rechargement automatique, en aucune circonstance. */
+
+.bandeau-maj {
+  position: fixed;
+  top: var(--safe-haut);
+  left: 0;
+  right: 0;
+  z-index: var(--z-bandeau);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--accent-doux);
+  color: var(--texte);
+  border-bottom: 1px solid var(--accent);
+  transform: translateY(-100%);
+  visibility: hidden;
+  transition: transform var(--duree-moyenne) var(--courbe-sortie);
+}
+
+.bandeau-maj[data-ouvert='oui'] {
+  transform: translateY(0);
+  visibility: visible;
+}
+
+/* Le bandeau est en position fixe et RECOUVRAIT l'en-tete : le titre de l'ecran et le bouton
+   retour passaient dessous. La coquille lui reserve donc sa hauteur tant qu'il est ouvert.
+   La reservation est portee par la coquille et non par le body : c'est elle qui fait 100dvh,
+   et lui ajouter une marge interieure la ferait deborder. */
+body:has(.bandeau-maj[data-ouvert='oui']) .coquille {
+  padding-top: 3.5rem;
+}
+
+.bandeau-texte {
+  flex: 1;
+  font-size: var(--txt-s);
+}
+
+.bandeau-actions {
+  display: flex;
+  gap: var(--esp-2);
+}
+
+.bandeau-actions .bouton {
+  min-height: var(--cible-mini);
+  padding: 0 var(--esp-3);
+  font-size: var(--txt-s);
+}
+
+/* Bandeau d'installation : NON bloquant, refermable, jamais modal. */
+.bandeau-installation {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+}
+
+/* ═════════════════════════════ Accordeon d'exercice ═════════════════════════════ */
+/* Un seul volet ouvert a la fois. Les volets replies affichent une progression FIABLE (n/cibles),
+   ce qui permet de savoir ou on en est sans deplier. */
+
+.accordeon-exercice {
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface);
+}
+
+.accordeon-exercice:first-child {
+  border-top: 1px solid var(--bordure);
+}
+
+.accordeon-entete {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  gap: var(--esp-3);
+  width: 100%;
+  min-height: var(--cible-tactile);
+  padding: var(--esp-2) var(--esp-3);
+  text-align: left;
+  background: transparent;
+}
+
+.accordeon-chevron {
+  color: var(--texte-attenue);
+  transition: transform var(--duree-courte) linear;
+}
+
+.accordeon-entete[aria-expanded='true'] .accordeon-chevron {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+.accordeon-titre {
+  font-size: var(--txt-m);
+  font-weight: 600;
+}
+
+.accordeon-entete[aria-expanded='true'] .accordeon-titre {
+  font-size: var(--txt-l);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.accordeon-compteur {
+  font-size: var(--txt-s);
+  font-weight: 700;
+  color: var(--texte-attenue);
+}
+
+.accordeon-exercice[data-termine='oui'] .accordeon-compteur {
+  color: var(--succes);
+}
+
+.accordeon-resume {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+.accordeon-corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: 0 var(--esp-2) var(--esp-3);
+}
+
+/* ⚠ Le volet replie est retire du flux avec [hidden] et non par une hauteur animee : une
+   transition de hauteur sur une liste de 8 exercices fait tressauter le defilement au moment
+   precis de l'avance automatique. */
+.accordeon-corps[hidden] {
+  display: none;
+}
+
+/* ═════════════════════════════ Carte de modele ═════════════════════════════ */
+
+.carte-modele {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--esp-1);
+  width: 100%;
+  min-height: var(--cible-geante);
+  padding: var(--esp-3) var(--esp-4);
+  border-radius: var(--rayon-m);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  text-align: left;
+  box-shadow: var(--ombre-1);
+}
+
+.carte-modele:active {
+  background: var(--surface-haute);
+}
+
+.carte-modele-nom {
+  font-size: var(--txt-l);
+  font-weight: 700;
+}
+
+.carte-modele-detail {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+.carte-modele[data-dernier='oui'] {
+  border-color: var(--accent);
+}
+
+/* Carte generique reutilisee par l'accueil, la fin de seance et les reglages. */
+.carte {
+  padding: var(--esp-4);
+  border-radius: var(--rayon-m);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+}
+
+.carte-titre {
+  font-size: var(--txt-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+  margin-bottom: var(--esp-2);
+}
+
+/* ═════════════════════════════ Courbe SVG ═════════════════════════════ */
+/* Le moteur (ui/chart.js) ne pose AUCUNE couleur : il pose des classes, et tout est resolu ici.
+   C'est ce qui rend la bascule de theme gratuite, sans re-rendu de la courbe. */
+
+.courbe {
+  position: relative;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  padding: var(--esp-2);
+  /* currentColor sert de couleur de trace par defaut a tous les descendants SVG. */
+  color: var(--accent);
+}
+
+.courbe-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.courbe-grille {
+  stroke: var(--bordure);
+  stroke-width: 1;
+  /* ⚠ Les graduations Y sont DANS le graphe : une colonne d'axe volerait 40 px sur 360, soit
+     11 % de la largeur utile. */
+  shape-rendering: crispEdges;
+}
+
+.courbe-trace {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.courbe-aire {
+  fill: currentColor;
+  opacity: 0.08;
+  stroke: none;
+}
+
+/* ⚠ Points TOUJOURS visibles : la ligne seule ment sur la densite reelle des seances. */
+.courbe-point {
+  fill: currentColor;
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+/* Point non fiable (machine sans profil, poids de corps manquant) : contour creux. On modelise
+   l'incertitude au lieu de produire un chiffre faux avec assurance. */
+.courbe-point[data-fiable='non'] {
+  fill: var(--surface);
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.courbe-point[data-selectionne='oui'] {
+  stroke: var(--texte);
+  stroke-width: 2.5;
+}
+
+.courbe-etiquette {
+  fill: var(--texte-attenue);
+  font-size: 11px;
+  /* ⚠ Jamais d'etiquette X inclinee : illisible a 360 px, et le format 12/03 tient droit. */
+}
+
+.courbe-etiquette-y {
+  fill: var(--texte-attenue);
+  font-size: 11px;
+}
+
+/* Bulle de lecture au tap sur un point. */
+.courbe-bulle {
+  position: absolute;
+  z-index: 1;
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--rayon-s);
+  background: var(--surface-haute);
+  border: 1px solid var(--bordure-forte);
+  box-shadow: var(--ombre-2);
+  font-size: var(--txt-s);
+  color: var(--texte);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Liseré « Tendance indisponible » (2-3 points) et repli « 1RM estime indisponible ». C'est la
+   situation NORMALE des trois premieres semaines, celle ou l'application est jugee. */
+.courbe-avis {
+  margin-top: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  border-left: 3px solid var(--bordure-forte);
+  background: var(--surface-haute);
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+/* Cas « 1 point » : grande carte chiffree, pas une courbe a un seul pixel. */
+.courbe-valeur-unique {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: var(--esp-5) var(--esp-4);
+}
+
+.courbe-valeur-unique-nombre {
+  font-size: var(--txt-geant);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═════════════════════════════ Badge de record ═════════════════════════════ */
+
+.badge-record {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: 2px var(--esp-2);
+  border-radius: var(--rayon-plein);
+  background: var(--succes-doux);
+  color: var(--succes);
+  border: 1px solid var(--succes);
+  font-size: var(--txt-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Pastille generique : categorie d'exercice, sortie cardio dans l'historique, plage de courbe. */
+.pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: 2px var(--esp-2);
+  border-radius: var(--rayon-plein);
+  background: var(--surface-haute);
+  color: var(--texte-attenue);
+  font-size: var(--txt-xs);
+  font-weight: 600;
+}
+
+.pastille[data-ton='accent'] {
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+
+.pastille[data-ton='alerte'] {
+  background: var(--alerte-doux);
+  color: var(--alerte);
+}
+
+/* Selecteur segmente : plages 3 mois / 1 an / Tout, ressenti 1-5, onglets Muscu/Cardio. */
+.segments {
+  display: flex;
+  gap: var(--esp-1);
+  padding: var(--esp-1);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+}
+
+.segment {
+  flex: 1;
+  min-height: var(--cible-mini);
+  border-radius: var(--rayon-s);
+  color: var(--texte-attenue);
+  font-size: var(--txt-s);
+  font-weight: 600;
+}
+
+.segment[aria-selected='true'] {
+  background: var(--surface);
+  color: var(--texte);
+  box-shadow: var(--ombre-1);
+}
+
+/* ═════════════════════════════ Etat vide ═════════════════════════════ */
+/* Toujours porteur d'une action : un etat vide sans issue est un ecran d'erreur deguise. */
+
+.etat-vide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-3);
+  padding: var(--esp-6) var(--esp-4);
+  text-align: center;
+  color: var(--texte-attenue);
+}
+
+.etat-vide-titre {
+  font-size: var(--txt-l);
+  font-weight: 700;
+  color: var(--texte);
+}
+
+.etat-vide-texte {
+  font-size: var(--txt-m);
+  max-width: 34ch;
+}
+
+/* ═════════════════════════════ Ecran de secours ═════════════════════════════ */
+/* Affiche quand la chaine d'amorcage echoue (IDB mort, navigation privee, base corrompue).
+   ⚠ Il ne depend d'AUCUNE variable de theme au-dela des tokens : il doit s'afficher meme si le
+   reste de l'application n'a jamais demarre. Jamais d'ecran blanc. */
+
+/* ⚠ Il COUVRE l'ecran. Pose au fil du document, il se retrouverait sous la barre d'action fixe,
+   donc invisible exactement au moment ou il est indispensable. Le fond est OPAQUE : laisser
+   entrevoir la coquille en dessous laisserait croire que l'application fonctionne et qu'une
+   simple alerte s'y superpose. Le z-index depasse tous les plans nommes : rien, pas meme un
+   toast, ne doit passer devant un ecran de panne. */
+.ecran-secours {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-toast) + 10);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: var(--fond);
+  color: var(--texte);
+  padding: calc(var(--safe-haut) + var(--esp-5)) var(--esp-4) calc(var(--safe-bas) + var(--esp-5));
+}
+
+.ecran-secours-boite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+  max-width: var(--largeur-max);
+  margin: 0 auto;
+}
+
+.ecran-secours-titre {
+  font-size: var(--txt-xl);
+  font-weight: 700;
+}
+
+/* Phrase de reassurance, en corps de texte normal. Elle passe AVANT le detail technique : la
+   premiere chose a savoir est que les donnees sont intactes. */
+.ecran-secours-texte {
+  font-size: var(--txt-m);
+}
+
+/* Detail technique brut (le <pre> de l'ecran de secours). `margin: 0` parce que <pre> porte une
+   marge par defaut que le reset de base.css ne neutralise pas, et qu'elle s'ajouterait au gap
+   de la colonne. */
+.ecran-secours-message {
+  margin: 0;
+  padding: var(--esp-3);
+  border-radius: var(--rayon-m);
+  border: 1px solid var(--bordure);
+  background: var(--surface-haute);
+  font-size: var(--txt-s);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 40dvh;
+  overflow-y: auto;
+}
+
+.ecran-secours-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+
+/* Zone de recuperation par copier-coller : 3e canal de l'export, toujours visible en dernier
+   recours quand ni le partage ni le telechargement ne sont disponibles. */
+.zone-texte-export {
+  width: 100%;
+  min-height: 160px;
+  padding: var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: max(var(--txt-s), 1rem);
+  resize: vertical;
+}
+
+/* ═════════════════════════════ Listes et lignes ═════════════════════════════ */
+
+.liste {
+  display: flex;
+  flex-direction: column;
+}
+
+.ligne-liste {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--esp-3);
+  width: 100%;
+  min-height: var(--cible-tactile);
+  padding: var(--esp-2) var(--esp-4);
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface);
+  text-align: left;
+}
+
+.ligne-liste:active {
+  background: var(--surface-haute);
+}
+
+.ligne-liste-principal {
+  font-size: var(--txt-m);
+  font-weight: 600;
+}
+
+.ligne-liste-secondaire {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+.ligne-liste[data-archive='oui'] .ligne-liste-principal {
+  color: var(--texte-attenue);
+  font-style: italic;
+}
+
+/* Interrupteur de reglage : la zone tapable est la LIGNE entiere, pas le seul curseur de 40 px. */
+.ligne-reglage {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: var(--cible-tactile);
+  padding: var(--esp-2) var(--esp-4);
+  border-bottom: 1px solid var(--bordure);
+}
+
+.ligne-reglage-aide {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   CLASSES POSEES PAR LE JAVASCRIPT — ajoutees apres croisement automatise code <-> CSS.
+   Une revue a montre que le vocabulaire n'avait ete aligne que dans index.html : ces elements
+   etaient construits par le JS et rendus SANS AUCUN STYLE, en silence. Un croisement des
+   `class:` du JS avec les selecteurs de css/ est desormais une assertion de tests.html.
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Utilitaire de texte secondaire ─────────────────────────────────────────────────────── */
+.texte-attenue {
+  color: var(--texte-attenue);
+  font-size: var(--txt-s);
+}
+
+/* ── Ecran de seance : accordeon d'exercices ────────────────────────────────────────────── */
+.blocs-exercices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+.zone-lignes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+/* ── Ligne de serie : resume fige, champ unitaire, valeur derivee ───────────────────────── */
+.ligne-serie-resume {
+  font-size: var(--txt-m);
+  font-variant-numeric: tabular-nums;   /* les chiffres ne sautent pas d'une ligne a l'autre */
+  color: var(--texte);
+}
+.ligne-serie-champ {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  min-width: 0;                          /* sans quoi un flex enfant refuse de retrecir */
+}
+/* Allure et vitesse cardio : TOUJOURS derivees, jamais saisies. Le style dit « lecture seule ». */
+.ligne-serie-derive {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Pave numerique : unite affichee a cote du champ ────────────────────────────────────── */
+.pave-champ-unite {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+  margin-left: var(--esp-1);
+}
+
+/* ── Minuteur : rangee de commandes du panneau ──────────────────────────────────────────── */
+.minuteur-actions {
+  display: flex;
+  gap: var(--esp-2);
+  justify-content: center;
+  align-items: center;
+}
+
+/* ── Selecteur d'exercice en feuille ────────────────────────────────────────────────────── */
+.picker-exercice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  min-height: 0;                         /* laisse la liste interne defiler */
+}
+
+/* ── Recours texte de l'export : dernier filet quand partage et telechargement echouent ─── */
+.export-recours-intro {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+  margin-bottom: var(--esp-2);
+}
+.export-recours-etat {
+  font-size: var(--txt-s);
+  color: var(--succes);
+  margin-top: var(--esp-2);
+  min-height: 1.4em;                     /* reserve la place : le texte apparait sans decaler */
+}
+
+/* ═════════════════════════════ Icones ═════════════════════════════ */
+/* Le dessin vient de js/ui/icons.js ; ces regles ne decident que de la PLACE qu'il occupe.
+   Aucune couleur n'est imposee ici : chaque icone trace en stroke='currentColor', donc elle
+   herite de la couleur de son contexte et reste juste en theme clair comme en theme sombre. */
+
+.icone {
+  /* La taille passe par une propriete personnalisee, posee en ligne par icone({ taille }).
+     Les classes de taille ci-dessous n'ont donc qu'a la redefinir : une seule declaration
+     width/height existe dans tout le fichier, et aucune n'a besoin de !important. */
+  --icone-taille: 24px;
+  inline-size: var(--icone-taille);
+  block-size: var(--icone-taille);
+  display: inline-block;
+
+  /* ⚠ Sans flex-shrink:0, une icone placee dans une ligne flex serree (puce d'exercice, ligne de
+     serie avec un nom long) est ecrasee AVANT le texte : le navigateur considere un SVG comme
+     compressible. Elle devient alors un trait vertical illisible. */
+  flex-shrink: 0;
+
+  /* Aligne le centre optique du dessin sur la ligne de base du texte voisin. La valeur suit la
+     grille du viewBox : le contenu utile occupe 24 unites centrees, il faut donc redescendre
+     d'un peu moins d'un sixieme de cadratin pour que l'icone ne « flotte » pas au-dessus du mot. */
+  vertical-align: -0.15em;
+}
+
+/* Une icone dans un bouton ou un lien ne doit jamais intercepter le clic a la place de son
+   parent : la cible tactile est le bouton, pas le dessin. */
+.bouton .icone {
+  pointer-events: none;
+}
+
+/* ── Tailles ────────────────────────────────────────────────────────────────────────────── */
+/* Palier serre volontairement : 16 pour une annotation, 20 pour une ligne de texte, 24 par
+   defaut, 32 pour un bouton d'action, 48 et 64 pour les grandes tuiles de packs. */
+.icone-xs { --icone-taille: 16px; }
+.icone-s  { --icone-taille: 20px; }
+.icone-m  { --icone-taille: 24px; }
+.icone-l  { --icone-taille: 32px; }
+.icone-xl { --icone-taille: 48px; }
+.icone-xxl { --icone-taille: 64px; }
+
+/* ── Teintes ────────────────────────────────────────────────────────────────────────────── */
+/* Uniquement des redefinitions de `color` : c'est currentColor qui fait le travail dans le SVG. */
+.icone-attenuee { color: var(--texte-attenue); }
+.icone-accent   { color: var(--accent); }
+.icone-succes   { color: var(--succes); }
+.icone-alerte   { color: var(--alerte); }
+
+/* ── Pastille : l'icone posee sur un fond rond, pour les tuiles de packs ────────────────── */
+.icone-pastille {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--rayon-plein);
+  background: var(--surface-haute);
+  padding: var(--esp-3);
+  flex-shrink: 0;
+}

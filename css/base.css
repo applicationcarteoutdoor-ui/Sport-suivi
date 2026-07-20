@@ -1,0 +1,283 @@
+/* base.css — reset oriente tactile.
+   Ce fichier ne stylise rien : il neutralise les comportements par defaut des navigateurs mobiles
+   qui rendent une application de salle inutilisable (delai de 300 ms, pull-to-refresh, zoom a la
+   mise au point, selection de texte parasite sous le pouce). */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd,
+ul,
+ol,
+li,
+fieldset,
+legend {
+  margin: 0;
+  padding: 0;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+html {
+  /* ⚠ 100dvh et JAMAIS 100vh : sur mobile, vh est calcule barre d'URL RETRACTEE. Avec 100vh, le
+     bas de la barre d'action de seance passe sous la barre d'URL des l'ouverture, donc le bouton
+     « Valider la serie » est partiellement inatteignable. */
+  height: 100dvh;
+  /* ⚠ Empeche le zoom automatique d'iOS a la rotation. Ne bloque PAS le zoom manuel : le
+     desactiver serait un defaut d'accessibilite. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  height: 100dvh;
+  margin: 0;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: var(--police);
+  font-size: var(--txt-m);
+  line-height: 1.45;
+  /* ⚠ Supprime le pull-to-refresh : en pleine seance, un scroll vers le haut un peu vif dans la
+     liste des series rechargeait l'application. Bloque aussi le rebond de chainage vers la page
+     hote. */
+  overscroll-behavior: none;
+  /* ⚠ Le halo gris d'appui d'Android/WebKit apparait avec ~100 ms de retard sur un stepper
+     tenu enfonce : il donne l'impression que l'appui long n'a pas ete pris en compte. */
+  -webkit-tap-highlight-color: transparent;
+  /* La coquille gere son propre defilement, zone par zone. */
+  overflow: hidden;
+  /* Encoche iOS en HAUT comme en BAS : en mode standalone il n'y a plus de barre de navigateur
+     pour absorber l'encoche, et l'en-tete colle de la seance passerait dessous. */
+  padding-top: var(--safe-haut);
+  padding-bottom: var(--safe-bas);
+  padding-left: var(--safe-gauche);
+  padding-right: var(--safe-droite);
+}
+
+/* ⚠ touch-action: manipulation supprime l'attente du double-tap-to-zoom, soit ~300 ms de delai
+   sur CHAQUE validation de serie. Sur une seance de 24 series c'est 7 secondes d'inertie
+   ressentie. Pose sur les controles seulement : le contenu defilant garde le zoom par pincement. */
+button,
+[role='button'],
+a,
+label,
+summary,
+input,
+select,
+textarea,
+.stepper-bouton,
+.pave-touche,
+.nav-onglet {
+  touch-action: manipulation;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  border-radius: 0;
+  /* ⚠ 16 px minimum sur tout ce qui peut recevoir le focus : en dessous, iOS zoome sur le champ
+     et ne dezoome jamais tout seul. Vaut aussi pour les <select> de reglages. */
+  font-size: max(var(--txt-m), 1rem);
+}
+
+button {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ⚠ Selection de texte interdite sur les controles : un appui long sur un stepper declenchait la
+   loupe de selection iOS et volait le geste d'acceleration. */
+button,
+[role='button'],
+.stepper,
+.pave,
+.barre-action,
+.nav-basse,
+.accordeon-entete,
+.ligne-serie,
+output,
+label {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Reautorise la selection la ou elle a du sens : notes de seance, rapport d'import, textarea de
+   secours de l'export (3e canal), messages d'erreur a recopier. */
+.note,
+.notes,
+.texte-selectionnable,
+textarea,
+pre,
+code,
+.rapport-import,
+.ecran-secours-message {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* ⚠ Chiffres a chasse fixe PARTOUT ou un nombre change en place : sans cela le minuteur fait
+   trembler la barre d'action a chaque seconde (le « 1 » est plus etroit que le « 8 »), et la
+   colonne de charges du tableau de progression danse au defilement. */
+output,
+time,
+.nombre,
+.minuteur,
+.stepper-valeur,
+.pave-affichage,
+.courbe-etiquette,
+table,
+th,
+td {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-size: inherit;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--bordure);
+  margin: var(--esp-4) 0;
+}
+
+/* Focus visible au clavier uniquement : un contour permanent au doigt parasite la lecture. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Masquage accessible : lu par les lecteurs d'ecran, invisible a l'oeil. Sert aux libelles des
+   boutons a icone de la barre d'action. */
+.hors-ecran {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ⚠ Lien d'evitement : hors champ tant qu'il n'a pas le focus, et JAMAIS `display: none` ni
+   `visibility: hidden` — un lien ainsi masque n'est plus focalisable, donc le raccourci clavier
+   qui saute la navigation n'existerait plus du tout. Au focus il revient DANS l'ecran, sous
+   l'encoche haute, et par-dessus tout le reste. */
+.lien-evitement {
+  position: fixed;
+  top: var(--safe-haut);
+  left: var(--esp-3);
+  z-index: var(--z-toast);
+  transform: translateY(-200%);
+  padding: var(--esp-2) var(--esp-4);
+  min-height: var(--cible-mini);
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  transition: transform var(--duree-courte) var(--courbe-sortie);
+}
+
+.lien-evitement:focus-visible,
+.lien-evitement:focus {
+  transform: translateY(0);
+}
+
+/* Sans JavaScript il n'y a ni coquille ni vue : le message est le SEUL contenu de la page, donc
+   il se pose lui-meme au centre plutot que de compter sur une mise en page absente. */
+.message-noscript {
+  margin: var(--esp-6) auto;
+  max-width: var(--largeur-max);
+  padding: var(--esp-4);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  text-align: center;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Zones defilantes : inertie iOS conservee, chainage du defilement coupe pour qu'un scroll en
+   butee dans une feuille ne fasse pas bouger la page derriere. */
+.defilable {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ⚠ Respect de « animations reduites ». Les transitions de feuille et le balayage de la courbe
+   sont du confort ; le mouvement declenche des nausees chez une partie des utilisateurs et
+   l'application reste integralement fonctionnelle sans. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,202 @@
+/* tokens.css — l'unique source des valeurs de design.
+   Aucune regle de mise en forme ici : uniquement des variables. base.css, components.css et
+   views.css ne referencent QUE ces variables, jamais une couleur en dur. C'est ce qui permet la
+   bascule de theme sans re-rendu : le moteur de courbes SVG lui-meme lit ces variables via
+   currentColor et var(), donc un simple changement d'attribut sur <html> recolore tout. */
+
+/* ─────────────────────────── Theme CLAIR (defaut) ─────────────────────────── */
+:root {
+  color-scheme: light;
+
+  --fond: #f7f8fa;
+  --surface: #ffffff;
+  --surface-haute: #eef1f6;
+  --texte: #14171c;
+  --texte-attenue: #5b6472;
+
+  --accent: #1f5fd6;
+  --accent-contraste: #ffffff; /* texte pose SUR l'accent */
+  --accent-doux: #e3ecfd; /* aplat teinte, pour les etats selectionnes */
+
+  --succes: #0e7a52;
+  --succes-doux: #dcf3e9;
+  --alerte: #c62828;
+  --alerte-doux: #fbe3e3;
+
+  --bordure: #d9dee6;
+  --bordure-forte: #b7c0cd;
+
+  /* Voile d'assombrissement derriere une feuille basse. */
+  --voile: rgba(12, 16, 24, 0.45);
+
+  --ombre-1: 0 1px 2px rgba(16, 22, 33, 0.08);
+  --ombre-2: 0 4px 14px rgba(16, 22, 33, 0.12);
+  --ombre-3: 0 -8px 28px rgba(16, 22, 33, 0.16);
+}
+
+/* Preference systeme sombre — desactivee des que l'utilisateur a choisi « clair » a la main.
+   Le :not() est ce qui fait gagner le reglage manuel CONTRE la preference systeme sans avoir a
+   surencherir en specificite ailleurs. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='clair']) {
+    color-scheme: dark;
+
+    --fond: #0f1115;
+    --surface: #171a21;
+    --surface-haute: #1f242d;
+    --texte: #eef1f6;
+    --texte-attenue: #98a1b0;
+
+    --accent: #4f8cff;
+    --accent-contraste: #08101d; /* texte SOMBRE sur bleu clair : lisible bras tendu en salle */
+    --accent-doux: #1b2740;
+
+    --succes: #3ddc97;
+    --succes-doux: #16302a;
+    --alerte: #ff6b6b;
+    --alerte-doux: #33191c;
+
+    --bordure: #2a303b;
+    --bordure-forte: #3c4552;
+
+    --voile: rgba(0, 0, 0, 0.62);
+
+    --ombre-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --ombre-2: 0 4px 14px rgba(0, 0, 0, 0.55);
+    --ombre-3: 0 -8px 28px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Reglage manuel « sombre » : gagne meme si le systeme est en clair. */
+:root[data-theme='sombre'] {
+  color-scheme: dark;
+
+  --fond: #0f1115;
+  --surface: #171a21;
+  --surface-haute: #1f242d;
+  --texte: #eef1f6;
+  --texte-attenue: #98a1b0;
+
+  --accent: #4f8cff;
+  --accent-contraste: #08101d;
+  --accent-doux: #1b2740;
+
+  --succes: #3ddc97;
+  --succes-doux: #16302a;
+  --alerte: #ff6b6b;
+  --alerte-doux: #33191c;
+
+  --bordure: #2a303b;
+  --bordure-forte: #3c4552;
+
+  --voile: rgba(0, 0, 0, 0.62);
+
+  --ombre-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --ombre-2: 0 4px 14px rgba(0, 0, 0, 0.55);
+  --ombre-3: 0 -8px 28px rgba(0, 0, 0, 0.6);
+}
+
+/* Reglage manuel « clair » : gagne meme si le systeme est en sombre. Redondant avec le :not()
+   ci-dessus, mais ecrit explicitement pour que la regle « le manuel prime » reste vraie meme si
+   la requete de media evolue. */
+:root[data-theme='clair'] {
+  color-scheme: light;
+
+  --fond: #f7f8fa;
+  --surface: #ffffff;
+  --surface-haute: #eef1f6;
+  --texte: #14171c;
+  --texte-attenue: #5b6472;
+
+  --accent: #1f5fd6;
+  --accent-contraste: #ffffff;
+  --accent-doux: #e3ecfd;
+
+  --succes: #0e7a52;
+  --succes-doux: #dcf3e9;
+  --alerte: #c62828;
+  --alerte-doux: #fbe3e3;
+
+  --bordure: #d9dee6;
+  --bordure-forte: #b7c0cd;
+
+  --voile: rgba(12, 16, 24, 0.45);
+
+  --ombre-1: 0 1px 2px rgba(16, 22, 33, 0.08);
+  --ombre-2: 0 4px 14px rgba(16, 22, 33, 0.12);
+  --ombre-3: 0 -8px 28px rgba(16, 22, 33, 0.16);
+}
+
+/* ─────────────────────────── Valeurs independantes du theme ─────────────────────────── */
+:root {
+  /* Cibles tactiles. 56 px est le PLANCHER de tout ce qui se tape en seance, pas une moyenne :
+     l'application est utilisee d'une seule main, mains moites, telephone parfois pose au sol.
+     --cible-mini (44 px) est reserve aux commandes de reglage, jamais a la saisie d'une serie. */
+  --cible-tactile: 56px;
+  --cible-mini: 44px;
+  --cible-geante: 72px; /* bouton primaire de la barre d'action, « Reprendre » de l'accueil */
+
+  /* Espacements. Echelle de 4 : au-dela de 6 crans, plus personne ne choisit juste. */
+  --esp-1: 4px;
+  --esp-2: 8px;
+  --esp-3: 12px;
+  --esp-4: 16px;
+  --esp-5: 24px;
+  --esp-6: 32px;
+
+  --rayon-s: 6px;
+  --rayon-m: 10px;
+  --rayon-l: 16px;
+  --rayon-xl: 22px;
+  --rayon-plein: 999px;
+
+  /* Plans nommes. Toute valeur de z-index de l'application vient d'ici : un entier ecrit en dur
+     dans un composant est une regression de superposition garantie six mois plus tard.
+     Ordre : barre d'action < feuille < pave < bandeau de MAJ < toast.
+     Le toast passe au-dessus de tout parce qu'il porte « Annuler » : il doit rester atteignable
+     meme quand une feuille vient de s'ouvrir. */
+  --z-barre: 30;
+  --z-tiroir: 35;        /* tiroir du minuteur : au-dessus de la barre d'action et de la
+                            navigation, mais SOUS la feuille et le pave — on doit pouvoir ouvrir
+                            le pave numerique depuis le reglage libre du minuteur. */
+  --z-feuille: 40;
+  --z-pave: 50;
+  --z-bandeau: 60;
+  --z-toast: 70;
+
+  /* Encoches et barres systeme. Centralises ici pour que index.html reste la seule coquille :
+     les composants ecrivent calc(... + var(--safe-bas)) sans re-invoquer env(). */
+  --safe-haut: env(safe-area-inset-top, 0px);
+  --safe-bas: env(safe-area-inset-bottom, 0px);
+  --safe-gauche: env(safe-area-inset-left, 0px);
+  --safe-droite: env(safe-area-inset-right, 0px);
+
+  /* Hauteurs des zones fixes de la coquille (zone A). Les vues s'en servent pour reserver leur
+     marge basse : sans cela, la derniere serie de la liste passe SOUS la barre d'action. */
+  --hauteur-entete: 52px;
+  /* ⚠ Valeur DEDUITE de la barre reelle, jamais choisie a vue : .barre-action pose --esp-3 en
+     haut, un contenu d'au moins --cible-geante, puis --esp-3 en bas, soit 12 + 72 + 12 = 96 px.
+     Les 76 px ecrits ici auparavant faisaient passer la derniere serie de la liste, le toast et
+     le panneau du minuteur 20 px TROP BAS, donc sous la barre. L'encoche n'est PAS comprise :
+     tous les consommateurs ecrivent deja calc(var(--hauteur-barre-action) + var(--safe-bas)). */
+  --hauteur-barre-action: calc(var(--cible-geante) + var(--esp-3) * 2);
+  --hauteur-nav: 60px;
+
+  --police: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* ⚠ Aucune taille de texte focalisable ne descend sous 16 px : en dessous, iOS zoome
+     automatiquement a la mise au point et l'ecran de seance part de travers. */
+  --txt-xs: 12px;
+  --txt-s: 14px;
+  --txt-m: 16px;
+  --txt-l: 18px;
+  --txt-xl: 22px;
+  --txt-xxl: 30px;
+  --txt-geant: 44px; /* minuteur de repos : lisible a deux metres, telephone pose au sol */
+
+  --duree-courte: 120ms;
+  --duree-moyenne: 240ms;
+  --courbe-sortie: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --largeur-max: 640px; /* mise en page centree sur tablette, sans jamais casser le 360 px */
+}

@@ -1,0 +1,1029 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sport-suivi — tests du domaine</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --fond: #f7f8fa; --carte: #ffffff; --texte: #14161a; --doux: #5d646f;
+    --trait: #dfe3e9; --vert: #157a3c; --vert-fond: #e8f6ed;
+    --rouge: #b4232a; --rouge-fond: #fdecec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fond: #0f1115; --carte: #171a20; --texte: #e9ecf1; --doux: #9aa3b0;
+      --trait: #262b33; --vert: #57d68a; --vert-fond: #12261a;
+      --rouge: #ff7b7b; --rouge-fond: #2a1416;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px 12px 48px;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--fond); color: var(--texte);
+  }
+  main { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sous-titre { color: var(--doux); font-size: 13px; margin: 0 0 16px; }
+
+  .bilan {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 14px 16px; border-radius: 12px; margin-bottom: 18px;
+    font-weight: 600; border: 1px solid transparent;
+  }
+  .bilan.ok    { background: var(--vert-fond);  color: var(--vert);  border-color: var(--vert); }
+  .bilan.ko    { background: var(--rouge-fond); color: var(--rouge); border-color: var(--rouge); }
+  .bilan .gros { font-size: 26px; letter-spacing: -0.5px; }
+
+  section {
+    background: var(--carte); border: 1px solid var(--trait);
+    border-radius: 12px; margin-bottom: 12px; overflow: hidden;
+  }
+  section > h2 {
+    font-size: 14px; margin: 0; padding: 10px 14px;
+    border-bottom: 1px solid var(--trait);
+    display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
+  }
+  section > h2 .compte { font-weight: 400; font-size: 12px; color: var(--doux); }
+
+  .ligne {
+    display: grid; grid-template-columns: 22px 1fr;
+    gap: 8px; padding: 7px 14px; border-top: 1px solid var(--trait);
+  }
+  .ligne:first-of-type { border-top: 0; }
+  .ligne .marque { font-weight: 700; text-align: center; }
+  .ligne.reussi .marque { color: var(--vert); }
+  .ligne.echoue { background: var(--rouge-fond); }
+  .ligne.echoue .marque, .ligne.echoue .nom { color: var(--rouge); }
+  .ligne.echoue .nom { font-weight: 600; }
+
+  .detail { margin: 6px 0 2px; font-size: 13px; }
+  .detail div { display: grid; grid-template-columns: 72px 1fr; gap: 8px; }
+  .detail dt, .detail .cle { color: var(--doux); }
+  .detail code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; word-break: break-word;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sport-suivi — tests du domaine</h1>
+  <p class="sous-titre">
+    Harnais autonome, zéro dépendance. Couvre <code>js/domain/</code>, <code>js/data/schema.js</code>,
+    <code>js/data/migrations.js</code> et les utilitaires de <code>js/lib/</code>.
+  </p>
+  <div id="bilan" class="bilan">Exécution…</div>
+  <div id="resultats"></div>
+</main>
+
+<script type="module">
+// tests.html — harnais de test du domaine pur.
+//
+// Zéro dépendance, zéro build : ce fichier s'ouvre directement dans un navigateur (derrière un
+// serveur local, les modules ES exigeant le protocole http). Il ne teste QUE des modules purs —
+// aucun IndexedDB, aucun DOM applicatif n'est touché ici, ce qui rend le résultat reproductible.
+//
+// ⚠ AUCUN innerHTML, y compris dans l'affichage des échecs : la règle du projet est sans
+//   exception, sinon elle ne tient pas.
+
+import {
+  MODES, TRANSITIONS_AUTORISEES, CHAMPS_VALEUR,
+  nouvelExercice, nouvelleSerie, nouvelleEntree, nouvelleSeance,
+  champsSaisie, champsSaisieEntree, estComptable, transitionPermise, pasChamp, valider
+} from './js/data/schema.js';
+import { SCHEMA_VERSION } from './js/config.js';
+import * as migrations from './js/data/migrations.js';
+
+import { ulid } from './js/lib/ids.js';
+import { dayKey, plage, joursEntre } from './js/lib/dates.js';
+import { parseFr, formatFr, arrondiAuPas, formatDuree, formatAllure } from './js/lib/num.js';
+
+import {
+  e1rm, chargeEffectiveKg, tonnageEntree, tonnageSeance,
+  allureSecParKm, vitesseKmH, estRecord, resumeSerie
+} from './js/domain/metrics.js';
+import { valeursPour, rappelTextuel, SOURCES } from './js/domain/prefill.js';
+import { serieTemporelle, sensDe, resumeSemaine } from './js/domain/progression.js';
+import { estCardioPure } from './js/domain/session.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mini-harnais
+// ─────────────────────────────────────────────────────────────────────────────
+
+const sections = [];
+let sectionCourante = null;
+
+function groupe(titre) {
+  sectionCourante = { titre, assertions: [] };
+  sections.push(sectionCourante);
+}
+
+function enregistrer(nom, ok, attendu, obtenu) {
+  sectionCourante.assertions.push({ nom, ok, attendu, obtenu });
+}
+
+/** Rend n'importe quelle valeur lisible dans le rapport d'échec, sans jamais lever. */
+function montrer(v) {
+  if (typeof v === 'string') return JSON.stringify(v);
+  if (v === undefined) return 'undefined';
+  try { return JSON.stringify(v); } catch (e) { return String(v); }
+}
+
+function vrai(nom, condition, attendu = 'vrai', obtenu = String(condition)) {
+  enregistrer(nom, condition === true, attendu, obtenu);
+}
+
+/** Égalité stricte. Les NaN sont traités comme égaux : sinon un test sur NaN ne peut pas passer. */
+function egal(nom, obtenu, attendu) {
+  const ok = obtenu === attendu
+    || (typeof obtenu === 'number' && typeof attendu === 'number'
+        && Number.isNaN(obtenu) && Number.isNaN(attendu));
+  enregistrer(nom, ok, montrer(attendu), montrer(obtenu));
+}
+
+/**
+ * Égalité numérique à une tolérance près.
+ * ⚠ Indispensable ici : 60 × (1 + 8/30) ne vaut pas exactement 76 en binaire, et un test
+ *   d'égalité stricte échouerait sur une formule pourtant juste.
+ */
+function proche(nom, obtenu, attendu, eps = 1e-9) {
+  const ok = typeof obtenu === 'number' && Number.isFinite(obtenu)
+    && Math.abs(obtenu - attendu) <= eps;
+  enregistrer(nom, ok, `${attendu} (± ${eps})`, montrer(obtenu));
+}
+
+function estNul(nom, obtenu) {
+  enregistrer(nom, obtenu === null, 'null', montrer(obtenu));
+}
+
+/** Égalité structurelle par sérialisation : suffisant pour les objets plats du domaine. */
+function memeObjet(nom, obtenu, attendu) {
+  const a = montrer(obtenu);
+  const b = montrer(attendu);
+  enregistrer(nom, a === b, b, a);
+}
+
+/** Vérifie qu'un appel lève, et que le code d'erreur typé est bien celui attendu. */
+async function leve(nom, fn, codeAttendu) {
+  try {
+    await fn();
+    enregistrer(nom, false, `exception ${codeAttendu}`, 'aucune exception');
+  } catch (e) {
+    enregistrer(nom, e && e.code === codeAttendu, `exception ${codeAttendu}`,
+      `exception ${e && e.code ? e.code : '(sans code)'} : ${e && e.message}`);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fabriques de jeux d'essai
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Horodatages fixes : un test qui appelle Date.now() n'est pas reproductible.
+let horloge = 1_700_000_000_000;
+const tic = () => (horloge += 60_000);
+
+const exCharge = nouvelExercice({
+  id: 'cat:developpe-couche', nom: 'Développé couché',
+  categorie: 'pectoraux', materiel: 'barre', mode: 'charge', incrementKg: 1.25
+});
+
+const exTractions = nouvelExercice({
+  id: 'cat:tractions-pronation', nom: 'Tractions pronation',
+  categorie: 'dos', materiel: 'barre-traction', mode: 'poids-du-corps',
+  lestable: true, incrementKg: 1.25, bodyweightFactor: 1.0
+});
+
+const exPompes = nouvelExercice({
+  id: 'cat:pompes', nom: 'Pompes', categorie: 'pectoraux', materiel: 'aucun',
+  mode: 'poids-du-corps', bodyweightFactor: 0.65
+});
+
+const exMachine = nouvelExercice({
+  id: 'cat:tirage-vertical', nom: 'Tirage vertical', categorie: 'dos',
+  materiel: 'machine', mode: 'machine'
+});
+
+const exGainage = nouvelExercice({
+  id: 'cat:gainage', nom: 'Gainage', categorie: 'abdos', materiel: 'aucun',
+  mode: 'temps', lestable: true
+});
+
+const exCourse = nouvelExercice({
+  id: 'cat:course', nom: 'Course', categorie: 'cardio', materiel: 'aucun',
+  mode: 'cardio', metriqueCardio: 'allure'
+});
+
+/** Série faite, avec horodatage déterministe. */
+const faite = (mode, p) => nouvelleSerie(mode, Object.assign({ done: true, at: tic() }, p));
+
+/** Entrée de séance dont les coefficients sont gelés depuis l'exercice. */
+function entreeDe(exercice, series = [], cibles = {}, ctx = {}) {
+  return nouvelleEntree(exercice, cibles, Object.assign({ series }, ctx));
+}
+
+/** Séance terminée, prête à être agrégée. */
+function seanceTerminee(date, entrees, poidsDeCorpsKg = 78.5) {
+  const s = nouvelleSeance(null, { date, poidsDeCorpsKg, startedAt: horloge });
+  s.entrees = entrees;
+  s.statut = 'terminee';
+  s.endedAt = horloge;
+  return s;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 0. Intégrité du vocabulaire de classes CSS
+// ═════════════════════════════════════════════════════════════════════════════
+// Une revue adversariale a montré que index.html nommait ses classes en BEM pendant que css/ et
+// le JS employaient le tiret simple : la coquille entière — en-tête, navigation, bouton primaire,
+// liseré de fin de repos — était rendue SANS AUCUN STYLE, sans la moindre erreur en console.
+// Rien dans le langage ne relie une classe posée en JS à une règle CSS : seule une assertion peut
+// le faire. Ce groupe est cette assertion. Il tourne EN PREMIER, avec un await de premier niveau
+// (les modules ES l'autorisent), donc avant le rendu synchrone du bilan en fin de fichier.
+groupe('intégrité — toute classe posée par le code a une règle CSS');
+
+{
+  const lireTexte = async (u) => { try { const r = await fetch(u, { cache: 'no-store' }); return r.ok ? await r.text() : ''; } catch { return ''; } };
+
+  // version.json est la liste d'assets qui fait foi : la réutiliser évite un second inventaire
+  // à maintenir, et vérifie au passage qu'elle décrit bien le projet réel.
+  const manifeste = await (await fetch('./version.json', { cache: 'no-store' })).json();
+  const assets = Array.isArray(manifeste.assets) ? manifeste.assets : [];
+
+  const fichiersCss = assets.filter((a) => a.endsWith('.css'));
+  const fichiersJs = assets.filter((a) => a.endsWith('.js'));
+  vrai('version.json déclare bien les feuilles de style', fichiersCss.length > 0,
+    '> 0 fichier CSS', String(fichiersCss.length));
+  vrai('version.json déclare bien les modules JavaScript', fichiersJs.length > 3,
+    '> 3 modules', String(fichiersJs.length));
+
+  const css = (await Promise.all(fichiersCss.map(lireTexte))).join('\n');
+  const definies = new Set(Array.from(css.matchAll(/\.([a-zA-Z][\w-]*)/g), (m) => m[1]));
+
+  // Sources qui POSENT des classes : les modules, plus la coquille statique.
+  const sources = fichiersJs.concat(['./index.html']);
+  const posees = new Map();          // classe -> fichier qui la pose en premier
+  for (const src of sources) {
+    const texte = await lireTexte(src);
+    const listes = [];
+    for (const m of texte.matchAll(/class:\s*'([^']+)'/g)) listes.push(m[1]);
+    for (const m of texte.matchAll(/class="([^"]+)"/g)) listes.push(m[1]);
+    for (const m of texte.matchAll(/classList\.(?:add|remove|toggle)\(([^)]*)\)/g)) {
+      for (const q of m[1].matchAll(/'([\w-]+)'/g)) listes.push(q[1]);
+    }
+    for (const liste of listes) {
+      for (const cl of liste.split(/\s+/)) {
+        // On ignore ce qui est interpolé : la valeur réelle n'est pas connue statiquement.
+        if (!cl || /[${}]/.test(cl)) continue;
+        // ⚠ On ne retient que les noms SYNTAXIQUEMENT valides. Le relevé se fait sur le texte
+        //   source brut, commentaires compris : un commentaire qui cite `class: '…'` en exemple
+        //   ferait sinon échouer le test sur une classe qui n'existe pas. Filtrer sur la forme
+        //   d'un identifiant CSS est plus robuste que d'essayer de retirer les commentaires.
+        if (!/^[a-zA-Z][\w-]*$/.test(cl)) continue;
+        if (!posees.has(cl)) posees.set(cl, src);
+      }
+    }
+  }
+
+  vrai('des classes ont bien été collectées dans les sources', posees.size > 20,
+    '> 20 classes trouvées', String(posees.size));
+
+  const orphelines = [...posees].filter(([cl]) => !definies.has(cl));
+  vrai('aucune classe posée par le code sans règle CSS correspondante',
+    orphelines.length === 0,
+    'aucune orpheline',
+    orphelines.length ? orphelines.map(([cl, f]) => `${cl} (${f})`).join(', ') : 'aucune');
+
+  // Le double tiret et le double souligné sont le vocabulaire BEM qui a causé la panne : ils sont
+  // désormais bannis du projet, quelle que soit la feuille de style qui pourrait les définir.
+  const bem = [...posees].filter(([cl]) => cl.includes('__') || cl.includes('--'));
+  vrai('aucune classe en vocabulaire BEM (double tiret ou double souligné)',
+    bem.length === 0, 'aucune', bem.map(([cl, f]) => `${cl} (${f})`).join(', ') || 'aucune');
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 0 bis. Couture des icônes — catalogue et packs contre le dictionnaire ICONES
+// ═════════════════════════════════════════════════════════════════════════════
+// Le nom d'icône est déclaré d'un côté (data/catalog.js, data/packs.js) et défini de l'autre
+// (ui/icons.js). Rien dans le langage ne relie les deux : une faute de frappe ou un préfixe
+// inventé ne produit AUCUNE erreur, juste un pictogramme générique répété partout. C'est
+// exactement ce qui est arrivé aux 7 packs, que 40 exercices corrects masquaient.
+groupe('intégrité — chaque icône déclarée existe');
+
+{
+  const { ICONES } = await import('./js/ui/icons.js');
+  const { CATALOGUE } = await import('./js/data/catalog.js');
+  const { PACKS, verifierPacks } = await import('./js/data/packs.js');
+  const defini = (n) => typeof n === 'string' && Object.prototype.hasOwnProperty.call(ICONES, n);
+
+  egal('le catalogue livré compte 40 exercices', CATALOGUE.length, 40);
+
+  const exSansIcone = CATALOGUE.filter((e) => !e.icone).map((e) => e.id);
+  vrai('chaque exercice du catalogue déclare une icône', exSansIcone.length === 0,
+    'aucun exercice sans icône', exSansIcone.join(', ') || 'aucun');
+
+  const exOrphelins = CATALOGUE.filter((e) => !defini(e.icone)).map((e) => e.id + ' → ' + e.icone);
+  vrai('chaque icône d\'exercice existe dans ICONES', exOrphelins.length === 0,
+    'aucune icône manquante', exOrphelins.join(', ') || 'aucune');
+
+  const packsOrphelins = PACKS.filter((p) => !defini(p.icone)).map((p) => p.id + ' → ' + p.icone);
+  vrai('chaque icône de pack existe dans ICONES', packsOrphelins.length === 0,
+    'aucune icône manquante', packsOrphelins.join(', ') || 'aucune');
+
+  if (typeof verifierPacks === 'function') {
+    const anomalies = verifierPacks() || [];
+    vrai('verifierPacks() ne signale aucune anomalie', anomalies.length === 0,
+      'aucune anomalie', JSON.stringify(anomalies).slice(0, 160));
+  }
+
+  // Un nom inconnu doit dégrader vers l'icône générique, JAMAIS lever : une icône manquante ne
+  // peut pas provoquer un écran blanc. Les noms hérités d'Object.prototype sont le piège classique.
+  const { icone } = await import('./js/ui/icons.js');
+  let leve = null;
+  try { for (const n of ['nom-inexistant', 'toString', 'constructor', '__proto__', null, 42]) icone(n); }
+  catch (e) { leve = e.message; }
+  vrai('un nom d\'icône inconnu ou hérité dégrade sans lever', leve === null, 'aucune exception', leve);
+
+  // Le thème sombre repose entièrement sur currentColor : une seule couleur en dur le casserait.
+  const svgTest = icone('barre');
+  egal('les icônes n\'ont pas de remplissage', svgTest.getAttribute('fill'), 'none');
+  egal('les icônes se colorent par currentColor', svgTest.getAttribute('stroke'), 'currentColor');
+
+  // Sans taille explicite, aucun style inline : sinon les classes .icone-xs à .icone-xxl,
+  // qui règlent la taille des tuiles de packs, seraient inertes (l'inline bat toute règle).
+  const sansTaille = icone('barre', { classe: 'icone-xxl' });
+  vrai('sans taille demandée, aucun style inline ne bride les classes de taille',
+    !sansTaille.getAttribute('style'), 'pas d\'attribut style', sansTaille.getAttribute('style'));
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 1. metrics.js — 1RM estimé
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('metrics — e1rm (Epley)');
+
+proche('e1rm(60, 8) vaut 76', e1rm(60, 8), 76, 1e-9);
+egal('e1rm(60, 1) vaut 60 — aucune extrapolation sur une série déjà maximale', e1rm(60, 1), 60);
+estNul('e1rm(60, 15) vaut null — Epley décroche au-delà de 12 répétitions', e1rm(60, 15));
+estNul('e1rm(null, 8) vaut null', e1rm(null, 8));
+estNul('e1rm(60, null) vaut null', e1rm(60, null));
+estNul('e1rm(60, 0) vaut null', e1rm(60, 0));
+proche('e1rm(60, 12) reste défini à la borne', e1rm(60, 12), 60 * (1 + 12 / 30), 1e-9);
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 2. metrics.js — charge effective dans les 5 modes
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('metrics — chargeEffectiveKg, les 5 modes');
+
+const seanceRef = seanceTerminee('2026-05-04', [], 78.5);
+
+// Mode 'charge' : la charge saisie est la charge, sans interprétation.
+memeObjet('mode charge : 60 kg, fiable',
+  chargeEffectiveKg(nouvelleSerie('charge', { reps: 8, chargeKg: 60 }),
+    entreeDe(exCharge), seanceRef),
+  { kg: 60, fiable: true });
+
+// Mode 'poids-du-corps' avec lest POSITIF.
+memeObjet('mode poids-du-corps : 78,5 × 1,0 + 10 = 88,5 kg',
+  chargeEffectiveKg(nouvelleSerie('poids-du-corps', { reps: 8, lestKg: 10 }),
+    entreeDe(exTractions), seanceRef),
+  { kg: 88.5, fiable: true });
+
+// ⚠ LEST SIGNÉ : −20 kg d'assistance élastique. Le test existe pour verrouiller le fait qu'une
+//   assistance n'est PAS un cas particulier mais la même droite de progression, continue.
+memeObjet('mode poids-du-corps, lest SIGNÉ −20 (assistance) : 58,5 kg',
+  chargeEffectiveKg(nouvelleSerie('poids-du-corps', { reps: 8, lestKg: -20 }),
+    entreeDe(exTractions), seanceRef),
+  { kg: 58.5, fiable: true });
+
+proche('facteur de poids de corps gelé : pompes 78,5 × 0,65',
+  chargeEffectiveKg(nouvelleSerie('poids-du-corps', { reps: 20 }),
+    entreeDe(exPompes), seanceRef).kg, 78.5 * 0.65, 1e-9);
+
+memeObjet('poids de corps absent : non fiable plutôt qu\'un chiffre inventé',
+  chargeEffectiveKg(nouvelleSerie('poids-du-corps', { reps: 8 }),
+    entreeDe(exTractions), seanceTerminee('2026-05-04', [], null)),
+  { kg: null, fiable: false });
+
+// Mode 'temps' : même règle que le poids du corps (gainage lesté).
+memeObjet('mode temps lesté : 78,5 + 5 = 83,5 kg',
+  chargeEffectiveKg(nouvelleSerie('temps', { dureeSec: 60, lestKg: 5 }),
+    entreeDe(exGainage), seanceRef),
+  { kg: 83.5, fiable: true });
+
+// Mode 'machine' AVEC profil de plaques gelé pour le lieu du jour.
+const exMachineProfilee = nouvelExercice(Object.assign({}, exMachine, {
+  machineProfiles: { 'lieu:nord': { kgParPlaque: 5, offsetKg: 2.5 } }
+}));
+memeObjet('mode machine avec profil : 2,5 + 7 × 5 = 37,5 kg',
+  chargeEffectiveKg(nouvelleSerie('machine', { reps: 10, valeur: 7 }),
+    entreeDe(exMachineProfilee, [], {}, { lieuId: 'lieu:nord' }), seanceRef),
+  { kg: 37.5, fiable: true });
+
+// ⚠ Machine SANS profil : le cas qui doit ressortir NON FIABLE. Convertir un cran en kilos au
+//   jugé mélangerait deux salles sur la même courbe.
+memeObjet('mode machine SANS profil : { kg: null, fiable: false }',
+  chargeEffectiveKg(nouvelleSerie('machine', { reps: 10, valeur: 7 }),
+    entreeDe(exMachine), seanceRef),
+  { kg: null, fiable: false });
+
+// Mode 'cardio' : aucune charge, et on le dit.
+memeObjet('mode cardio : aucune charge, non fiable',
+  chargeEffectiveKg(nouvelleSerie('cardio', { dureeSec: 1500, distanceM: 5000 }),
+    entreeDe(exCourse), seanceRef),
+  { kg: null, fiable: false });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 3. schema.js — estComptable et fabriques
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('schema — estComptable');
+
+egal('série effective faite : comptable',
+  estComptable(nouvelleSerie('charge', { kind: 'effective', done: true, reps: 8, chargeKg: 60, at: 1 })), true);
+egal('échauffement fait : EXCLU',
+  estComptable(nouvelleSerie('charge', { kind: 'echauffement', done: true, reps: 10, chargeKg: 40, at: 1 })), false);
+egal('série effective non faite : EXCLUE',
+  estComptable(nouvelleSerie('charge', { kind: 'effective', done: false, reps: 8, chargeKg: 60 })), false);
+egal('échauffement non fait : EXCLU',
+  estComptable(nouvelleSerie('charge', { kind: 'echauffement', done: false, reps: 10 })), false);
+egal('null : non comptable, sans lever', estComptable(null), false);
+
+groupe('schema — fabriques et gel des coefficients');
+
+// ⚠ LE test du principe 2 : tout coefficient qui INTERPRÈTE un fait est GELÉ dans le fait.
+//   Corriger le facteur des pompes de 0,65 à 0,75 ne doit pas réécrire le tonnage déjà enregistré.
+const exMutable = nouvelExercice({
+  id: 'cat:pompes-2', nom: 'Pompes', categorie: 'pectoraux', mode: 'poids-du-corps',
+  bodyweightFactor: 0.65, incrementKg: 1.25, lestable: true,
+  machineProfiles: { 'lieu:nord': { kgParPlaque: 5, offsetKg: 2.5 } }
+});
+const entreeGelee = nouvelleEntree(exMutable, {}, { lieuId: 'lieu:nord' });
+
+egal('bodyweightFactorUtilise copié à la création', entreeGelee.bodyweightFactorUtilise, 0.65);
+egal('incrementKgUtilise copié à la création', entreeGelee.incrementKgUtilise, 1.25);
+egal('modeUtilise copié à la création', entreeGelee.modeUtilise, 'poids-du-corps');
+egal('lestableUtilise copié à la création', entreeGelee.lestableUtilise, true);
+
+exMutable.bodyweightFactor = 0.75;
+exMutable.incrementKg = 2.5;
+exMutable.mode = 'charge';
+exMutable.machineProfiles['lieu:nord'].kgParPlaque = 999;
+
+egal('bodyweightFactor modifié APRÈS : l\'entrée reste à 0,65', entreeGelee.bodyweightFactorUtilise, 0.65);
+egal('incrementKg modifié APRÈS : l\'entrée reste à 1,25', entreeGelee.incrementKgUtilise, 1.25);
+egal('mode modifié APRÈS : l\'entrée reste en poids-du-corps', entreeGelee.modeUtilise, 'poids-du-corps');
+egal('machineProfileUtilise est une COPIE, pas une référence partagée',
+  entreeGelee.machineProfileUtilise.kgParPlaque, 5);
+
+egal('nouvelleSerie : done vaut false par défaut (série PRÉVUE, pas faite)',
+  nouvelleSerie('charge').done, false);
+estNul('nouvelleSerie : un champ étranger au mode reste à null',
+  nouvelleSerie('cardio', { dureeSec: 600, chargeKg: 60 }).chargeKg);
+egal('nouvelleSerie : lestKg SIGNÉ accepté en négatif',
+  nouvelleSerie('poids-du-corps', { reps: 8, lestKg: -20 }).lestKg, -20);
+memeObjet('champsSaisie : tractions lestables', champsSaisie(exTractions), ['reps', 'lestKg']);
+memeObjet('champsSaisieEntree dérive des coefficients gelés',
+  champsSaisieEntree(entreeDe(exCharge)), ['reps', 'chargeKg']);
+egal('pasChamp résout la chaîne « incrementKg »', pasChamp(exCharge, 'chargeKg'), 1.25);
+egal('transitionPermise : poids-du-corps → charge', transitionPermise('poids-du-corps', 'charge'), true);
+egal('transitionPermise : charge → cardio refusée', transitionPermise('charge', 'cardio'), false);
+egal('MODES compte 5 modes', Object.keys(MODES).length, 5);
+egal('cardio : dureeSec seul est requis, distanceM est optionnelle',
+  MODES.cardio.requis.join(','), 'dureeSec');
+vrai('TRANSITIONS_AUTORISEES est bien exposée', Array.isArray(TRANSITIONS_AUTORISEES['machine']));
+vrai('CHAMPS_VALEUR couvre les 6 champs numériques de Serie', CHAMPS_VALEUR.length === 6);
+egal('valider() ne lève jamais et rapporte une série valide',
+  valider(nouvelleSerie('charge', { reps: 8, chargeKg: 60, done: true, at: 1 }), 'serie').ok, true);
+egal('valider() refuse une série faite sans horodatage',
+  valider(Object.assign(nouvelleSerie('charge', { reps: 8 }), { done: true, at: null }), 'serie').ok, false);
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 4. prefill.js — LE test le plus important : le filtre de l'échauffement
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('prefill — filtrage de l\'échauffement aux 4 niveaux');
+
+const seancePrefill = seanceTerminee('2026-07-19', [], 78.5);
+const ID = exCharge.id;
+
+// ── Niveau 1 : série précédente EFFECTIVE de la séance en cours ──────────────
+// L'échauffement à 40 kg est le DERNIER élément du tableau. Sans le filtre, il devient la
+// source du pré-remplissage et la série de travail part à 40 kg au lieu de 80.
+const n1 = valeursPour(ID, entreeDe(exCharge, [
+  faite('charge', { kind: 'effective', reps: 8, chargeKg: 80 }),
+  faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 40 })
+]), seancePrefill, null);
+egal('N1 — source = série-précédente', n1.source, SOURCES.SERIE_PRECEDENTE);
+egal('N1 — la charge retenue est 80 kg (effective), PAS 40 kg (échauffement)', n1.champs.chargeKg, 80);
+egal('N1 — les répétitions suivent la série effective', n1.champs.reps, 8);
+
+// Une entrée ne contenant QUE de l'échauffement ne doit pas déclencher le niveau 1 du tout.
+const n1vide = valeursPour(ID, entreeDe(exCharge, [
+  faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 40 })
+]), seancePrefill, null);
+vrai('N1 — un échauffement seul ne déclenche pas le niveau 1',
+  n1vide.source !== SOURCES.SERIE_PRECEDENTE, 'source ≠ série-précédente', n1vide.source);
+
+// ── Niveau 2 : même rang à la dernière séance connue ─────────────────────────
+// meta.lastPerf contient un échauffement à 45 kg EN PREMIER. Sans le filtre, le rang 0 pointe
+// dessus et la séance du jour démarre à 45 kg au lieu de 80.
+const lastPerf = {
+  [ID]: {
+    date: '2026-07-12',
+    seanceId: 'seance-precedente',
+    entree: entreeDe(exCharge, [
+      faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 45 }),
+      faite('charge', { kind: 'effective', reps: 8, chargeKg: 80 }),
+      faite('charge', { kind: 'effective', reps: 6, chargeKg: 82.5 })
+    ])
+  }
+};
+const n2 = valeursPour(ID, entreeDe(exCharge, [
+  faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 40 })
+]), seancePrefill, lastPerf);
+egal('N2 — source = dernière-séance', n2.source, SOURCES.DERNIERE_SEANCE);
+egal('N2 — rang 0 = 80 kg (1re effective), PAS 45 kg (échauffement de la dernière fois)',
+  n2.champs.chargeKg, 80);
+egal('N2 — la date de la dernière performance est remontée', n2.date, '2026-07-12');
+
+// Une performance passée ne contenant QUE de l'échauffement n'est pas une performance.
+const lastPerfEchauffementSeul = {
+  [ID]: {
+    date: '2026-07-05',
+    entree: entreeDe(exCharge, [faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 45 })])
+  }
+};
+const n2vide = valeursPour(ID, entreeDe(exCharge, [], { reps: { min: 6, max: 8 } }),
+  seancePrefill, lastPerfEchauffementSeul);
+vrai('N2 — un lastPerf 100 % échauffement est ignoré, on retombe au niveau 3',
+  n2vide.source === SOURCES.CIBLE, 'source = cible', n2vide.source);
+
+// ── Niveau 2, avec la forme RÉELLEMENT produite par store.perfDepuis ──────────
+// ⚠ Les fixtures ci-dessus emploient la forme « enveloppe + entrée complète », légale mais que
+//   store.js ne produit jamais : il écrit des séries ALLÉGÉES par trimSerie. Ce test est le seul
+//   qui couvre la couture réelle entre les deux modules. Sans lui, un trimSerie qui laisse tomber
+//   `done` ou `kind` rend le niveau ② et le rappel « Dernière fois » silencieusement morts, la
+//   suite de tests restant intégralement verte.
+const trim = (s) => ({
+  reps: s.reps, chargeKg: s.chargeKg, lestKg: s.lestKg,
+  valeur: s.valeur, dureeSec: s.dureeSec, distanceM: s.distanceM,
+  done: s.done, kind: s.kind
+});
+const lastPerfStore = {
+  [ID]: {
+    date: '2026-07-12',
+    seanceId: 'seance-precedente',
+    entreeId: 'entree-precedente',
+    startedAt: 1752300000000,
+    modeUtilise: 'charge',
+    series: [
+      faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 45 }),
+      faite('charge', { kind: 'effective', reps: 8, chargeKg: 80 }),
+      faite('charge', { kind: 'effective', reps: 6, chargeKg: 82.5 })
+    ].map(trim)
+  }
+};
+const n2s = valeursPour(ID, entreeDe(exCharge, []), seancePrefill, lastPerfStore);
+egal('N2 (forme store) — source = dernière-séance', n2s.source, SOURCES.DERNIERE_SEANCE);
+egal('N2 (forme store) — rang 0 = 80 kg, l\'échauffement allégé reste exclu', n2s.champs.chargeKg, 80);
+vrai('N2 (forme store) — le rappel n\'est pas vide',
+  rappelTextuel(lastPerfStore, ID).includes('8 × 80 kg'),
+  'contient « 8 × 80 kg »', rappelTextuel(lastPerfStore, ID));
+
+// ── Niveau 3 : cible du modèle ───────────────────────────────────────────────
+const n3 = valeursPour(ID, entreeDe(exCharge, [
+  faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 40 })
+], { reps: { min: 6, max: 8 } }), seancePrefill, null);
+egal('N3 — source = cible', n3.source, SOURCES.CIBLE);
+egal('N3 — bas de la fourchette (6), un tap corrige vers le haut', n3.champs.reps, 6);
+vrai('N3 — aucune charge héritée de l\'échauffement',
+  n3.champs.chargeKg === undefined, 'chargeKg absent', montrer(n3.champs.chargeKg));
+
+// ── Niveau 4 : vide ──────────────────────────────────────────────────────────
+const n4 = valeursPour(ID, entreeDe(exCharge, [
+  faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 40 })
+]), seancePrefill, null);
+egal('N4 — source = vide', n4.source, SOURCES.VIDE);
+memeObjet('N4 — aucun champ pré-rempli (« vide » n\'est pas « zéro »)', n4.champs, {});
+egal('N4 — entrée introuvable : dégrade en vide sans lever',
+  valeursPour('cat:inconnu', null, seancePrefill, null).source, SOURCES.VIDE);
+
+groupe('prefill — rappel « Dernière fois »');
+
+const rappel = rappelTextuel(lastPerf, ID);
+vrai('le rappel est daté au format court', rappel.startsWith('Dernière fois (12 juil.) :'),
+  'commence par « Dernière fois (12 juil.) : »', rappel);
+vrai('le rappel liste les 2 séries effectives', rappel.includes('8 × 80 kg') && rappel.includes('6 × 82,5 kg'),
+  'contient « 8 × 80 kg » et « 6 × 82,5 kg »', rappel);
+vrai('le rappel EXCLUT l\'échauffement à 45 kg', !rappel.includes('45'),
+  'ne contient pas « 45 »', rappel);
+egal('aucune performance connue : chaîne vide, l\'appelant n\'affiche rien',
+  rappelTextuel(null, ID), '');
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 5. lib/dates.js — dayKey LOCALE
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('dates — dayKey est LOCALE, jamais UTC');
+
+// ⚠ LE piège : new Date(2025, 11, 31, 23, 30) en heure locale française donne
+//   '2026-01-01T22:30:00Z' en UTC. Un toISOString().slice(0,10) rangerait donc cette séance
+//   au 1er janvier — mauvaise date, mauvaise semaine, mauvaise année.
+const saintSylvestre = new Date(2025, 11, 31, 23, 30, 0);
+egal('31 décembre 23 h 30 local → « 2025-12-31 » (et non « 2026-01-01 »)',
+  dayKey(saintSylvestre), '2025-12-31');
+// Une minute avant minuit local, puis une minute après : la bascule de jour suit l'horloge
+// de l'utilisateur, jamais celle de Greenwich.
+egal('31 décembre 23 h 59 local → « 2025-12-31 »',
+  dayKey(new Date(2025, 11, 31, 23, 59)), '2025-12-31');
+egal('1er janvier 00 h 01 local → « 2026-01-01 »',
+  dayKey(new Date(2026, 0, 1, 0, 1)), '2026-01-01');
+egal('1er janvier 00 h 15 local → « 2026-01-01 »', dayKey(new Date(2026, 0, 1, 0, 15)), '2026-01-01');
+egal('zéro de tête obligatoire : l\'ordre lexicographique EST l\'ordre chronologique',
+  dayKey(new Date(2026, 2, 5, 12, 0)), '2026-03-05');
+egal('une dayKey déjà formée est renvoyée telle quelle', dayKey('2026-07-19'), '2026-07-19');
+egal('plage « tout » : borne vide, comparable en chaîne sans cas particulier',
+  plage('tout').debut, '');
+egal('joursEntre traverse un changement de mois', joursEntre('2026-02-26', '2026-03-05'), 7);
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 6. lib/num.js
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('num — parseFr, formatFr, arrondiAuPas');
+
+egal('parseFr accepte la virgule', parseFr('61,25'), 61.25);
+egal('parseFr accepte le point', parseFr('61.25'), 61.25);
+egal('parseFr ignore les espaces d\'un collage', parseFr(' 82,5 '), 82.5);
+egal('parseFr accepte le signe négatif (lest d\'assistance)', parseFr('-20'), -20);
+estNul('parseFr refuse la notation exponentielle', parseFr('1e5'));
+estNul('parseFr refuse une chaîne vide', parseFr(''));
+estNul('parseFr refuse « abc »', parseFr('abc'));
+estNul('parseFr refuse « Infinity »', parseFr('Infinity'));
+
+egal('formatFr utilise la virgule décimale', formatFr(61.25), '61,25');
+egal('formatFr supprime les zéros de queue', formatFr(80), '80');
+egal('formatFr force les décimales quand on les demande', formatFr(12, 1), '12,0');
+egal('formatFr n\'insère AUCUN séparateur de milliers', formatFr(1250), '1250');
+egal('formatFr sur null renvoie une chaîne vide', formatFr(null), '');
+
+// ⚠ 49 × 1,25 vaut 61.24999999999999 en binaire : sans travail en entiers, l'affichage
+//   dériverait à chaque appui sur « + ».
+egal('arrondiAuPas(61,24999999999999 ; 1,25) = 61,25 exactement',
+  arrondiAuPas(49 * 1.25, 1.25), 61.25);
+egal('arrondiAuPas ne laisse traîner aucune erreur de flottant',
+  String(arrondiAuPas(49 * 1.25, 1.25)), '61.25');
+egal('arrondiAuPas(61,3 ; 1,25) = 61,25', arrondiAuPas(61.3, 1.25), 61.25);
+egal('arrondiAuPas(62 ; 1,25) = 62,5', arrondiAuPas(62, 1.25), 62.5);
+egal('arrondiAuPas(-18,7 ; 1,25) = -18,75 (lest signé)', arrondiAuPas(-18.7, 1.25), -18.75);
+egal('arrondiAuPas(7 ; 2,5) = 7,5', arrondiAuPas(7, 2.5), 7.5);
+estNul('arrondiAuPas(null) reste null', arrondiAuPas(null, 1.25));
+
+egal('formatDuree(1500) = « 25:00 »', formatDuree(1500), '25:00');
+egal('formatDuree(3725) passe en heures', formatDuree(3725), '1:02:05');
+egal('formatAllure(300) = « 5:00 »', formatAllure(300), '5:00');
+egal('formatAllure(870) ne plafonne pas les minutes à 60', formatAllure(870), '14:30');
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 7. metrics.js — allure, vitesse, tonnage, records
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('metrics — allure et vitesse (toujours DÉRIVÉES)');
+
+egal('allure : 5 000 m en 1 500 s = 300 s/km',
+  allureSecParKm({ dureeSec: 1500, distanceM: 5000 }), 300);
+egal('vitesse : 5 000 m en 1 500 s = 12 km/h',
+  vitesseKmH({ dureeSec: 1500, distanceM: 5000 }), 12);
+// ⚠ Distance nulle : diviser par zéro donnerait Infinity, qui traverserait ensuite toutes les
+//   échelles de courbe. On renvoie null, la distance étant OPTIONNELLE en mode cardio.
+estNul('allure sur distance NULLE : null, jamais Infinity',
+  allureSecParKm({ dureeSec: 1500, distanceM: 0 }));
+estNul('vitesse sur distance NULLE : null, jamais Infinity',
+  vitesseKmH({ dureeSec: 1500, distanceM: 0 }));
+estNul('allure sans distance saisie : null', allureSecParKm({ dureeSec: 1500, distanceM: null }));
+estNul('allure sur durée nulle : null', allureSecParKm({ dureeSec: 0, distanceM: 5000 }));
+
+groupe('metrics — tonnage et resumeSerie');
+
+const entreeTonnage = entreeDe(exCharge, [
+  faite('charge', { kind: 'echauffement', reps: 10, chargeKg: 40 }),
+  faite('charge', { kind: 'effective', reps: 8, chargeKg: 60 }),
+  nouvelleSerie('charge', { kind: 'effective', reps: 8, chargeKg: 60 })
+]);
+egal('tonnage : l\'échauffement et la série non faite sont exclus (8 × 60 = 480 kg)',
+  tonnageEntree(entreeTonnage, seanceRef).kg, 480);
+egal('tonnage : fiable quand toutes les séries comptables sont converties',
+  tonnageEntree(entreeTonnage, seanceRef).fiable, true);
+egal('tonnage d\'une machine sans profil : minorant explicitement NON fiable',
+  tonnageSeance(seanceTerminee('2026-05-04', [entreeDe(exMachine, [
+    faite('machine', { kind: 'effective', reps: 10, valeur: 7 })
+  ])])).fiable, false);
+
+// ⚠ Le coefficient unilateralUtilise doit être GELÉ sur l'entrée par nouvelleEntree. S'il ne
+//   l'est pas, metrics.js le cherche, ne le trouve jamais, et le facteur retombe à 1 : le
+//   tonnage de tous les exercices unilatéraux est divisé par deux, en silence et à vie.
+const exUnilateral = nouvelExercice({
+  id: 'cat:fentes-test', nom: 'Fentes', categorie: 'quadriceps', mode: 'charge',
+  unilateral: true, incrementKg: 2.5, bodyweightFactor: 1
+});
+const entreeUni = entreeDe(exUnilateral, [
+  faite('charge', { kind: 'effective', reps: 10, chargeKg: 20 })
+]);
+vrai('unilateralUtilise est GELÉ sur l\'entrée à la création',
+  entreeUni.unilateralUtilise === true, 'true', montrer(entreeUni.unilateralUtilise));
+egal('tonnage unilatéral : compté PAR CÔTÉ, donc doublé (10 × 20 × 2 = 400 kg)',
+  tonnageEntree(entreeUni, seanceRef).kg, 400);
+egal('tonnage bilatéral : jamais doublé (8 × 60 = 480 kg)',
+  tonnageEntree(entreeTonnage, seanceRef).kg, 480);
+
+egal('resumeSerie mode charge', resumeSerie(
+  nouvelleSerie('charge', { reps: 8, chargeKg: 60 }), entreeDe(exCharge)), '8 × 60 kg');
+egal('resumeSerie affiche le lest SIGNÉ positif', resumeSerie(
+  nouvelleSerie('poids-du-corps', { reps: 8, lestKg: 10 }), entreeDe(exTractions)), '8 × +10 kg');
+egal('resumeSerie affiche l\'assistance négative', resumeSerie(
+  nouvelleSerie('poids-du-corps', { reps: 8, lestKg: -20 }), entreeDe(exTractions)), '8 × -20 kg');
+egal('resumeSerie machine sans profil : le cran, jamais un kilo inventé', resumeSerie(
+  nouvelleSerie('machine', { reps: 10, valeur: 7.5 }), entreeDe(exMachine)), '10 × cran 7,5');
+
+groupe('metrics — estRecord et sa tolérance de demi-incrément');
+
+// ⚠ Sans la tolérance, un poids de corps qui bouge de 200 g décrocherait un badge « record »
+//   à chaque séance, et le badge ne voudrait plus rien dire.
+egal('aucune référence : le premier point EST un record', estRecord(60, null, 2.5), true);
+egal('+1 kg avec un incrément de 2,5 (tolérance 1,25) : PAS un record', estRecord(61, 60, 2.5), false);
+egal('exactement la tolérance (1,25) : PAS un record (comparaison stricte)',
+  estRecord(61.25, 60, 2.5), false);
+egal('+2 kg avec un incrément de 2,5 : record', estRecord(62, 60, 2.5), true);
+egal('+1 kg avec un incrément de 1,25 (tolérance 0,625) : record', estRecord(61, 60, 1.25), true);
+egal('régression : jamais un record', estRecord(58, 60, 1.25), false);
+egal('sens « bas » (allure) : descendre de 20 s/km est un record',
+  estRecord(280, 300, 1.25, 'bas'), true);
+egal('sens « bas » : monter n\'est jamais un record', estRecord(320, 300, 1.25, 'bas'), false);
+egal('valeur non numérique : jamais un record', estRecord(null, 60, 2.5), false);
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 8. progression.js — serieTemporelle
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('progression — serieTemporelle');
+
+const seanceJanvier = seanceTerminee('2026-01-10', [entreeDe(exCharge, [
+  faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 100 }),  // ignoré
+  faite('charge', { kind: 'effective', reps: 8, chargeKg: 60 }),       // e1rm = 76
+  faite('charge', { kind: 'effective', reps: 6, chargeKg: 62.5 })      // e1rm = 75
+])]);
+const seanceMars = seanceTerminee('2026-03-05', [entreeDe(exCharge, [
+  faite('charge', { kind: 'effective', reps: 5, chargeKg: 70 })
+])]);
+// Entrée ne contenant QUE de l'échauffement : ne doit produire AUCUN point.
+const seanceFevrier = seanceTerminee('2026-02-01', [entreeDe(exCharge, [
+  faite('charge', { kind: 'echauffement', reps: 12, chargeKg: 50 })
+])]);
+// Séance NON TERMINÉE : ne doit produire aucun point.
+const seanceEnCours = seanceTerminee('2026-04-01', [entreeDe(exCharge, [
+  faite('charge', { kind: 'effective', reps: 8, chargeKg: 200 })
+])]);
+seanceEnCours.statut = 'en-cours';
+
+// Ordre d'entrée volontairement mélangé : le tri est la responsabilité de serieTemporelle.
+const historique = [seanceMars, seanceEnCours, seanceJanvier, seanceFevrier];
+const st = serieTemporelle(historique, exCharge.id, 'e1rm-max', null);
+
+egal('2 points seulement : la séance en cours et l\'entrée 100 % échauffement sont écartées',
+  st.points.length, 2);
+memeObjet('les points sont TRIÉS par date croissante',
+  st.points.map((p) => p.x), ['2026-01-10', '2026-03-05']);
+proche('le point de janvier retient le meilleur 1RM estimé de la séance (76)',
+  st.points[0].y, 76, 1e-9);
+vrai('la charge à 200 kg de la séance en cours n\'apparaît nulle part',
+  st.points.every((p) => p.y < 100), 'aucun point ≥ 100', montrer(st.points.map((p) => p.y)));
+vrai('aucun point vide n\'est produit pour février',
+  st.points.every((p) => p.x !== '2026-02-01'), 'pas de point au 2026-02-01',
+  montrer(st.points.map((p) => p.x)));
+egal('chaque point porte son drapeau de fiabilité', st.points[0].fiable, true);
+egal('sens « haut » par défaut pour le 1RM estimé', st.sens, 'haut');
+egal('la plage borne en chaîne, sans conversion de date',
+  serieTemporelle(historique, exCharge.id, 'e1rm-max', { debut: '2026-02-01' }).points.length, 1);
+egal('exercice inconnu : zéro point, aucune exception',
+  serieTemporelle(historique, 'cat:inconnu', 'e1rm-max', null).points.length, 0);
+egal('historique vide : zéro point',
+  serieTemporelle([], exCharge.id, 'e1rm-max', null).points.length, 0);
+
+// ⚠ Le réducteur 'tonnage' déballe { kg, fiable } rendu par metrics.tonnageEntree. Le traiter
+//   comme un nombre ne lève AUCUNE erreur : le réducteur rend null pour toujours et la courbe
+//   de tonnage reste éternellement vide. Aucune assertion ne le couvrait, d'où le défaut.
+const stTonnage = serieTemporelle(historique, exCharge.id, 'tonnage', null);
+vrai('la courbe de tonnage n\'est PAS vide', stTonnage.points.length > 0,
+  '> 0 point', montrer(stTonnage.points.length));
+vrai('chaque point de tonnage porte une valeur numérique strictement positive',
+  stTonnage.points.every((p) => typeof p.y === 'number' && p.y > 0),
+  'que des nombres > 0', montrer(stTonnage.points.map((p) => p.y)));
+vrai('un point de tonnage n\'est jamais un objet { kg, fiable } non déballé',
+  stTonnage.points.every((p) => typeof p.y !== 'object'),
+  'aucun objet', montrer(stTonnage.points.map((p) => typeof p.y)));
+
+// Le tonnage hebdomadaire de l'accueil emprunte le même chemin de déballage.
+const rs = resumeSemaine(historique, new Date(2026, 2, 5));  // jeudi 5 mars 2026, semaine du 2
+vrai('le tonnage du résumé de la semaine est un nombre, jamais NaN',
+  typeof rs.tonnage === 'number' && !Number.isNaN(rs.tonnage),
+  'nombre défini', montrer(rs.tonnage));
+
+groupe('progression — allure : le sens vaut « bas »');
+
+const seanceCourse1 = seanceTerminee('2026-03-01', [entreeDe(exCourse, [
+  faite('cardio', { kind: 'effective', dureeSec: 1500, distanceM: 5000 })  // 300 s/km
+])]);
+const seanceCourse2 = seanceTerminee('2026-03-15', [entreeDe(exCourse, [
+  faite('cardio', { kind: 'effective', dureeSec: 1400, distanceM: 5000 })  // 280 s/km
+])]);
+// Sortie sans distance : la distance est OPTIONNELLE, l'allure est donc indéterminable.
+const seanceCourse3 = seanceTerminee('2026-03-20', [entreeDe(exCourse, [
+  faite('cardio', { kind: 'effective', dureeSec: 1800, distanceM: null })
+])]);
+const stAllure = serieTemporelle([seanceCourse2, seanceCourse3, seanceCourse1],
+  exCourse.id, 'allure', null);
+
+egal('⚠ sens = « bas » : une courbe d\'allure DÉCROISSANTE est un progrès', stAllure.sens, 'bas');
+egal('sensDe(\'allure\') vaut « bas »', sensDe('allure'), 'bas');
+egal('sensDe(\'charge-max\') vaut « haut »', sensDe('charge-max'), 'haut');
+egal('la sortie sans distance ne produit pas de point', stAllure.points.length, 2);
+egal('unité brute de l\'allure', stAllure.unite, 'sec-par-km');
+proche('allure du 1er mars : 300 s/km', stAllure.points[0].y, 300, 1e-9);
+proche('allure du 15 mars : 280 s/km', stAllure.points[1].y, 280, 1e-9);
+
+groupe('progression — resumeSemaine et estCardioPure');
+
+// Le lundi de la semaine du jeudi 5 mars 2026 est le 2 mars.
+const resumeJeudi = resumeSemaine([seanceCourse1], new Date(2026, 2, 5, 10, 0));
+egal('la semaine commence le LUNDI (2 mars pour un jeudi 5 mars)', resumeJeudi.debut, '2026-03-02');
+egal('la séance du 1er mars, antérieure au lundi, est hors semaine', resumeJeudi.seances, 0);
+
+// ⚠ getDay() renvoie 0 le dimanche : sans le décalage (jour + 6) % 7, le dimanche soir
+//   remettrait le compteur à zéro au milieu du week-end.
+const resumeDimanche = resumeSemaine([seanceCourse1, seanceCourse2], new Date(2026, 2, 15, 10, 0));
+egal('le dimanche 15 mars appartient encore à la semaine du lundi 9', resumeDimanche.debut, '2026-03-09');
+egal('une seule des deux sorties tombe dans la semaine', resumeDimanche.seances, 1);
+egal('minutes de cardio de la semaine', resumeDimanche.minutesCardio, Math.round(1400 / 60));
+
+egal('une sortie course autonome est bien une séance cardio pure',
+  estCardioPure(seanceCourse1), true);
+egal('une séance de charge n\'est pas cardio pure', estCardioPure(seanceJanvier), false);
+egal('une séance mixte n\'est pas cardio pure',
+  estCardioPure(seanceTerminee('2026-03-01', [entreeDe(exCourse), entreeDe(exCharge)])), false);
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 9. lib/ids.js — ULID strictement croissant
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('ids — ULID monotone');
+
+const a = ulid();
+const b = ulid();
+egal('un ULID fait 26 caractères', a.length, 26);
+vrai('alphabet Crockford base32 uniquement', /^[0-9A-HJKMNP-TV-Z]{26}$/.test(a),
+  'alphabet Crockford', a);
+// ⚠ Deux appels dans la MÊME milliseconde doivent rester croissants : c'est ce qui permet à une
+//   Serie de n'avoir aucun champ `index`, l'ordre du tableau suffisant.
+vrai('deux appels successifs sont STRICTEMENT croissants', b > a, `> ${a}`, b);
+
+const suite = Array.from({ length: 200 }, () => ulid());
+vrai('200 appels d\'affilée restent strictement croissants',
+  suite.every((v, i) => i === 0 || v > suite[i - 1]),
+  'suite strictement croissante',
+  'rupture détectée');
+vrai('200 appels d\'affilée sont tous distincts', new Set(suite).size === 200,
+  '200 identifiants distincts', String(new Set(suite).size));
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 10. migrations.js — refus d'une base venue du futur
+// ═════════════════════════════════════════════════════════════════════════════
+groupe('migrations — pipeline et garde-fous');
+
+// v2 : la migration 1 → 2 existe (collection de séances en cours, statut d'abandon, origine des
+// modèles). L'assertion précédente vérifiait que MIGRATIONS était VIDE — vrai en v1, faux depuis.
+egal('MIGRATIONS contient la migration 1 → 2', migrations.MIGRATIONS.length, 1);
+egal('elle part bien de la v1', migrations.MIGRATIONS[0].de, 1);
+egal('elle mène bien à la v2', migrations.MIGRATIONS[0].vers, 2);
+egal('la clé de sauvegarde est stable', migrations.CLE_SAUVEGARDE, 'backup:pre-migration');
+
+// ⚠ Une migration DOIT être pure et déterministe : le pipeline la rejoue sur la sauvegarde après
+//   un échec. Rejouée deux fois sur les mêmes données, elle doit rendre le même résultat, et ne
+//   jamais muter son entrée — sinon la sauvegarde devient identique à l'état migré, donc inutile.
+{
+  const baseV1 = {
+    exercices: [], lieux: [], poids: [],
+    modeles: [{ id: 'usr:ma-routine', nom: 'Ma routine' }, { id: 'tpl:push', nom: 'Push' }],
+    seances: [
+      { id: 's1', statut: 'en-cours', startedAt: 200, entrees: [] },
+      { id: 's2', statut: 'terminee', startedAt: 100, endedAt: 150, entrees: [] },
+      { id: 's3', startedAt: 50, endedAt: 90, entrees: [] }          // statut absent
+    ],
+    meta: { id: 'meta', schemaVersion: 1, seanceActiveId: 'disparue' }
+  };
+  const empreinte = JSON.stringify(baseV1);
+  const up = migrations.MIGRATIONS[0].up;
+  const a = up(baseV1);
+  egal('la migration ne mute pas son entrée', JSON.stringify(baseV1), empreinte);
+  egal('la séance en cours est conservée', a.meta.seancesEnCoursIds.join(','), 's1');
+  egal('un seanceActiveId mort est remplacé par une séance valide', a.meta.seanceActiveId, 's1');
+  egal('un statut absent est réparé via endedAt', a.seances[2].statut, 'terminee');
+  egal('une routine préfixée usr: est reconnue', a.modeles[0].origine, 'utilisateur');
+  egal('un modèle livré est reconnu', a.modeles[1].origine, 'livre');
+  vrai('aucune séance v1 ne devient « abandonnée »',
+    a.seances.every((s) => s.statut !== 'abandonnee'), 'aucun abandon inventé',
+    a.seances.map((s) => s.statut).join(','));
+  egal('rejouée, elle rend un résultat identique', JSON.stringify(up(up(baseV1))), JSON.stringify(a));
+}
+
+// ⚠ LE garde-fou : des données écrites par une version PLUS RÉCENTE de l'application. On refuse
+//   de démarrer plutôt que de laisser du code v1 réécrire des données v2 avec ses propres règles.
+//   `db` vaut null à dessein : si l'exception ne précède pas TOUT accès à la base, le test lève
+//   une TypeError et la garantie « aucune écriture » est prise en défaut.
+await leve('schemaVersion du fichier > celle de l\'application : refus explicite',
+  () => migrations.appliquer(null, SCHEMA_VERSION + 1), 'VERSION_FUTURE');
+await leve('version très supérieure : même refus, toujours sans écriture',
+  () => migrations.appliquer(null, SCHEMA_VERSION + 42), 'VERSION_FUTURE');
+await leve('schemaVersion non numérique : refus avant toute écriture',
+  () => migrations.appliquer(null, 'deux'), 'VERSION_INVALIDE');
+
+const aJour = await migrations.appliquer(null, SCHEMA_VERSION);
+memeObjet('version identique : aucune écriture, aucun accès à la base',
+  aJour, { applique: false, de: SCHEMA_VERSION, vers: SCHEMA_VERSION, raison: 'a-jour' });
+
+const neuve = await migrations.appliquer(null, null);
+egal('base neuve : rien à migrer', neuve.raison, 'base-neuve');
+egal('base neuve : aucune migration appliquée', neuve.applique, false);
+
+// Une chaîne trouée doit être refusée AVANT la moindre écriture, sauvegarde comprise.
+let codeChaine = null;
+try { migrations.chaine(SCHEMA_VERSION, SCHEMA_VERSION + 1); }
+catch (e) { codeChaine = e.code; }
+egal('chaîne trouée : MIGRATION_MANQUANTE', codeChaine, 'MIGRATION_MANQUANTE');
+memeObjet('chaîne de longueur nulle quand il n\'y a rien à faire',
+  migrations.chaine(SCHEMA_VERSION, SCHEMA_VERSION), []);
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Rendu — createElement / textContent exclusivement, AUCUN innerHTML
+// ═════════════════════════════════════════════════════════════════════════════
+
+function el(tag, classe, texte) {
+  const n = document.createElement(tag);
+  if (classe) n.className = classe;
+  if (texte != null) n.textContent = texte;
+  return n;
+}
+
+function ligneDetail(cle, valeur) {
+  const bloc = document.createElement('div');
+  bloc.appendChild(el('span', 'cle', cle));
+  const code = el('code', null, valeur);
+  bloc.appendChild(code);
+  return bloc;
+}
+
+const conteneur = document.getElementById('resultats');
+let total = 0;
+let echecs = 0;
+
+for (const section of sections) {
+  const sect = document.createElement('section');
+  const titre = document.createElement('h2');
+  titre.appendChild(el('span', null, section.titre));
+
+  const nbEchecs = section.assertions.filter((a) => !a.ok).length;
+  total += section.assertions.length;
+  echecs += nbEchecs;
+
+  titre.appendChild(el('span', 'compte',
+    nbEchecs === 0
+      ? `${section.assertions.length} assertions · OK`
+      : `${nbEchecs} échec(s) sur ${section.assertions.length}`));
+  sect.appendChild(titre);
+
+  for (const a of section.assertions) {
+    const ligne = el('div', 'ligne ' + (a.ok ? 'reussi' : 'echoue'));
+    ligne.appendChild(el('span', 'marque', a.ok ? '✓' : '✕'));
+
+    const corps = document.createElement('div');
+    corps.appendChild(el('span', 'nom', a.nom));
+    if (!a.ok) {
+      const detail = el('div', 'detail');
+      detail.appendChild(ligneDetail('attendu', String(a.attendu)));
+      detail.appendChild(ligneDetail('obtenu', String(a.obtenu)));
+      corps.appendChild(detail);
+    }
+    ligne.appendChild(corps);
+    sect.appendChild(ligne);
+  }
+  conteneur.appendChild(sect);
+}
+
+const bilan = document.getElementById('bilan');
+bilan.textContent = '';
+bilan.className = 'bilan ' + (echecs === 0 ? 'ok' : 'ko');
+bilan.appendChild(el('span', 'gros', echecs === 0 ? '✓' : '✕'));
+bilan.appendChild(el('span', null,
+  echecs === 0
+    ? `${total} assertions — tout est vert`
+    : `${echecs} échec(s) sur ${total} assertions`));
+bilan.appendChild(el('span', null, `· ${sections.length} groupes`));
+
+document.title = (echecs === 0 ? '✓ ' : '✕ ') + `${total - echecs}/${total} — tests Sport-suivi`;
+</script>
+</body>
+</html>

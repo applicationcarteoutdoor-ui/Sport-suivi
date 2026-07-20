@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Verification — Carnet Muscu</title>
+<!--
+  Page de diagnostic AUTONOME. C'est un outil, pas un ecran de l'application :
+  - script inline assume, aucun import de js/ (elle doit rester lisible meme si un module est casse,
+    c'est precisement ce qu'elle sert a detecter) ;
+  - styles inline, aucun lien vers css/ pour la meme raison ;
+  - aucun innerHTML malgre tout : la regle du projet n'a d'exception nulle part.
+  Elle n'est volontairement PAS dans version.json : ne pas la precacher garantit qu'elle est
+  toujours servie par le reseau, donc toujours a jour.
+-->
+<style>
+  :root { color-scheme: light dark; --ok:#1a7f37; --ko:#c02640; --bord:#8884; }
+  body { margin:0; padding:16px calc(16px + env(safe-area-inset-right)) 48px calc(16px + env(safe-area-inset-left));
+         font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  h1 { font-size:1.25rem; margin:0 0 4px; }
+  h2 { font-size:1rem; margin:24px 0 8px; }
+  p.sous { margin:0 0 16px; opacity:.7; font-size:.85rem; }
+  .bilan { font-size:1.5rem; font-weight:700; padding:14px 16px; border-radius:12px;
+           border:2px solid var(--bord); margin:12px 0; }
+  .bilan.ok { border-color:var(--ok); color:var(--ok); }
+  .bilan.ko { border-color:var(--ko); color:var(--ko); }
+  table { border-collapse:collapse; width:100%; font-size:.85rem; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--bord); vertical-align:top; }
+  th { font-weight:600; opacity:.7; }
+  td.code { white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:700; }
+  tr.ok td.code { color:var(--ok); }
+  tr.ko td.code { color:var(--ko); }
+  tr.ko { background:color-mix(in srgb, var(--ko) 8%, transparent); }
+  td.url { word-break:break-all; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  dl { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; margin:0; font-size:.9rem; }
+  dt { opacity:.7; }
+  dd { margin:0; word-break:break-all; }
+  button { font:inherit; padding:10px 16px; border-radius:10px; border:1px solid var(--bord);
+           background:transparent; color:inherit; min-height:44px; }
+  .barre { display:flex; gap:8px; flex-wrap:wrap; margin:16px 0; }
+</style>
+</head>
+<body>
+<h1>Verification du deploiement</h1>
+<p class="sous">Charge <code>version.json</code> sans cache, puis tente un acces reseau sur chaque
+asset declare. Un seul echec suffit a casser l'application hors-ligne.</p>
+
+<div class="barre">
+  <button id="relancer" type="button">Relancer la verification</button>
+  <button id="retour" type="button">Retour a l'application</button>
+</div>
+
+<div id="bilan" class="bilan">Verification en cours…</div>
+
+<h2>Assets declares</h2>
+<table>
+  <thead><tr><th>Etat</th><th>Asset</th><th>Type</th></tr></thead>
+  <tbody id="lignes"></tbody>
+</table>
+
+<h2>Service worker</h2>
+<dl id="sw"></dl>
+
+<h2>Stockage</h2>
+<dl id="stockage"></dl>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function vider(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+
+  function cellule(texte, classe) {
+    var td = document.createElement('td');
+    td.textContent = texte;
+    if (classe) td.className = classe;
+    return td;
+  }
+
+  function paire(dl, cle, valeur) {
+    var dt = document.createElement('dt');
+    dt.textContent = cle;
+    var dd = document.createElement('dd');
+    dd.textContent = valeur;
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+  }
+
+  function bilan(texte, ok) {
+    var el = $('bilan');
+    el.textContent = texte;
+    el.className = 'bilan ' + (ok === null ? '' : ok ? 'ok' : 'ko');
+  }
+
+  // Un fetch reel plutot qu'un HEAD : certains hebergeurs repondent differemment aux deux, et
+  // c'est bien le GET que fera le precache du service worker que l'on veut reproduire.
+  // {cache:'reload'} contourne le max-age=600 de GitHub Pages, sinon on validerait une version
+  // vieille de dix minutes.
+  function tester(url) {
+    return fetch(new Request(url, { cache: 'reload' })).then(
+      function (r) {
+        return { url: url, ok: r.ok, code: String(r.status), type: r.headers.get('content-type') || '—' };
+      },
+      function (e) {
+        return { url: url, ok: false, code: 'ERR', type: e && e.message ? e.message : 'echec reseau' };
+      }
+    );
+  }
+
+  // Concurrence bornee : lancer 60 fetch simultanes sur un telephone en 4G fabrique de faux
+  // negatifs (timeouts) qui ressembleraient a des 404.
+  function enFile(urls, largeur, surResultat) {
+    var i = 0;
+    function suivant() {
+      if (i >= urls.length) return Promise.resolve();
+      var url = urls[i++];
+      return tester(url).then(function (res) { surResultat(res); return suivant(); });
+    }
+    var pistes = [];
+    for (var k = 0; k < Math.min(largeur, urls.length); k++) pistes.push(suivant());
+    return Promise.all(pistes);
+  }
+
+  function verifierAssets() {
+    var tbody = $('lignes');
+    vider(tbody);
+    bilan('Verification en cours…', null);
+
+    return fetch('./version.json', { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('version.json : HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (manifest) {
+        var assets = Array.isArray(manifest.assets) ? manifest.assets : [];
+        var entete = document.createElement('tr');
+        var td = document.createElement('td');
+        td.colSpan = 3;
+        td.textContent =
+          'version ' + manifest.version + ' · kill: ' + (manifest.kill ? 'OUI' : 'non') +
+          ' · ' + assets.length + ' assets declares';
+        entete.appendChild(td);
+        tbody.appendChild(entete);
+
+        if (!assets.length) {
+          bilan('version.json ne declare aucun asset', false);
+          return;
+        }
+
+        var echecs = 0;
+        var faits = 0;
+        return enFile(assets, 6, function (res) {
+          faits++;
+          if (!res.ok) echecs++;
+          var tr = document.createElement('tr');
+          tr.className = res.ok ? 'ok' : 'ko';
+          tr.appendChild(cellule(res.code, 'code'));
+          tr.appendChild(cellule(res.url, 'url'));
+          tr.appendChild(cellule(res.type));
+          tbody.appendChild(tr);
+          bilan(echecs + ' echec(s) sur ' + faits + '/' + assets.length, echecs === 0);
+        }).then(function () {
+          bilan(
+            echecs === 0
+              ? 'Zero echec sur ' + assets.length + ' assets'
+              : echecs + ' ECHEC(S) sur ' + assets.length + ' assets',
+            echecs === 0
+          );
+        });
+      })
+      .catch(function (e) {
+        bilan('Impossible de lire version.json : ' + e.message, false);
+      });
+  }
+
+  function etatServiceWorker() {
+    var dl = $('sw');
+    vider(dl);
+    if (!('serviceWorker' in navigator)) {
+      paire(dl, 'Support', 'absent de ce navigateur');
+      return Promise.resolve();
+    }
+    return navigator.serviceWorker
+      .getRegistration('./')
+      .then(function (reg) {
+        if (!reg) {
+          paire(dl, 'Enregistrement', 'aucun');
+          return;
+        }
+        paire(dl, 'Enregistrement', 'present');
+        paire(dl, 'Portee', reg.scope);
+        paire(dl, 'Installe (installing)', reg.installing ? reg.installing.state : '—');
+        paire(dl, 'En attente (waiting)', reg.waiting ? reg.waiting.state : '—');
+        paire(dl, 'Actif (active)', reg.active ? reg.active.state : '—');
+        paire(dl, 'Page controlee', navigator.serviceWorker.controller ? 'oui' : 'non');
+      })
+      .then(function () {
+        // La version active est lue directement dans le cache META : c'est la meme source que
+        // celle du service worker, et elle reste lisible meme si le worker est mort.
+        if (!('caches' in window)) return;
+        return caches
+          .open('muscu-meta')
+          .then(function (c) { return c.match('active'); })
+          .then(function (r) { return r ? r.text() : null; })
+          .then(function (v) { paire(dl, 'Version active (cache)', v || 'aucune'); })
+          .then(function () { return caches.keys(); })
+          .then(function (noms) {
+            var miens = noms.filter(function (n) { return n.indexOf('muscu-') === 0; });
+            paire(dl, 'Caches du projet', miens.length ? miens.join(', ') : 'aucun');
+          });
+      })
+      .catch(function (e) { paire(dl, 'Erreur', e.message); });
+  }
+
+  function etatStockage() {
+    var dl = $('stockage');
+    vider(dl);
+    if (!navigator.storage || !navigator.storage.estimate) {
+      // Safari n'expose ni estimate() ni persist() de maniere fiable : l'absence est une
+      // information en soi, pas une erreur.
+      paire(dl, 'storage.estimate()', 'non supporte par ce navigateur');
+      return Promise.resolve();
+    }
+    return navigator.storage
+      .estimate()
+      .then(function (est) {
+        var mo = function (o) { return o == null ? '—' : (o / 1048576).toFixed(2) + ' Mo'; };
+        paire(dl, 'Utilise', mo(est.usage));
+        paire(dl, 'Quota', mo(est.quota));
+        if (est.quota) paire(dl, 'Part utilisee', ((est.usage / est.quota) * 100).toFixed(3) + ' %');
+        if (navigator.storage.persisted) {
+          return navigator.storage.persisted().then(function (p) {
+            paire(dl, 'Stockage persistant', p ? 'oui' : 'non');
+          });
+        }
+        paire(dl, 'Stockage persistant', 'non supporte');
+      })
+      .catch(function (e) { paire(dl, 'Erreur', e.message); });
+  }
+
+  function tout() {
+    verifierAssets();
+    etatServiceWorker();
+    etatStockage();
+  }
+
+  $('relancer').addEventListener('click', tout);
+  $('retour').addEventListener('click', function () { location.href = './'; });
+  tout();
+})();
+</script>
+</body>
+</html>

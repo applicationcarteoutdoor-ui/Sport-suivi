@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover : sans lui, env(safe-area-inset-*) vaut TOUJOURS 0px et la barre d'action
+     basse passe sous l'indicateur d'accueil iOS, ce qui rend le bouton primaire intappable. -->
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+
+<title>Carnet Muscu</title>
+<meta name="description" content="Carnet de musculation hors-ligne : séances, séries, progression.">
+
+<!-- Deux theme-color plutot qu'une : la barre systeme suit le theme de l'appareil sans que le JS
+     ait a intervenir, donc AVANT meme que le premier module ES soit charge. -->
+<meta name="theme-color" content="#f7f8fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png">
+
+<!-- ⚠ Sans apple-mobile-web-app-capable, `navigator.standalone` ne passe JAMAIS a true :
+     toute la detection iOS de ui/install.js echoue et l'aide a l'installation s'affiche
+     indefiniment a un utilisateur qui a deja installe l'application. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Muscu">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- Ordre impose : tokens (variables) avant tout ce qui les consomme. -->
+<link rel="stylesheet" href="./css/tokens.css">
+<link rel="stylesheet" href="./css/base.css">
+<link rel="stylesheet" href="./css/components.css">
+<link rel="stylesheet" href="./css/views.css">
+<!-- v2 : cartes, defilements horizontaux, grilles d'icones, tiroir du minuteur. En DERNIER :
+     il complete les feuilles precedentes et doit pouvoir les surcharger. -->
+<link rel="stylesheet" href="./css/v2.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════════════════
+     ZONE A — COQUILLE STATIQUE.
+     Ecrite EN DUR ici et JAMAIS reconstruite : le JS ne fait que muter textContent, classes et
+     attributs de ces noeuds. C'est cette regle qui garantit que le minuteur en cours, le focus,
+     la position de scroll et le bouton sous le doigt survivent a toute action de saisie.
+     Tout noeud pilote par le JS porte un id : aucune recherche par selecteur structurel, qui
+     casserait silencieusement au premier remaniement de la mise en page.
+
+     ⚠ VOCABULAIRE DE CLASSES : un seul tiret, jamais de BEM. css/ et tout le JS nomment les
+     classes ainsi (.entete-bouton, .nav-onglet, .barre-action-primaire) ; ecrire ici
+     .entete__bouton reviendrait a n'avoir AUCUNE regle de style sur la coquille.
+     ══════════════════════════════════════════════════════════════════════════════════════════ -->
+
+<a class="lien-evitement" href="#vue">Aller au contenu</a>
+
+<!-- ⚠ .coquille est PORTEUSE DE FONCTION, pas de decoration : deux regles de css/ la visent —
+     .coquille[data-seance='active'] .nav-basse (masque la navigation basse pendant une seance,
+     sinon elle recouvre la barre d'action) et .coquille[data-repos='fini']::after (lisere vert de
+     fin de repos, seul canal d'alerte fiable sur iOS). views/seance.js et ui/timer-view.js la
+     cherchent par `document.querySelector('.coquille')` : si elle disparait, leur repli sur
+     <body> est SILENCIEUX et les deux comportements sont perdus sans la moindre erreur.
+     Ne contient QUE les zones en flux. Tout ce qui se superpose (feuille, pave, bandeau, toast,
+     ecran de secours) reste DEHORS : `overflow: hidden` les rognerait. -->
+<div class="coquille" id="coquille">
+
+  <header class="entete" id="entete">
+    <!-- Cache par defaut : la racine #/ n'a nulle part ou revenir. Les vues le devoilent. -->
+    <button class="entete-bouton" id="btn-retour" type="button" aria-label="Retour" hidden>
+      <span aria-hidden="true">&#8592;</span>
+    </button>
+    <div class="entete-textes">
+      <h1 class="entete-titre" id="titre-ecran">Carnet Muscu</h1>
+      <!-- Porte « 18:42 · Exercice 3/6 » pendant une seance : l'information de situation doit
+           rester lisible sans scroller, d'ou sa place dans la coquille collee. -->
+      <p class="entete-sous-titre" id="sous-titre-ecran" hidden></p>
+    </div>
+    <button class="entete-bouton" id="btn-menu" type="button" aria-label="Menu" aria-haspopup="menu" aria-expanded="false" hidden>
+      <span aria-hidden="true">&#8942;</span>
+    </button>
+  </header>
+
+  <!-- ZONE B — vues. Volontairement VIDE : le routeur monte ici et n'ecrit jamais ailleurs.
+       boot.js le recupere par `document.querySelector('main')`.
+       ⚠ .vue-conteneur et NON .vue : .vue-conteneur est la zone defilante (flex: 1, overflow-y),
+       .vue est la section que CHAQUE vue construit dedans (largeur maximale et respiration).
+       Les confondre imbrique deux fois le padding et empeche <main> de defiler. -->
+  <main class="vue-conteneur" id="vue" tabindex="-1"></main>
+
+  <!-- Navigation principale. Statique : les 4 onglets ne changent jamais, seule la classe
+       active et aria-current sont mutees par le routeur. -->
+  <nav class="nav-basse" id="nav-onglets" aria-label="Navigation principale">
+    <a class="nav-onglet" id="onglet-accueil" href="#/" data-onglet="accueil">
+      <span class="nav-onglet-icone" aria-hidden="true">&#9750;</span><span class="nav-onglet-nom">Accueil</span>
+    </a>
+    <a class="nav-onglet" id="onglet-historique" href="#/historique" data-onglet="historique">
+      <span class="nav-onglet-icone" aria-hidden="true">&#9776;</span><span class="nav-onglet-nom">Historique</span>
+    </a>
+    <a class="nav-onglet" id="onglet-progression" href="#/progression" data-onglet="progression">
+      <span class="nav-onglet-icone" aria-hidden="true">&#8599;</span><span class="nav-onglet-nom">Progression</span>
+    </a>
+    <a class="nav-onglet" id="onglet-reglages" href="#/reglages" data-onglet="reglages">
+      <span class="nav-onglet-icone" aria-hidden="true">&#9881;</span><span class="nav-onglet-nom">Réglages</span>
+    </a>
+  </nav>
+
+  <!-- BARRE D'ACTION BASSE — exactement DEUX zones, jamais quatre roles.
+       Masquee hors seance ; jamais supprimee du DOM, sinon le minuteur mourrait avec elle. -->
+  <div class="barre-action" id="barre-action" hidden>
+    <!-- Zone minuteur : largeur FIXE de 88 px imposee par le CSS. Toujours presente, grisee quand
+         inactive : une zone qui apparait/disparait deplacerait le bouton primaire sous le doigt
+         au moment exact ou l'utilisateur le vise. -->
+    <div class="barre-action-minuteur" id="zone-minuteur" role="timer" aria-live="off" aria-label="Minuteur de repos">
+      <output class="minuteur" id="minuteur-valeur">--:--</output>
+      <button class="minuteur-bascule" id="btn-minuteur" type="button" aria-label="Démarrer ou arrêter le repos" disabled>
+        <span aria-hidden="true">&#9654;</span>
+      </button>
+    </div>
+    <!-- Bouton primaire : un seul, jamais remplace ni deplace. Seuls son libelle, son etat
+         disabled et sa classe de variante changent.
+         ⚠ Les trois classes sont necessaires : .bouton donne la boite, .bouton-primaire la
+         couleur d'accent, .barre-action-primaire la CIBLE GEANTE (72 px, --txt-xl). -->
+    <button class="bouton bouton-primaire barre-action-primaire" id="btn-primaire" type="button">Valider la série</button>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════════════════════
+     ZONE A bis — les superpositions. HORS de la coquille : elles sont toutes en position fixe et
+     `overflow: hidden` de la coquille n'a rien a faire au-dessus d'elles.
+     ══════════════════════════════════════════════════════════════════════════════════════════ -->
+
+<!-- Feuille superposee. Une feuille est un PARAMETRE de la route courante (#/seance?sheet=ajout),
+     jamais une route : #/seance n'est donc jamais demonte par une action de saisie.
+     ui/sheet.js pose lui aussi cette classe a l'ouverture : la poser ici la rend simplement vraie
+     des le premier rendu. -->
+<div class="feuille-conteneur" id="conteneur-feuille" hidden></div>
+
+<!-- Pave numerique in-app. Separe de la feuille : il peut se superposer a une feuille ouverte
+     (edition d'une serie -> saisie d'un nombre) sans la fermer. Simple point d'ancrage :
+     ui/keypad.js y construit une feuille qui se positionne elle-meme. -->
+<div class="pave-hote" id="conteneur-pave" hidden></div>
+
+<!-- Bandeau de mise a jour. ⚠ Regle produit : jamais affiche tant qu'une seance est active ;
+     ui/update.js met la proposition en file jusqu'a la cloture. Aucun reload automatique. -->
+<div class="bandeau-maj" id="bandeau-maj" role="status" hidden>
+  <p class="bandeau-texte" id="bandeau-maj-texte">Une nouvelle version est prête.</p>
+  <div class="bandeau-actions">
+    <button class="bouton bouton-fantome" id="btn-maj-plus-tard" type="button">Plus tard</button>
+    <button class="bouton bouton-primaire" id="btn-maj-recharger" type="button">Recharger</button>
+  </div>
+</div>
+
+<!-- Zone de toast : AU-DESSUS de la barre d'action, jamais dessous. aria-live polite pour ne pas
+     interrompre la lecture d'ecran en pleine saisie. -->
+<div class="zone-toast" id="zone-toast" role="status" aria-live="polite"></div>
+
+<!-- ECRAN DE SECOURS — jamais d'ecran blanc. Present dans le HTML et non construit par le JS :
+     il doit rester atteignable quand c'est justement le JS d'amorcage qui a echoue.
+     Le bouton d'export lit le miroir chaud (localStorage), donc fonctionne meme IDB mort. -->
+<div class="ecran-secours" id="ecran-secours" role="alertdialog" aria-labelledby="secours-titre" aria-describedby="secours-message" hidden>
+  <div class="ecran-secours-boite">
+    <h2 class="ecran-secours-titre" id="secours-titre">L'application n'a pas pu démarrer</h2>
+    <p class="ecran-secours-texte" id="secours-message">Vos données ne sont pas perdues. Exportez-les avant toute autre action.</p>
+    <pre class="ecran-secours-message" id="secours-detail" hidden></pre>
+    <div class="ecran-secours-actions">
+      <button class="bouton bouton-primaire" id="btn-secours-exporter" type="button">Exporter mes données</button>
+      <button class="bouton" id="btn-secours-reessayer" type="button">Réessayer</button>
+      <button class="bouton bouton-danger" id="btn-secours-reinitialiser" type="button">Réinitialiser</button>
+    </div>
+    <!-- Recours visible de l'export : <a download> echoue SILENCIEUSEMENT en standalone iOS. -->
+    <textarea class="zone-texte-export" id="secours-texte" readonly rows="6" aria-label="Données exportées" hidden></textarea>
+  </div>
+</div>
+
+<noscript>
+  <p class="message-noscript">Cette application nécessite JavaScript pour fonctionner.</p>
+</noscript>
+
+<!-- Chemin RELATIF obligatoire : « /js/boot.js » pointerait vers la racine de github.io, hors
+     du depot, et ne repondrait qu'un 404. -->
+<script type="module" src="./js/boot.js"></script>
+</body>
+</html>

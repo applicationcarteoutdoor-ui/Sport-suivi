@@ -1,0 +1,1068 @@
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   v2.css — habillage des ecrans de la v2.
+   Cartes, defilements horizontaux, grilles d'icones, tiroir du minuteur.
+
+   Toutes les couleurs, tailles et profondeurs passent par les jetons de tokens.css : aucune
+   valeur litterale ici, sans quoi le theme sombre cesse de fonctionner au premier oubli.
+   Aucun nom de classe en vocabulaire BEM (ni double tiret, ni double souligne) : une assertion
+   de tests.html le verifie, tout comme elle verifie qu'aucune classe posee par le JS ne reste
+   sans regle.
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   1. Utilitaires de mise en page
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Rangee qui defile horizontalement. Le padding lateral laisse DEVINER la carte suivante :
+   c'est ce debord, et non une fleche, qui signale qu'on peut faire defiler. */
+.defilable-horizontal,
+.defilement-horizontal,
+.rangee-defilante,
+.packs-rangee,
+.rangee-lanceurs,
+.rangee-seances,
+.rangee-durees {
+  display: flex;
+  gap: var(--esp-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--esp-2);
+  /* La barre de defilement est masquee mais le defilement reste : sur mobile elle n'apparait
+     de toute facon qu'a l'usage, et elle decalerait la mise en page. */
+  scrollbar-width: none;
+}
+.defilable-horizontal::-webkit-scrollbar,
+.defilement-horizontal::-webkit-scrollbar,
+.rangee-defilante::-webkit-scrollbar,
+.packs-rangee::-webkit-scrollbar,
+.rangee-lanceurs::-webkit-scrollbar,
+.rangee-seances::-webkit-scrollbar,
+.rangee-durees::-webkit-scrollbar { display: none; }
+
+.defilable-horizontal > *,
+.defilement-horizontal > *,
+.rangee-defilante > *,
+.packs-rangee > *,
+.rangee-lanceurs > *,
+.rangee-seances > * {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+}
+
+.entete-section {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-2);
+}
+.entete-actions { display: flex; gap: var(--esp-2); align-items: center; }
+
+.compteur-section {
+  font-size: var(--txt-xs);
+  color: var(--texte-attenue);
+  font-variant-numeric: tabular-nums;
+}
+
+.note-discrete,
+.outil-mention,
+.garantie-texte,
+.zone-danger-note,
+.grille-vide-texte,
+.mention-plafond,
+.barre-comparaison-aide {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+  line-height: 1.4;
+}
+
+.lien-catalogue,
+.lien-retour,
+.rappel-lien {
+  font-size: var(--txt-s);
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: var(--esp-1) 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   2. Tiroir du minuteur — glisse depuis la DROITE, disponible sur tous les ecrans
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tiroir-minuteur-hote { position: fixed; inset: 0; z-index: var(--z-tiroir); pointer-events: none; }
+.tiroir-minuteur-hote[data-ouvert='oui'] { pointer-events: auto; }
+
+.tiroir-voile {
+  position: absolute;
+  inset: 0;
+  background: var(--voile);
+  opacity: 0;
+  transition: opacity var(--duree-moyenne) var(--courbe-sortie);
+}
+.tiroir-minuteur-hote[data-ouvert='oui'] .tiroir-voile { opacity: 1; }
+
+.tiroir,
+.tiroir-minuteur {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(88vw, 380px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--bordure);
+  box-shadow: var(--ombre-3);
+  padding-top: var(--safe-haut);
+  padding-bottom: var(--safe-bas);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform var(--duree-moyenne) var(--courbe-sortie), visibility var(--duree-moyenne);
+}
+.tiroir-minuteur-hote[data-ouvert='oui'] .tiroir,
+.tiroir-minuteur-hote[data-ouvert='oui'] .tiroir-minuteur {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+.tiroir-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-3) var(--esp-4);
+  border-bottom: 1px solid var(--bordure);
+}
+.tiroir-titre { font-size: var(--txt-l); font-weight: 700; margin: 0; }
+.tiroir-fermer {
+  min-width: var(--cible-tactile);
+  min-height: var(--cible-tactile);
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  color: var(--texte);
+  border-radius: var(--rayon-m);
+  cursor: pointer;
+}
+
+.tiroir-corps {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-5);
+}
+
+.outil-minuteur {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  padding: var(--esp-4);
+  background: var(--surface-haute);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-l);
+}
+.outil-entete { display: flex; align-items: center; gap: var(--esp-2); }
+.outil-nom { font-size: var(--txt-s); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texte-attenue); }
+
+/* Le cadran doit rester lisible a deux metres, telephone pose sur un banc. */
+.outil-cadran,
+.outil-affichage {
+  font-size: var(--txt-geant);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  /* ⚠ tabular-nums : sans lui les chiffres changent de largeur a chaque seconde et le cadran
+     entier tremble, ce qui est insupportable a regarder pendant un repos. */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.outil-decimales { font-size: var(--txt-l); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+
+.outil-actions { display: flex; gap: var(--esp-2); flex-wrap: wrap; }
+
+.bouton-outil,
+.bouton-outil-primaire {
+  flex: 1 1 auto;
+  min-height: var(--cible-tactile);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-2);
+  padding: 0 var(--esp-3);
+  border-radius: var(--rayon-m);
+  border: 1px solid var(--bordure-forte);
+  background: var(--surface);
+  color: var(--texte);
+  font-size: var(--txt-m);
+  font-weight: 600;
+  cursor: pointer;
+}
+.bouton-outil-primaire {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contraste);
+}
+.bouton-outil-libelle { white-space: nowrap; }
+
+.puce-duree,
+.puce-duree-libre {
+  min-height: var(--cible-mini);
+  padding: 0 var(--esp-3);
+  border-radius: var(--rayon-plein);
+  border: 1px solid var(--bordure-forte);
+  background: var(--surface);
+  color: var(--texte);
+  font-size: var(--txt-s);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.puce-duree[aria-pressed='true'] {
+  background: var(--accent-doux);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.liste-tours { display: flex; flex-direction: column; gap: var(--esp-1); max-height: 40vh; overflow-y: auto; }
+.tour {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  gap: var(--esp-2);
+  align-items: baseline;
+  padding: var(--esp-2);
+  border-radius: var(--rayon-s);
+  background: var(--surface);
+}
+.tour-rang { color: var(--texte-attenue); font-size: var(--txt-xs); font-variant-numeric: tabular-nums; }
+.tour-temps { font-weight: 600; font-variant-numeric: tabular-nums; }
+.tour-ecart { color: var(--texte-attenue); font-size: var(--txt-s); font-variant-numeric: tabular-nums; }
+.tours-vide { color: var(--texte-attenue); font-size: var(--txt-s); text-align: center; padding: var(--esp-3); }
+
+/* Bouton flottant d'ouverture — present sur tous les ecrans, au-dessus de la navigation. */
+.bouton-minuteur-flottant {
+  position: fixed;
+  right: calc(var(--esp-3) + var(--safe-droite));
+  bottom: calc(var(--hauteur-nav) + var(--esp-3) + var(--safe-bas));
+  z-index: var(--z-barre);
+  min-width: var(--cible-tactile);
+  min-height: var(--cible-tactile);
+  padding: 0 var(--esp-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  border-radius: var(--rayon-plein);
+  border: 1px solid var(--bordure-forte);
+  background: var(--surface-haute);
+  color: var(--texte);
+  box-shadow: var(--ombre-2);
+  cursor: pointer;
+}
+/* Quand un compte tourne, le bouton affiche le temps : on n'ouvre pas le tiroir pour savoir. */
+.bouton-minuteur-flottant[data-actif='oui'] {
+  background: var(--accent-doux);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.minuteur-flottant-valeur {
+  font-size: var(--txt-s);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   3. Composeur — packs, grille d'icones, lignes reglables
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.vue-composeur { display: flex; flex-direction: column; gap: var(--esp-4); }
+
+.composeur-nom-bloc { display: flex; flex-direction: column; gap: var(--esp-1); }
+.composeur-nom {
+  font-size: var(--txt-l);
+  font-weight: 700;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  color: var(--texte);
+}
+
+.composeur-recherche { position: relative; display: flex; align-items: center; gap: var(--esp-2); }
+.composeur-recherche-champ {
+  flex: 1;
+  min-height: var(--cible-tactile);
+  padding: 0 var(--esp-3);
+  /* ⚠ 16 px minimum : en dessous, iOS zoome a la focalisation et l'ecran part de travers. */
+  font-size: var(--txt-m);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  color: var(--texte);
+}
+
+.pack-tuile {
+  width: 104px;
+  min-height: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-1);
+  padding: var(--esp-2);
+  border-radius: var(--rayon-l);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  color: var(--texte);
+  cursor: pointer;
+  transition: border-color var(--duree-courte), background var(--duree-courte);
+}
+.pack-tuile[aria-pressed='true'],
+.pack-tuile[data-actif='oui'] {
+  border-color: var(--accent);
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+.pack-tuile-dessin { color: inherit; }
+.pack-tuile-nom { font-size: var(--txt-xs); font-weight: 600; text-align: center; line-height: 1.2; }
+.pack-tuile-compteur { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+
+.composeur-titre-grille {
+  font-size: var(--txt-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+  margin: 0;
+}
+
+.grille-exercices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--esp-2);
+}
+
+.exercice-tuile {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-1);
+  padding: var(--esp-2);
+  border-radius: var(--rayon-l);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  color: var(--texte);
+  cursor: pointer;
+  transition: border-color var(--duree-courte), background var(--duree-courte);
+}
+/* ⚠ L'etat selectionne ne repose PAS uniquement sur la couleur : la bordure s'epaissit ET une
+   pastille de coche apparait. Un ecran ou seule la teinte change est inutilisable pour un
+   daltonien. */
+.exercice-tuile[aria-pressed='true'] {
+  border-color: var(--accent);
+  border-width: 2px;
+  background: var(--accent-doux);
+}
+.exercice-tuile-dessin { color: inherit; }
+.exercice-tuile-nom {
+  font-size: var(--txt-xs);
+  text-align: center;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.exercice-tuile-marque {
+  position: absolute;
+  top: var(--esp-1);
+  right: var(--esp-1);
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--rayon-plein);
+  background: var(--accent);
+  color: var(--accent-contraste);
+  font-size: var(--txt-xs);
+  font-weight: 700;
+}
+
+.grille-vide { padding: var(--esp-5) var(--esp-3); text-align: center; }
+
+.eclair { display: flex; flex-direction: column; gap: var(--esp-2); }
+.eclair-message { font-size: var(--txt-s); color: var(--texte-attenue); }
+.eclair-packs { display: flex; flex-wrap: wrap; gap: var(--esp-2); }
+.eclair-pack {
+  min-height: var(--cible-mini);
+  padding: 0 var(--esp-3);
+  border-radius: var(--rayon-plein);
+  border: 1px solid var(--bordure-forte);
+  background: var(--surface);
+  color: var(--texte);
+  cursor: pointer;
+}
+.eclair-pack[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-doux); color: var(--accent); }
+.eclair-pack-nom { font-size: var(--txt-s); font-weight: 600; }
+
+/* ── Selection : les exercices retenus, en lignes reglables ── */
+.selection { display: flex; flex-direction: column; gap: var(--esp-2); }
+.selection-entete { display: flex; align-items: baseline; justify-content: space-between; gap: var(--esp-2); }
+.selection-titre { font-size: var(--txt-s); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texte-attenue); margin: 0; }
+.selection-compteur { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+.selection-lignes { display: flex; flex-direction: column; gap: var(--esp-2); }
+.selection-vide { padding: var(--esp-4); text-align: center; color: var(--texte-attenue); font-size: var(--txt-s); }
+
+.ligne-exercice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-3);
+  border-radius: var(--rayon-l);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+}
+.ligne-exercice-entete { display: flex; align-items: center; gap: var(--esp-2); }
+.ligne-exercice-dessin { flex: 0 0 auto; color: var(--texte-attenue); }
+.ligne-exercice-titre { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ligne-exercice-nom { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ligne-exercice-pack { font-size: var(--txt-xs); color: var(--texte-attenue); }
+.ligne-exercice-commandes { display: flex; gap: var(--esp-1); flex: 0 0 auto; }
+.ligne-commande,
+.ligne-commande-retirer {
+  min-width: var(--cible-mini);
+  min-height: var(--cible-mini);
+  display: grid;
+  place-items: center;
+  border-radius: var(--rayon-s);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  color: var(--texte);
+  cursor: pointer;
+}
+.ligne-commande-retirer { color: var(--alerte); border-color: var(--alerte); }
+
+.ligne-exercice-reglages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: var(--esp-2);
+}
+.reglage, .reglage-charge, .reglage-libre { display: flex; flex-direction: column; gap: var(--esp-1); min-width: 0; }
+.reglage-libelle { font-size: var(--txt-xs); color: var(--texte-attenue); text-transform: uppercase; letter-spacing: 0.03em; }
+.reglage-controle { display: flex; align-items: center; gap: var(--esp-1); }
+
+.composeur-barre { display: flex; gap: var(--esp-2); }
+.bouton-ajouter {
+  min-height: var(--cible-tactile);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-2);
+  border-radius: var(--rayon-m);
+  border: 1px dashed var(--bordure-forte);
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   4. Accueil — seances en cours, lanceurs, resume
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.bloc-seances-en-cours,
+.bloc-lancement,
+.bloc-semaine,
+.bloc-bienvenue,
+.bloc-rappel-export { display: flex; flex-direction: column; gap: var(--esp-2); }
+
+.carte-seance {
+  width: 264px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-3);
+  border-radius: var(--rayon-l);
+  border: 1px solid var(--accent);
+  background: var(--accent-doux);
+  text-align: left;
+}
+.carte-seance-corps { display: flex; align-items: center; gap: var(--esp-2); }
+.carte-seance-icone { flex: 0 0 auto; color: var(--accent); }
+.carte-seance-textes { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.carte-seance-nom { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.carte-seance-heure,
+.carte-seance-progression,
+.carte-seance-mention { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+.carte-seance-actions { display: flex; gap: var(--esp-2); align-items: center; }
+.carte-seance-reprendre {
+  flex: 1;
+  min-height: var(--cible-tactile);
+  border-radius: var(--rayon-m);
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-contraste);
+  font-weight: 700;
+  cursor: pointer;
+}
+.carte-seance-menu {
+  min-width: var(--cible-tactile);
+  min-height: var(--cible-tactile);
+  display: grid;
+  place-items: center;
+  border-radius: var(--rayon-m);
+  border: 1px solid var(--bordure-forte);
+  background: var(--surface);
+  color: var(--texte);
+  cursor: pointer;
+}
+
+.tuile-detail {
+  width: 148px;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  padding: var(--esp-3);
+  border-radius: var(--rayon-l);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  color: var(--texte);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--ombre-1);
+}
+.tuile-icone { color: var(--accent); }
+.tuile-nom { font-weight: 600; font-size: var(--txt-s); line-height: 1.2; }
+.pastille-origine {
+  font-size: var(--txt-xs);
+  padding: 1px var(--esp-2);
+  border-radius: var(--rayon-plein);
+  background: var(--surface-haute);
+  color: var(--texte-attenue);
+}
+
+.grille-tuiles-chiffrees { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: var(--esp-2); }
+.tuile-chiffre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--esp-2);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+}
+.tuile-chiffre-valeur { font-size: var(--txt-xl); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tuile-chiffre-libelle { font-size: var(--txt-xs); color: var(--texte-attenue); text-transform: uppercase; letter-spacing: 0.03em; text-align: center; }
+
+.etapes-bienvenue { display: flex; flex-direction: column; gap: var(--esp-3); }
+.etape-bienvenue { display: flex; align-items: center; gap: var(--esp-3); }
+.etape-texte { font-size: var(--txt-s); line-height: 1.4; }
+
+.rappel-texte { font-size: var(--txt-s); }
+.rappel-renfort { font-size: var(--txt-s); color: var(--alerte); font-weight: 600; }
+.mention-plafond { font-style: italic; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   5. Routines et modeles
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.vue-routines, .vue-fiche-routine { display: flex; flex-direction: column; gap: var(--esp-4); }
+.bloc-routines, .bloc-modeles-livres { display: flex; flex-direction: column; gap: var(--esp-2); }
+
+.grille-routines { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--esp-2); }
+
+.carte-routine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-3);
+  border-radius: var(--rayon-l);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  box-shadow: var(--ombre-1);
+}
+.carte-routine-corps { display: flex; align-items: center; gap: var(--esp-2); }
+.carte-routine-icone { flex: 0 0 auto; color: var(--accent); }
+.carte-routine-textes { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.carte-routine-nom { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.carte-routine-resume { font-size: var(--txt-xs); color: var(--texte-attenue); }
+.carte-routine-pastilles { display: flex; flex-wrap: wrap; gap: var(--esp-1); }
+.carte-routine-actions { display: flex; gap: var(--esp-1); }
+
+.item-routine {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--rayon-m);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+}
+.item-routine-icone { flex: 0 0 auto; color: var(--texte-attenue); }
+.item-routine-textes { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.item-routine-nom { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-routine-resume, .item-routine-mode { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+.liste-items-routine { display: flex; flex-direction: column; gap: var(--esp-1); }
+
+.fiche-entete { display: flex; align-items: center; gap: var(--esp-3); }
+.fiche-icone { flex: 0 0 auto; color: var(--accent); }
+.fiche-textes { display: flex; flex-direction: column; gap: var(--esp-1); min-width: 0; }
+.fiche-titre { font-size: var(--txt-xl); font-weight: 700; margin: 0; }
+.fiche-resume, .fiche-description { font-size: var(--txt-s); color: var(--texte-attenue); }
+.fiche-pastilles { display: flex; flex-wrap: wrap; gap: var(--esp-1); }
+
+.pastille-archive {
+  font-size: var(--txt-xs);
+  padding: 1px var(--esp-2);
+  border-radius: var(--rayon-plein);
+  background: var(--surface-haute);
+  color: var(--texte-attenue);
+}
+
+/* La garantie « modifier une routine ne change RIEN a l'historique » : c'est ce qui rassure sur
+   l'edition, elle doit se voir. */
+.bandeau-garantie {
+  display: flex;
+  gap: var(--esp-2);
+  padding: var(--esp-3);
+  border-radius: var(--rayon-m);
+  background: var(--succes-doux);
+  border: 1px solid var(--succes);
+  color: var(--texte);
+}
+.bandeau-archives {
+  display: flex;
+  gap: var(--esp-2);
+  padding: var(--esp-3);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  border: 1px solid var(--bordure);
+}
+
+.zone-actions-routine { display: flex; flex-wrap: wrap; gap: var(--esp-2); }
+.action-nouvelle-routine {
+  min-height: var(--cible-tactile);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-2);
+  padding: 0 var(--esp-4);
+  border-radius: var(--rayon-m);
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-contraste);
+  font-weight: 700;
+  cursor: pointer;
+}
+.etat-vide-routines { padding: var(--esp-5) var(--esp-3); text-align: center; color: var(--texte-attenue); }
+
+.bouton-icone-danger {
+  min-width: var(--cible-mini);
+  min-height: var(--cible-mini);
+  display: grid;
+  place-items: center;
+  border-radius: var(--rayon-s);
+  border: 1px solid var(--alerte);
+  background: var(--surface);
+  color: var(--alerte);
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   6. Progression — exercices pratiques en icones, comparaison multi-courbes
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.bloc-exercices { display: flex; flex-direction: column; gap: var(--esp-2); }
+
+.tuile-exercice {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: var(--esp-2);
+  border-radius: var(--rayon-l);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  color: var(--texte);
+  cursor: pointer;
+}
+.tuile-exercice[aria-pressed='true'] { border-color: var(--accent); border-width: 2px; background: var(--accent-doux); }
+.tuile-exercice-nom {
+  font-size: var(--txt-xs);
+  text-align: center;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tuile-exercice-meta { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+
+.barre-comparaison {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  border: 1px solid var(--bordure);
+}
+.bouton-comparer {
+  min-height: var(--cible-mini);
+  padding: 0 var(--esp-3);
+  border-radius: var(--rayon-plein);
+  border: 1px solid var(--bordure-forte);
+  background: var(--surface);
+  color: var(--texte);
+  font-weight: 600;
+  cursor: pointer;
+}
+.bouton-comparer[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-doux); color: var(--accent); }
+
+.puce-comparaison {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: 2px var(--esp-2);
+  border-radius: var(--rayon-plein);
+  background: var(--surface);
+  border: 1px solid var(--bordure-forte);
+}
+.puce-comparaison-nom { font-size: var(--txt-xs); }
+
+.hote-courbe { min-height: 210px; }
+
+/* ── Legende du graphe multi-series ── */
+.courbe-legende { display: flex; flex-wrap: wrap; gap: var(--esp-2); margin-top: var(--esp-2); }
+.courbe-legende-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  min-height: var(--cible-mini);
+  padding: 0 var(--esp-2);
+  border-radius: var(--rayon-plein);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  color: var(--texte);
+  cursor: pointer;
+}
+/* Une serie masquee se distingue par l'opacite ET par le barre du texte : pas seulement la teinte. */
+.courbe-legende-item[aria-pressed='false'] { opacity: 0.5; }
+.courbe-legende-item[aria-pressed='false'] .courbe-legende-nom { text-decoration: line-through; }
+.courbe-legende-marque { width: 12px; height: 12px; flex: 0 0 auto; }
+.courbe-legende-nom { font-size: var(--txt-xs); }
+
+/* Comparer des kilos a des minutes n'a pas de sens : on le REFUSE explicitement plutot que de
+   tracer un graphe absurde. */
+.courbe-refus {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  padding: var(--esp-4);
+  text-align: center;
+  border-radius: var(--rayon-m);
+  border: 1px dashed var(--bordure-forte);
+  background: var(--surface-haute);
+}
+.courbe-refus-titre { font-weight: 700; }
+.courbe-refus-texte { font-size: var(--txt-s); color: var(--texte-attenue); }
+.courbe-serie { fill: none; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   7. Historique
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.historique-rangee { display: flex; align-items: center; gap: var(--esp-2); width: 100%; }
+.historique-vignette { flex: 0 0 auto; display: grid; place-items: center; color: var(--texte-attenue); }
+.historique-icones { display: flex; align-items: center; gap: 2px; }
+.historique-icone-exercice { color: var(--texte-attenue); }
+.historique-icones-reste { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+.historique-supprimer {
+  min-width: var(--cible-mini);
+  min-height: var(--cible-mini);
+  display: grid;
+  place-items: center;
+  border-radius: var(--rayon-s);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  color: var(--alerte);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.historique-chargement { padding: var(--esp-3); text-align: center; color: var(--texte-attenue); font-size: var(--txt-s); }
+
+/* Une seance ABANDONNEE reste visible : la pastille dit pourquoi elle n'est dans aucune courbe. */
+.pastille-statut {
+  font-size: var(--txt-xs);
+  padding: 1px var(--esp-2);
+  border-radius: var(--rayon-plein);
+  background: var(--alerte-doux);
+  color: var(--alerte);
+  white-space: nowrap;
+}
+
+.confirmation { display: flex; flex-direction: column; gap: var(--esp-2); }
+.confirmation-texte { font-size: var(--txt-m); }
+.confirmation-consequence { font-size: var(--txt-s); color: var(--alerte); font-weight: 600; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   8. Seance et detail
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* v2 : la barre d'action n'a plus de zone minuteur. Le bouton primaire prend toute la largeur,
+   ce qui agrandit la cible la plus utilisee de l'application. */
+.barre-action-pleine { width: 100%; }
+
+.menu-seance { display: flex; flex-direction: column; gap: var(--esp-1); }
+.menu-seance-item {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: var(--cible-tactile);
+  padding: var(--esp-2) var(--esp-3);
+  border-radius: var(--rayon-m);
+  border: 0;
+  background: none;
+  color: var(--texte);
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+.menu-seance-icone { flex: 0 0 auto; color: var(--texte-attenue); }
+.menu-seance-textes { display: flex; flex-direction: column; }
+.menu-seance-separateur { height: 1px; background: var(--bordure); margin: var(--esp-1) 0; }
+
+.carte-detail-seance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-3);
+  border-radius: var(--rayon-l);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+}
+.detail-titre-rangee { display: flex; align-items: center; gap: var(--esp-2); flex-wrap: wrap; }
+.detail-titre { font-size: var(--txt-l); font-weight: 700; margin: 0; }
+.mention-statut { font-size: var(--txt-s); color: var(--texte-attenue); }
+.entree-entete { display: flex; align-items: center; gap: var(--esp-2); }
+.entree-vignette { flex: 0 0 auto; color: var(--texte-attenue); }
+.bouton-danger-doux {
+  min-height: var(--cible-tactile);
+  padding: 0 var(--esp-3);
+  border-radius: var(--rayon-m);
+  border: 1px solid var(--alerte);
+  background: var(--surface);
+  color: var(--alerte);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   8 bis. Seance en TABLEAU — colonne gauche = exercice, colonnes = series
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tableau-seance { display: flex; flex-direction: column; gap: var(--esp-3); }
+
+/* Bandeau du poids de corps : discret, toujours tapable. */
+.tab-poids {
+  min-height: var(--cible-mini);
+  padding: var(--esp-1) var(--esp-3);
+  border: 0;
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  color: var(--texte-attenue);
+  font-size: var(--txt-s);
+  text-align: center;
+  cursor: pointer;
+}
+
+/* Le tableau defile HORIZONTALEMENT d'un bloc : l'entete et toutes les rangees bougent
+   ensemble, et la colonne des exercices reste collee a gauche (position sticky). */
+.tableau-defile {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-l);
+  background: var(--surface);
+}
+
+.tab-entete,
+.tab-rangee {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  align-items: stretch;
+}
+.tab-corps { display: flex; flex-direction: column; }
+.tab-rangee { border-top: 1px solid var(--bordure); }
+
+/* Colonne de gauche : l'exercice. STICKY pour rester lisible quand les series defilent. */
+.tab-coin,
+.tab-sport {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: 0 0 132px;
+  width: 132px;
+  background: var(--surface);
+  border-right: 1px solid var(--bordure-forte);
+}
+.tab-coin {
+  padding: var(--esp-2);
+  font-size: var(--txt-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+  display: flex;
+  align-items: center;
+}
+.tab-sport {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2);
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 0;
+  color: var(--texte);
+  text-align: left;
+  cursor: pointer;
+  min-height: var(--cible-tactile);
+}
+.tab-sport-dessin { flex: 0 0 auto; color: var(--accent); display: grid; place-items: center; }
+.tab-sport-textes { display: flex; flex-direction: column; min-width: 0; }
+.tab-sport-nom {
+  font-size: var(--txt-s);
+  font-weight: 600;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tab-sport-sous { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+
+.tab-col {
+  flex: 0 0 64px;
+  width: 64px;
+  padding: var(--esp-1);
+  display: grid;
+  place-items: center;
+  font-size: var(--txt-xs);
+  font-weight: 700;
+  color: var(--texte-attenue);
+  font-variant-numeric: tabular-nums;
+}
+
+.tab-cellules { display: flex; align-items: stretch; }
+
+/* Une case de serie : LA cible tactile du tableau. Les etats passent par data-etat, pas par des
+   classes (voir l'assertion d'integrite de tests.html). */
+.tab-cellule {
+  flex: 0 0 64px;
+  width: 64px;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 0;
+  border-left: 1px solid var(--bordure);
+  background: none;
+  color: var(--texte);
+  cursor: pointer;
+}
+.tab-cellule-grand {
+  font-size: var(--txt-l);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;   /* les chiffres ne sautent pas d'une case a l'autre */
+  line-height: 1.1;
+}
+.tab-cellule-petit { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+
+.tab-cellule[data-etat='faite'] { background: var(--succes-doux); }
+.tab-cellule[data-etat='faite'] .tab-cellule-grand { color: var(--succes); }
+.tab-cellule[data-kind='echauffement'] .tab-cellule-grand { color: var(--texte-attenue); }
+.tab-cellule[data-kind='echauffement']::after {
+  content: 'éch.';
+  font-size: 9px;
+  color: var(--texte-attenue);
+  text-transform: uppercase;
+}
+/* En attente : la prochaine case a remplir. Bordure marquee + valeurs fantomes du prefill. */
+.tab-cellule[data-etat='attente'] {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+  border-radius: var(--rayon-s);
+}
+.tab-cellule[data-etat='attente'] .tab-cellule-grand,
+.tab-cellule[data-etat='attente'] .tab-cellule-petit { color: var(--texte-attenue); opacity: 0.75; }
+.tab-cellule[data-etat='ratee'] .tab-cellule-grand { color: var(--alerte); }
+.tab-cellule[data-etat='future'] .tab-cellule-grand { color: var(--texte-attenue); opacity: 0.45; font-weight: 400; }
+.tab-plus { color: var(--accent); font-size: var(--txt-xl); font-weight: 700; }
+
+/* ── Editeur de cellule (feuille) ── */
+.editeur-serie { display: flex; flex-direction: column; gap: var(--esp-3); }
+.editeur-champ { display: flex; flex-direction: column; gap: var(--esp-1); }
+.editeur-libelle {
+  font-size: var(--txt-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--texte-attenue);
+}
+.editeur-stepper { display: flex; }
+.editeur-options { display: flex; gap: var(--esp-2); flex-wrap: wrap; }
+.editeur-actions { display: flex; gap: var(--esp-2); flex-wrap: wrap; margin-top: var(--esp-2); }
+.editeur-actions .bouton { flex: 1 1 auto; }
+
+.puce-echauf {
+  min-height: var(--cible-mini);
+  padding: 0 var(--esp-3);
+  border-radius: var(--rayon-plein);
+  border: 1px solid var(--bordure-forte);
+  background: var(--surface);
+  color: var(--texte);
+  font-size: var(--txt-s);
+  font-weight: 600;
+  cursor: pointer;
+}
+.puce-echauf[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   9. Accessibilite et mouvement
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .tiroir,
+  .tiroir-minuteur,
+  .tiroir-voile,
+  .pack-tuile,
+  .exercice-tuile {
+    transition-duration: 0.01ms !important;
+  }
+}

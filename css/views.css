@@ -1,0 +1,736 @@
+/* views.css — mise en page de la coquille et de chaque ecran.
+   Regle de decoupage : tout ce qui est reutilise par deux ecrans vit dans components.css ; ici on
+   ne trouve que du placement. Une vue construit son DOM UNE FOIS au montage, donc ces regles ne
+   sont evaluees qu'a l'entree sur l'ecran. */
+
+/* ═════════════════════════════ Coquille (zone A) ═════════════════════════════ */
+/* Ecrite en dur dans index.html et JAMAIS reconstruite : le JS n'y mute que du textContent, des
+   classes et des attributs. */
+
+/* ⚠ Cet element EXISTE dans index.html et doit y rester : deux comportements en dependent —
+   le masquage de la navigation basse pendant une seance et le lisere de fin de repos, tous deux
+   pilotes par un data-* pose sur .coquille par views/seance.js et ui/timer-view.js. */
+.coquille {
+  display: flex;
+  flex-direction: column;
+  /* 100% et non 100dvh : <body> mesure deja 100dvh MOINS les encoches (il les porte en padding).
+     Un second 100dvh ici depasserait de la hauteur des encoches et pousserait la navigation
+     basse sous le bord de l'ecran sur iPhone. */
+  height: 100%;
+  overflow: hidden;
+}
+
+.entete {
+  display: grid;
+  grid-template-columns: var(--cible-mini) 1fr var(--cible-mini);
+  align-items: center;
+  gap: var(--esp-2);
+  min-height: var(--hauteur-entete);
+  padding: 0 var(--esp-2);
+  background: var(--surface);
+  border-bottom: 1px solid var(--bordure);
+  /* L'en-tete est un frere de <main>, pas un element colle a l'interieur : c'est ce qui garantit
+     qu'il reste visible quel que soit le defilement de la vue, sans position: sticky ni les
+     artefacts de repeinte qui vont avec sur WebKit. */
+  flex: 0 0 auto;
+}
+
+/* Colonne centrale de l'en-tete. La placer EXPLICITEMENT est necessaire : les deux boutons sont
+   `hidden` sur la plupart des ecrans, et sans cette regle le placement automatique ferait tomber
+   le titre dans la premiere colonne, large de 44 px seulement.
+   `min-width: 0` est ce qui autorise l'ellipse du titre : sans lui, la piste 1fr s'elargit a la
+   taille du texte et un nom de modele long deborde de l'en-tete. */
+.entete-textes {
+  grid-column: 2;
+  min-width: 0;
+  text-align: center;
+}
+
+.entete-titre {
+  font-size: var(--txt-l);
+  font-weight: 700;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entete-sous-titre {
+  display: block;
+  font-size: var(--txt-xs);
+  font-weight: 500;
+  color: var(--texte-attenue);
+}
+
+.entete-bouton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--cible-mini);
+  min-height: var(--cible-mini);
+  border-radius: var(--rayon-s);
+  color: var(--texte);
+  font-size: var(--txt-l);
+}
+
+/* <main> : l'unique zone montee/demontee par le routeur (zone B). */
+.vue-conteneur {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Chaque vue pose sa propre respiration ; la marge basse est calculee par ecran plus bas, en
+   fonction de ce qui est fixe au-dessus d'elle (nav basse ou barre d'action). */
+.vue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+  max-width: var(--largeur-max);
+  margin: 0 auto;
+  padding: var(--esp-4) var(--esp-3);
+}
+
+.section-titre {
+  font-size: var(--txt-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+}
+
+/* ═════════════════════════════ Navigation basse ═════════════════════════════ */
+/* 4 onglets. Elle est en BAS et non en haut : le pouce d'une main tenant un telephone de 6,5"
+   n'atteint pas le tiers superieur de l'ecran. */
+
+.nav-basse {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  min-height: var(--hauteur-nav);
+  background: var(--surface);
+  border-top: 1px solid var(--bordure);
+  padding-bottom: var(--safe-bas);
+}
+
+.nav-onglet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--hauteur-nav);
+  color: var(--texte-attenue);
+  font-size: var(--txt-xs);
+  font-weight: 600;
+}
+
+.nav-onglet-icone {
+  font-size: var(--txt-l);
+  line-height: 1;
+}
+
+/* Libelle de l'onglet : une seule ligne, quoi qu'il arrive. « Progression » sur un quart de
+   360 px passerait sur deux lignes et ferait grandir la barre sous le pouce. */
+.nav-onglet-nom {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+/* Les deux selecteurs disent la meme chose : le routeur pose aria-current ET la classe
+   `est-actif` sur l'onglet courant. */
+.nav-onglet[aria-current='page'],
+.nav-onglet.est-actif {
+  color: var(--accent);
+}
+
+/* ⚠ La navigation basse est MASQUEE pendant une seance : la barre d'action y prend sa place, et
+   deux barres empilees en bas coutent 130 px de liste de series sur un ecran de 640 px. */
+.coquille[data-seance='active'] .nav-basse {
+  display: none;
+}
+
+/* ═════════════════════════════ Accueil ═════════════════════════════ */
+
+.vue-accueil .reprendre {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--esp-2);
+  padding: var(--esp-4);
+  border-radius: var(--rayon-l);
+  border: 1px solid var(--accent);
+  background: var(--accent-doux);
+}
+
+.vue-accueil .reprendre-mention {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+/* Les 6 modeles livres, en colonne : une grille a deux colonnes coupe les noms longs
+   (« Haut du corps — poussee ») et fait tomber la cible sous 56 px de large utile. */
+.vue-accueil .liste-modeles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.vue-accueil .demarrages-libres {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--esp-2);
+}
+
+.vue-accueil .resume-semaine {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--esp-2);
+  text-align: center;
+}
+
+/* Chaque case du resume empile son chiffre et son libelle. Sans cette regle, les deux <span>
+   restent en ligne : « 0 kg » et « TONNAGE » se suivent puis se coupent au milieu, et le mot
+   « kg » se retrouve seul sur la ligne suivante. */
+.vue-accueil .resume-semaine > * {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chiffre-cle {
+  font-size: var(--txt-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  white-space: nowrap;          /* « 0 kg » est une seule valeur : jamais coupee en deux */
+}
+
+.chiffre-cle-libelle {
+  font-size: var(--txt-xs);
+  color: var(--texte-attenue);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+}
+
+/* Rappel d'export au-dela de 30 jours : informatif, jamais modal — il ne doit pas s'interposer
+   entre l'utilisateur et le lancement de sa seance. */
+.vue-accueil .rappel-export {
+  border-color: var(--alerte);
+  background: var(--alerte-doux);
+}
+
+/* ═════════════════════════════ Seance ═════════════════════════════ */
+
+.vue-seance {
+  /* Pas de gap : les accordeons sont colles bord a bord et separes par leurs propres filets. */
+  gap: 0;
+  padding: 0;
+  /* ⚠ Reserve la place de la barre d'action FIXE. Sans cette marge, la derniere serie de la
+     derniere ligne est definitivement inatteignable — et c'est exactement celle qu'on saisit. */
+  padding-bottom: calc(var(--hauteur-barre-action) + var(--safe-bas) + var(--esp-5));
+}
+
+/* En-tete de seance : « Push · 18:42 · Exercice 3/6 ». Repond a « ou j'en suis » sans defiler. */
+.seance-etat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-2);
+  font-size: var(--txt-xs);
+  color: var(--texte-attenue);
+}
+
+.vue-seance .ajouter-exercice {
+  margin: var(--esp-4) var(--esp-3);
+}
+
+/* La feuille d'ajout est un parametre de la route : rien ici ne doit ressembler a une
+   navigation, sous peine de suggerer une perte de contexte a l'utilisateur. */
+.vue-seance .exercice-reporte .accordeon-titre {
+  color: var(--texte-attenue);
+}
+
+/* Ligne cardio en seance : allure calculee affichee sous les steppers, non editable. */
+.allure-calculee {
+  display: flex;
+  align-items: baseline;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+.allure-calculee-valeur {
+  font-size: var(--txt-l);
+  font-weight: 700;
+  color: var(--texte);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═════════════════════════════ Fin de seance ═════════════════════════════ */
+
+.vue-seance-fin .bilan {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--esp-3);
+  text-align: center;
+}
+
+.vue-seance-fin .records-du-jour {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.vue-seance-fin .ressenti {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--esp-2);
+}
+
+.vue-seance-fin .ressenti .bouton {
+  min-height: var(--cible-tactile);
+  padding: 0;
+  font-size: var(--txt-l);
+}
+
+.vue-seance-fin .ressenti .bouton[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-contraste);
+  border-color: transparent;
+}
+
+.zone-notes {
+  width: 100%;
+  min-height: 96px;
+  padding: var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  font-size: max(var(--txt-m), 1rem);
+  resize: vertical;
+}
+
+/* ═════════════════════════════ Historique ═════════════════════════════ */
+
+.vue-historique {
+  gap: var(--esp-5);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* En-tete de mois : colle en haut de la zone defilante, pour garder le repere temporel pendant
+   un defilement long (trois ans de seances). */
+.historique-mois {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--esp-2) var(--esp-4);
+  background: var(--fond);
+  font-size: var(--txt-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+}
+
+.historique-ligne {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  align-items: center;
+  gap: var(--esp-3);
+  width: 100%;
+  min-height: var(--cible-tactile);
+  padding: var(--esp-2) var(--esp-4);
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface);
+  text-align: left;
+}
+
+.historique-jour {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.historique-jour-nombre {
+  display: block;
+  font-size: var(--txt-l);
+  font-weight: 700;
+}
+
+.historique-jour-mois {
+  display: block;
+  font-size: var(--txt-xs);
+  color: var(--texte-attenue);
+}
+
+.historique-resume {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+}
+
+/* ═════════════════════════════ Detail de seance ═════════════════════════════ */
+
+.vue-seance-detail .entete-seance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--esp-3);
+}
+
+/* Le detail affiche le modeleSnapshot TEL QU'IL ETAIT ce jour-la : la mention le rappelle, sinon
+   l'ecart avec le modele actuel passe pour un bug. */
+.vue-seance-detail .mention-snapshot {
+  font-size: var(--txt-xs);
+  color: var(--texte-attenue);
+  font-style: italic;
+}
+
+.vue-seance-detail .entree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  padding: var(--esp-3) 0;
+  border-bottom: 1px solid var(--bordure);
+}
+
+.vue-seance-detail .entree-nom {
+  font-size: var(--txt-m);
+  font-weight: 700;
+}
+
+/* ═════════════════════════════ Progression ═════════════════════════════ */
+
+.vue-progression .selecteur-exercice {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--esp-3);
+  width: 100%;
+  min-height: var(--cible-tactile);
+  padding: 0 var(--esp-4);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  text-align: left;
+  font-weight: 600;
+}
+
+/* Metriques disponibles : issues de MODES[mode].metriques, jamais d'une liste en dur ici. Le
+   defilement horizontal est assume — 4 metriques ne tiennent pas de front sur 360 px. */
+.vue-progression .metriques {
+  display: flex;
+  gap: var(--esp-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: var(--esp-1);
+  scrollbar-width: none;
+}
+
+.vue-progression .metriques::-webkit-scrollbar {
+  display: none;
+}
+
+.vue-progression .metriques .segment {
+  flex: 0 0 auto;
+  padding: 0 var(--esp-3);
+  white-space: nowrap;
+}
+
+/* ⚠ Le tableau des 20 dernieres seances est TOUJOURS sous la courbe : c'est lui qui est
+   reellement consulte, la courbe ne donne que la tendance. */
+.tableau-chrono {
+  font-size: var(--txt-s);
+}
+
+.tableau-chrono th {
+  text-align: left;
+  padding: var(--esp-2) var(--esp-2);
+  border-bottom: 1px solid var(--bordure);
+  color: var(--texte-attenue);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: var(--txt-xs);
+  letter-spacing: 0.03em;
+}
+
+.tableau-chrono td {
+  padding: var(--esp-2);
+  border-bottom: 1px solid var(--bordure);
+}
+
+.tableau-chrono td:last-child,
+.tableau-chrono th:last-child {
+  text-align: right;
+}
+
+/* Valeur non fiable : rendue en attenue et suffixee d'un tilde par le JS. Jamais un chiffre
+   presente comme certain. */
+.tableau-chrono [data-fiable='non'] {
+  color: var(--texte-attenue);
+  font-style: italic;
+}
+
+/* ═════════════════════════════ Exercices ═════════════════════════════ */
+
+.vue-exercices {
+  gap: var(--esp-3);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.vue-exercices .barre-recherche {
+  padding: 0 var(--esp-3);
+}
+
+.vue-exercices .filtres-categorie {
+  display: flex;
+  gap: var(--esp-2);
+  overflow-x: auto;
+  padding: 0 var(--esp-3) var(--esp-1);
+  scrollbar-width: none;
+}
+
+.vue-exercices .filtres-categorie::-webkit-scrollbar {
+  display: none;
+}
+
+.vue-exercices .filtres-categorie .segment {
+  flex: 0 0 auto;
+  padding: 0 var(--esp-3);
+  white-space: nowrap;
+  background: var(--surface-haute);
+}
+
+/* Fiche d'exercice : une definition par ligne, libelle attenue a gauche. */
+.fiche-exercice {
+  display: grid;
+  grid-template-columns: 40% 1fr;
+  gap: var(--esp-2) var(--esp-3);
+  padding: 0 var(--esp-4);
+  font-size: var(--txt-m);
+}
+
+.fiche-exercice dt {
+  color: var(--texte-attenue);
+  font-size: var(--txt-s);
+}
+
+.fiche-exercice dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Une transition de mode refusee explique POURQUOI et propose de creer un nouvel exercice : un
+   refus sec laisserait croire a un bug. */
+.avertissement {
+  margin: var(--esp-3) var(--esp-4);
+  padding: var(--esp-3);
+  border-radius: var(--rayon-m);
+  border: 1px solid var(--alerte);
+  background: var(--alerte-doux);
+  font-size: var(--txt-s);
+}
+
+/* ═════════════════════════════ Modeles ═════════════════════════════ */
+
+.vue-modeles .items-modele {
+  display: flex;
+  flex-direction: column;
+}
+
+.vue-modeles .item-modele {
+  display: grid;
+  grid-template-columns: var(--cible-mini) 1fr var(--cible-mini);
+  align-items: center;
+  gap: var(--esp-2);
+  min-height: var(--cible-tactile);
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--bordure);
+  background: var(--surface);
+}
+
+/* Poignee de reordonnancement : cible dediee de 44 px, sinon le glissement se declenche par
+   erreur au moindre defilement de la liste. */
+.vue-modeles .poignee-ordre {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--cible-mini);
+  min-height: var(--cible-mini);
+  color: var(--texte-attenue);
+  cursor: grab;
+  touch-action: none;
+}
+
+.vue-modeles .item-modele[data-deplace='oui'] {
+  opacity: 0.6;
+  background: var(--accent-doux);
+}
+
+/* ═════════════════════════════ Reglages et aide ═════════════════════════════ */
+
+.vue-reglages {
+  gap: var(--esp-5);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.groupe-reglages {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-top: 1px solid var(--bordure);
+  border-bottom: 1px solid var(--bordure);
+}
+
+.groupe-reglages-titre {
+  padding: 0 var(--esp-4) var(--esp-2);
+  font-size: var(--txt-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+}
+
+/* Actions destructrices (« Reinitialiser », « Remplacer a l'import ») isolees en bas et
+   visuellement distinctes : elles ne doivent jamais etre atteintes par inadvertance. */
+.zone-danger {
+  margin: var(--esp-5) var(--esp-3) 0;
+  padding: var(--esp-4);
+  border: 1px solid var(--alerte);
+  border-radius: var(--rayon-m);
+}
+
+.rapport-import {
+  padding: var(--esp-3);
+  border-radius: var(--rayon-m);
+  background: var(--surface-haute);
+  border: 1px solid var(--bordure);
+  font-size: var(--txt-s);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Aide a l'installation : les etapes sont numerotees et illustrees par du texte uniquement — une
+   capture d'ecran serait fausse a la version suivante d'iOS. */
+.etapes-installation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+  counter-reset: etape;
+}
+
+.etape-installation {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: var(--esp-3);
+  align-items: start;
+}
+
+.etape-installation::before {
+  counter-increment: etape;
+  content: counter(etape);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--rayon-plein);
+  background: var(--accent);
+  color: var(--accent-contraste);
+  font-weight: 700;
+}
+
+/* ═════════════════════════════ Ecrans larges ═════════════════════════════ */
+/* L'application reste mobile d'abord : sur grand ecran on centre et on aere, on ne redispose
+   rien en colonnes. Une mise en page de bureau divergente serait une seconde interface a
+   maintenir pour un usage qui n'existe pas. */
+
+@media (min-width: 700px) {
+  .barre-action,
+  .toast {
+    max-width: var(--largeur-max);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .toast[data-ouvert='oui'] {
+    transform: translateX(-50%);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   CLASSES D'ECRAN POSEES PAR LE JAVASCRIPT — ajoutees apres croisement automatise.
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Accueil : lanceurs de seance et hote du bandeau d'installation ─────────────────────── */
+/* .lanceurs est un CONTENEUR DE SECTION (titre + liste de modeles + demarrages libres), pas une
+   grille de cartes : c'est .liste-modeles et .demarrages-libres, plus bas, qui portent leur
+   propre mise en page. L'empiler verticalement est donc la seule chose a faire ici — une grille
+   a deux colonnes ecrasait les cartes sur 171 px de large, descriptions comprises. */
+.lanceurs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.hote-installation:empty { display: none; }   /* aucun espace reserve si rien a proposer */
+
+/* ── Historique : groupement par mois ───────────────────────────────────────────────────── */
+.liste-mois {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+.historique-groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+.historique-ligne-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;                                /* autorise l'ellipse sur un nom long */
+}
+/* Pastille distinguant une SORTIE CARDIO autonome d'une seance de musculation. */
+.historique-marque {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: 2px var(--esp-2);
+  border-radius: var(--rayon-plein);
+  background: var(--accent-doux);
+  color: var(--accent);
+  font-size: var(--txt-xs);
+  white-space: nowrap;
+}
+
+/* ── Detail d'une seance passee ─────────────────────────────────────────────────────────── */
+.detail-contenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+
+/* ── Ecrans de repli : « en construction » et secours du routeur ────────────────────────── */
+.vue-construction,
+.vue-secours {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-3);
+  padding: var(--esp-5);
+  text-align: center;
+  color: var(--texte-attenue);
+}
