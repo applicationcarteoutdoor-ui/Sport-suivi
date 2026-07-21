@@ -15,7 +15,7 @@
 import { SCHEMA_VERSION, META_ID, MAX_SEANCES_EN_COURS } from '../config.js';
 import * as idb from '../lib/idb.js';
 import * as bus from '../lib/bus.js';
-import { dayKey } from '../lib/dates.js';
+import { dayKey, joursEntre } from '../lib/dates.js';
 import {
   estComptable, valider,
   estSeanceComptable, estSeanceEnCours,
@@ -30,6 +30,7 @@ import {
 import * as catalogue from './catalog.js';
 import * as templates from './templates.js';
 import * as hot from './hot.js';
+import * as prefs from './prefs.js';
 
 // Au-delà de ce délai, une séance restée « en-cours » ne se reprend plus en silence : reprendre
 // une séance d'avant-hier ajouterait des séries d'aujourd'hui à la date d'avant-hier, et le
@@ -180,6 +181,45 @@ export function meta() {
 
 export function historiquePret() {
   return etat.historiqueCharge;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Poids de corps mémorisé (v7)
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠ LOGIQUE UNIQUE, partagée par l'accueil, le composeur et l'écran de séance. Trois copies
+//   locales avaient déjà divergé : le composeur gardait la règle « poids du jour seulement » et
+//   redemandait le poids à chaque séance composée — exactement le bug que la v6 devait éliminer.
+
+export const VALIDITE_POIDS_JOURS = 14;
+
+/**
+ * Dernier poids de corps connu, toutes sources confondues : les séances en mémoire ET la trace
+ * des prefs (posée par la feuille de poids de séance et par la pesée des réglages — le magasin
+ * IndexedDB `poids` n'est pas chargé en mémoire, la trace le représente).
+ * @returns {{kg: number, date: string}|null}
+ */
+export function dernierPoidsConnu() {
+  let meilleur = null;
+  for (const s of seances()) {
+    if (!s || !Number.isFinite(s.poidsDeCorpsKg) || !s.date) continue;
+    if (!meilleur || s.date > meilleur.date) meilleur = { kg: s.poidsDeCorpsKg, date: s.date };
+  }
+  const trace = prefs.lire().dernierPoids;
+  if (trace && Number.isFinite(trace.kg) && trace.date && (!meilleur || trace.date > meilleur.date)) {
+    meilleur = { kg: trace.kg, date: trace.date };
+  }
+  return meilleur;
+}
+
+/**
+ * Poids à geler sur une séance qui démarre, ou null au-delà de 14 jours — c'est le null qui
+ * fait s'ouvrir la feuille de saisie de l'écran de séance, laquelle se pré-remplit alors avec
+ * dernierPoidsConnu(), jamais avec un défaut arbitraire.
+ */
+export function poidsPourNouvelleSeance() {
+  const dernier = dernierPoidsConnu();
+  if (!dernier) return null;
+  return joursEntre(dernier.date, dayKey()) <= VALIDITE_POIDS_JOURS ? dernier.kg : null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

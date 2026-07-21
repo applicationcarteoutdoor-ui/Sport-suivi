@@ -787,14 +787,16 @@
    distinguait. La propriété --serie-couleur, posée en ligne quand l'appelant fournit une couleur
    explicite, garde toujours le dernier mot. Variables de thème uniquement, jamais de couleur en
    dur : la bascule clair/sombre reste gratuite. */
+/* v7 : palette categorique dediee (--graphique-N, tokens.css) — accent/succes sont deux verts
+   depuis le theme v5 et rendaient les series indistinguables (retour utilisateur). */
 .courbe-serie[data-serie='1'],
-.courbe-legende-marque[data-serie='1'] { color: var(--serie-couleur, var(--accent)); }
+.courbe-legende-marque[data-serie='1'] { color: var(--serie-couleur, var(--graphique-1)); }
 .courbe-serie[data-serie='2'],
-.courbe-legende-marque[data-serie='2'] { color: var(--serie-couleur, var(--succes)); }
+.courbe-legende-marque[data-serie='2'] { color: var(--serie-couleur, var(--graphique-2)); }
 .courbe-serie[data-serie='3'],
-.courbe-legende-marque[data-serie='3'] { color: var(--serie-couleur, var(--alerte)); }
+.courbe-legende-marque[data-serie='3'] { color: var(--serie-couleur, var(--graphique-3)); }
 .courbe-serie[data-serie='4'],
-.courbe-legende-marque[data-serie='4'] { color: var(--serie-couleur, var(--texte)); }
+.courbe-legende-marque[data-serie='4'] { color: var(--serie-couleur, var(--graphique-4)); }
 
 /* Comparer des kilos a des minutes n'a pas de sens : on le REFUSE explicitement plutot que de
    tracer un graphe absurde. */
@@ -1298,10 +1300,10 @@
 /* ── Double courbe « Poids + reps » (ui/chart.js a deux echelles Y) ──────────
    Les etiquettes Y de chaque echelle prennent la couleur de LEUR serie via data-serie,
    memes teintes que .courbe-serie : le lien echelle <-> trace se lit d'un coup d'oeil. */
-.courbe-etiquette-y[data-serie='1'] { fill: var(--serie-couleur, var(--accent)); }
-.courbe-etiquette-y[data-serie='2'] { fill: var(--serie-couleur, var(--succes)); }
-.courbe-etiquette-y[data-serie='3'] { fill: var(--serie-couleur, var(--alerte)); }
-.courbe-etiquette-y[data-serie='4'] { fill: var(--serie-couleur, var(--texte)); }
+.courbe-etiquette-y[data-serie='1'] { fill: var(--serie-couleur, var(--graphique-1)); }
+.courbe-etiquette-y[data-serie='2'] { fill: var(--serie-couleur, var(--graphique-2)); }
+.courbe-etiquette-y[data-serie='3'] { fill: var(--serie-couleur, var(--graphique-3)); }
+.courbe-etiquette-y[data-serie='4'] { fill: var(--serie-couleur, var(--graphique-4)); }
 
 /* Bascule « Poids + reps » de la vue progression. */
 .bouton-double-courbe {
@@ -1588,3 +1590,230 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
   font-weight: 600;
 }
 .puce-valeur-texte { pointer-events: none; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   13. v7 — courbes lisibles, composeur aere, navigation superposee
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* « Poids + reps » : DEUX graphes empiles (jamais deux echelles Y sur un meme graphe).
+   Chaque graphe porte un mini-titre a pastille coloree — le lien titre <-> trace. */
+.courbe-pile-titre {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: var(--esp-3) 0 var(--esp-1);
+  font-size: var(--txt-s);
+  font-weight: 700;
+  color: var(--texte);
+}
+.courbe-pile-titre .courbe-legende-marque { font-size: 14px; line-height: 1; }
+
+/* Chaque graphe est ENVELOPPE : la couleur posee ici descend par currentColor jusqu'au trace
+   et aux points — en mono-serie le moteur ne pose aucun groupe .courbe-serie, une regle par
+   serie n'aurait aucune prise (bug attrape en verification navigateur). */
+.courbe-pile { margin-top: var(--esp-2); }
+.courbe-pile-poids .courbe { color: var(--graphique-1); }
+.courbe-pile-reps .courbe { color: var(--graphique-2); }
+
+/* Composeur : le juste milieu (retour v7 — « avant trop d'espace, maintenant trop serre »).
+   Chaque exercice devient une CARTE d'une ligne : respiration interne, icone posee dans une
+   pastille teintee, commandes reduites mais espacees. */
+.selection-lignes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+.ligne-exercice-compacte {
+  min-height: 64px;
+  padding: var(--esp-2) var(--esp-3);
+  gap: var(--esp-3);
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-l);
+  box-shadow: var(--ombre-1);
+}
+.ligne-exercice-compacte .ligne-exercice-dessin {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--rayon-m);
+  background: var(--accent-doux);
+}
+.ligne-exercice-compacte .ligne-commande {
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--texte-attenue);
+}
+.ligne-exercice-compacte .ligne-commande-retirer { color: var(--alerte); }
+.ligne-exercice-compacte .puce-valeur { min-height: 40px; }
+
+/* Navigation superposee (v7) : l'arriere-plan d'une feuille est legerement FLOUTE — la page
+   reste visible derriere, on comprend qu'on n'a pas change d'ecran. */
+.feuille-conteneur[data-ouvert='oui'] {
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+/* Chaque ecran ENTRE en fondu-glisse : la navigation se lit comme une superposition fluide,
+   pas comme un changement de page sec. Desactive avec prefers-reduced-motion (section 9). */
+@keyframes vue-entree {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.vue { animation: vue-entree var(--duree-moyenne) var(--courbe-sortie); }
+
+@media (prefers-reduced-motion: reduce) {
+  .vue { animation: none; }
+  .feuille-conteneur[data-ouvert='oui'] { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   14. v7 — vue anatomique (choisir par muscle)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Bouton « corps humain » : en haut a droite de la zone de choix, au bout de la barre de
+   recherche du composeur. Meme gabarit tactile que le champ qu'il accompagne. */
+.bouton-anatomie {
+  flex: 0 0 auto;
+  min-height: var(--cible-tactile);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  color: var(--accent);
+}
+.bouton-anatomie:active {
+  background: var(--accent-doux);
+  border-color: var(--accent);
+}
+
+/* Les deux ecorches cote a cote (face + dos), centres, largeur bornee : au-dela, la planche
+   devient une affiche et repousse les resultats hors de l'ecran. */
+.silhouette {
+  display: flex;
+  justify-content: center;
+  gap: var(--esp-4);
+  max-width: 340px;
+  margin: 0 auto;
+}
+.silhouette-vue {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 150px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--esp-1);
+}
+.silhouette-dessin {
+  width: 100%;
+  height: auto;
+  color: var(--texte);
+}
+.silhouette-legende {
+  font-size: var(--txt-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--texte-attenue);
+}
+
+/* Contour du corps (non tapable) un peu plus affirme, stries internes en filigrane :
+   c'est le contraste des epaisseurs qui donne l'effet « planche anatomique ». */
+.silhouette-trait { stroke-width: 1.6; }
+.silhouette-strie { stroke-width: 0.7; opacity: 0.5; }
+
+/* Groupes musculaires tapables. fill TRANSPARENT et non none : c'est ce qui rend l'INTERIEUR
+   de la zone sensible au tap, pas seulement son trace ; pointer-events double la garantie. */
+.silhouette-groupe { outline: none; }
+.silhouette-dessin [data-groupe] {
+  fill: transparent;
+  cursor: pointer;
+  pointer-events: all;
+  transition: fill var(--duree-courte);
+}
+.silhouette-dessin [data-groupe]:hover,
+.silhouette-dessin [data-groupe]:focus-visible {
+  fill: var(--accent-doux);
+}
+.silhouette-dessin [data-groupe][data-actif='oui'] {
+  fill: var(--accent-doux);
+  stroke: var(--accent);
+}
+
+/* Corps de la feuille anatomique : silhouette puis resultats, en colonne. */
+.anatomie {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+.anatomie-aide,
+.anatomie-vide {
+  font-size: var(--txt-s);
+  color: var(--texte-attenue);
+  text-align: center;
+  margin: 0;
+}
+.anatomie-resultats { padding-bottom: var(--esp-2); }
+.anatomie-titre {
+  font-size: var(--txt-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+  margin: 0 0 var(--esp-2);
+}
+
+/* Une ligne de resultat : icone, nom (ellipse), lien video, bouton d'ajout — des FRERES,
+   jamais un bouton dans un bouton. */
+.anatomie-ligne {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: 48px;
+  padding: var(--esp-1) 0;
+  border-bottom: 1px solid var(--bordure);
+}
+.anatomie-ligne:last-child { border-bottom: 0; }
+.anatomie-dessin {
+  flex: 0 0 auto;
+  width: 32px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+.anatomie-nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.anatomie-video,
+.anatomie-ajout {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--cible-mini);
+  min-height: var(--cible-mini);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  color: var(--texte-attenue);
+}
+.anatomie-ajout { color: var(--accent); cursor: pointer; }
+/* Etat « deja dans la selection » : coche sur fond teinte — le bouton n'invite plus, il confirme. */
+.anatomie-ajout[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-doux);
+}
+
+/* La feuille peut etre haute : le corps defile (feuille-corps est deja defilable), on resserre
+   juste la respiration au-dessus de la silhouette. */
+.feuille-anatomie .feuille-corps { padding-top: var(--esp-3); }

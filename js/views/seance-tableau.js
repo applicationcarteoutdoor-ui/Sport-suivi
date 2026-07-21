@@ -489,24 +489,11 @@ export function mount(conteneur, params) {
   // Poids de corps, menu, terminer, abandonner
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** Dernier poids connu : seances en memoire + trace des prefs (pesees des reglages). */
-  function dernierPoidsConnu() {
-    let meilleur = null;
-    for (const s of store.seances()) {
-      if (!estNombre(s.poidsDeCorpsKg) || !s.date) continue;
-      if (!meilleur || s.date > meilleur.date) meilleur = { kg: s.poidsDeCorpsKg, date: s.date };
-    }
-    const trace = prefs.lire().dernierPoids;
-    if (trace && estNombre(trace.kg) && trace.date && (!meilleur || trace.date > meilleur.date)) {
-      meilleur = { kg: trace.kg, date: trace.date };
-    }
-    return meilleur;
-  }
-
   function ouvrirPoids() {
     // v6 : pre-rempli avec le DERNIER poids connu, jamais un defaut arbitraire — la feuille ne
-    // s'ouvre d'elle-meme que lorsque le dernier poids date de plus de 14 jours (accueil).
-    const connu = dernierPoidsConnu();
+    // s'ouvre d'elle-meme que lorsque le dernier poids date de plus de 14 jours.
+    // v7 : logique UNIQUE dans le store, partagee avec l'accueil et le composeur.
+    const connu = store.dernierPoidsConnu();
     let valeur = estNombre(seance.poidsDeCorpsKg) ? seance.poidsDeCorpsKg
       : (connu ? connu.kg : 75);
     const hote = h('div', { class: 'editeur-stepper' });

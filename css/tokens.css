@@ -20,6 +20,14 @@
   --accent-contraste: #ffffff; /* texte pose SUR l'accent */
   --accent-doux: #e3f3e9; /* aplat teinte, pour les etats selectionnes */
 
+  /* v7 : palette CATEGORIQUE des series de courbes, validee (bande de luminance, chroma,
+     separation daltonisme, contraste — script du guide dataviz). ⚠ Ne JAMAIS colorer une serie
+     avec accent/succes : depuis le theme vert ce sont deux verts indistinguables — bug vecu. */
+  --graphique-1: #15803d;
+  --graphique-2: #7c3aed;
+  --graphique-3: #b45309;
+  --graphique-4: #0284c7;
+
   --succes: #0e7a52;
   --succes-doux: #dcf3e9;
   --alerte: #c62828;
@@ -53,6 +61,13 @@
     --accent-contraste: #06130b; /* texte SOMBRE sur vert clair : lisible bras tendu en salle */
     --accent-doux: #14301f;
 
+    /* Palette de series du mode sombre : re-validee contre la surface sombre, pas un simple
+       eclaircissement de la palette claire. */
+    --graphique-1: #16a34a;
+    --graphique-2: #8b5cf6;
+    --graphique-3: #d97706;
+    --graphique-4: #0284c7;
+
     --succes: #3ddc97;
     --succes-doux: #16302a;
     --alerte: #ff6b6b;
@@ -82,6 +97,11 @@
   --accent: #4ade80;
   --accent-contraste: #06130b;
   --accent-doux: #14301f;
+
+  --graphique-1: #16a34a;
+  --graphique-2: #8b5cf6;
+  --graphique-3: #d97706;
+  --graphique-4: #0284c7;
 
   --succes: #3ddc97;
   --succes-doux: #16302a;
@@ -113,6 +133,11 @@
   --accent: #15803d;
   --accent-contraste: #ffffff;
   --accent-doux: #e3f3e9;
+
+  --graphique-1: #15803d;
+  --graphique-2: #7c3aed;
+  --graphique-3: #b45309;
+  --graphique-4: #0284c7;
 
   --succes: #0e7a52;
   --succes-doux: #dcf3e9;

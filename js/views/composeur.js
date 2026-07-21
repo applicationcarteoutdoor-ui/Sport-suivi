@@ -37,12 +37,12 @@
 import { h, on, delegate, vider } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import { formatDuree, formatFr } from '../lib/num.js';
-import { dayKey } from '../lib/dates.js';
-import { champsSaisie, pasChamp, nouvelItemModele, nouvelExercice, estComptable, estSeanceComptable } from '../data/schema.js';
+import { champsSaisie, pasChamp, nouvelItemModele, nouvelExercice, estComptable, estSeanceComptable, LIBELLES_CATEGORIES } from '../data/schema.js';
 import { PACKS, PACKS_PAR_ID, exercicesDuPack, compterParPack, packDeLExercice } from '../data/packs.js';
 import * as store from '../data/store.js';
 import * as session from '../domain/session.js';
 import { icone, iconePourExercice } from '../ui/icons.js';
+import { creerSilhouette } from '../ui/silhouette.js';
 import * as keypad from '../ui/keypad.js';
 import * as sheet from '../ui/sheet.js';
 import * as toast from '../ui/toast.js';
@@ -92,16 +92,12 @@ function comparerNoms(a, b) {
 
 /**
  * Poids de corps a geler sur la seance qui demarre, ou null.
- * ⚠ On ne reporte QUE le poids DU JOUR. Un poids d'hier serait faux sans que rien ne le signale,
- *   et il empecherait views/seance.js — a qui appartient cette saisie — de la proposer.
+ * v7 : logique UNIQUE dans store.poidsPourNouvelleSeance (14 jours, seances + trace des prefs).
+ * La copie locale « poids du jour seulement » qui vivait ici redemandait le poids a CHAQUE
+ * seance composee — exactement le bug que la v6 devait eliminer. Ne pas re-localiser.
  */
 function poidsDuJour() {
-  const aujourdHui = dayKey();
-  for (const s of store.seances()) {
-    if (!estNombre(s.poidsDeCorpsKg)) continue;
-    return s.date === aujourdHui ? s.poidsDeCorpsKg : null;
-  }
-  return null;
+  return store.poidsPourNouvelleSeance();
 }
 
 /** Lieu preselectionne : le lieu unique s'il n'y en a qu'un, sinon rien (choisi a la cloture). */
@@ -211,7 +207,8 @@ export function mount(conteneur, params) {
     requete: '',
     ordre: [],           // ids de ligne, dans l'ordre d'execution
     enregistrement: false,
-    feuille: null,       // poignee de la feuille « Créer éclair »
+    feuille: null,       // poignee de la feuille locale ouverte (« Créer éclair » ou anatomie)
+    feuilleNom: null,    // 'creer-eclair' | 'anatomie' | null — quel ?sheet= elle represente
     avertiCharge: false
   };
 
@@ -272,9 +269,20 @@ export function mount(conteneur, params) {
     spellcheck: 'false',
     enterkeyhint: 'search'
   });
+  // v7 : l'autre porte d'entree du choix d'exercice — la VUE ANATOMIQUE. Le bouton vit en haut
+  // a droite de la zone de choix, au bout de la barre de recherche : chercher par NOM ou par
+  // MUSCLE sont deux reponses a la meme question, elles habitent la meme rangee.
+  const boutonAnatomie = h('button', {
+    type: 'button',
+    class: 'bouton-icone bouton-anatomie',
+    'data-action': 'anatomie',
+    'aria-label': 'Choisir par muscle'
+  }, icone('anatomie', { taille: 22 }));
+
   const barreRecherche = h('div', { class: 'composeur-recherche' },
     icone('recherche', { taille: 20, classe: 'composeur-recherche-icone' }),
-    champRecherche
+    champRecherche,
+    boutonAnatomie
   );
 
   // 3. Rangee de packs, a defilement horizontal. Construite une fois : PACKS est une table figee,
@@ -715,6 +723,7 @@ export function mount(conteneur, params) {
     const p = etat.feuille;
     if (!p) return;
     etat.feuille = null;
+    etat.feuilleNom = null;
     try { p.fermer(); } catch (_) { /* deja fermee */ }
   }
 
@@ -812,11 +821,13 @@ export function mount(conteneur, params) {
       detacher.length = 0;
       if (!etat.feuille) return;
       etat.feuille = null;
+      etat.feuilleNom = null;
       // Retire ?sheet=… de l'URL. Sans cela, fermer par Echap ou par le voile laisserait le
       // parametre en place, et le retour d'Android rouvrirait la feuille qu'on vient de fermer.
       if (!etat.detruit) router.fermerFeuille();
     }
 
+    etat.feuilleNom = 'creer-eclair';
     etat.feuille = sheet.ouvrir({
       titre: 'Créer un exercice',
       classe: 'feuille-eclair',
@@ -830,6 +841,106 @@ export function mount(conteneur, params) {
         // disparaitrait avec le message d'erreur.
         { libelle: 'Créer et ajouter', variante: 'primaire', fermeApres: false, action: creer }
       ]
+    }) || null;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Feuille « Choisir par muscle » — la vue anatomique (v7)
+  // ───────────────────────────────────────────────────────────────────────────
+  // Deux ecorches (face et dos, ui/silhouette.js) aux groupes musculaires tapables : toucher un
+  // muscle liste les exercices ACTIFS de sa categorie, chacun avec un lien video YouTube et un
+  // bouton d'ajout qui reutilise ajouterExercice() — la meme logique que le tap d'une tuile de
+  // la grille, jamais dupliquee. La feuille RESTE ouverte pour enchainer plusieurs muscles ;
+  // elle se ferme par la croix (ou Echap / voile), et destroy() la ferme via fermerFeuille().
+
+  function ouvrirFeuilleAnatomie() {
+    if (etat.feuille) return;
+
+    const zoneResultats = h('div', { class: 'anatomie-resultats' },
+      h('p', { class: 'anatomie-aide' }, 'Touche un muscle pour voir les exercices qui le travaillent.'));
+
+    // Peint l'etat du bouton d'ajout d'une ligne. Pas de bascule : un exercice deja dans la
+    // selection reste affiche « ajouté » (coche), le retrait se fait depuis la liste elle-meme.
+    function peindreEtatAjout(bouton, dejaLa, nom) {
+      bouton.setAttribute('aria-pressed', dejaLa ? 'true' : 'false');
+      bouton.setAttribute('aria-label', (dejaLa ? 'Déjà dans la sélection : ' : 'Ajouter ') + nom);
+      vider(bouton);
+      bouton.appendChild(icone(dejaLa ? 'coche' : 'plus', { taille: 20 }));
+    }
+
+    function peindreResultats(categorie) {
+      vider(zoneResultats);
+      zoneResultats.appendChild(h('h3', { class: 'anatomie-titre' },
+        LIBELLES_CATEGORIES[categorie] || categorie));
+
+      const trouves = store.exercices()
+        .filter((ex) => ex && ex.categorie === categorie && ex.archived !== true)
+        .sort(comparerNoms);
+
+      if (!trouves.length) {
+        zoneResultats.appendChild(h('p', { class: 'anatomie-vide' },
+          'Aucun exercice actif dans cette catégorie.'));
+        return;
+      }
+
+      for (const ex of trouves) {
+        const boutonAjout = h('button', {
+          type: 'button',
+          class: 'anatomie-ajout',
+          'data-ajout': ex.id
+        });
+        peindreEtatAjout(boutonAjout, parExercice.has(ex.id), ex.nom);
+
+        // ⚠ Jamais de bouton dans un bouton : la ligne est un simple <div>, le lien video et le
+        //   bouton d'ajout sont ses FRERES — chaque cible tactile est independante.
+        zoneResultats.appendChild(h('div', { class: 'anatomie-ligne' },
+          h('span', { class: 'anatomie-dessin' }, icone(iconePourExercice(ex), { taille: 24 })),
+          h('span', { class: 'anatomie-nom' }, ex.nom),
+          h('a', {
+            class: 'anatomie-video',
+            href: 'https://www.youtube.com/results?search_query='
+              + encodeURIComponent(ex.nom + ' musculation technique'),
+            target: '_blank',
+            rel: 'noopener',
+            'aria-label': 'Vidéo : ' + ex.nom
+          }, icone('lecture', { taille: 20 })),
+          boutonAjout
+        ));
+      }
+    }
+
+    // creerSilhouette pose lui-meme data-actif='oui' sur le groupe touche (et le retire des
+    // autres) avant de rappeler onGroupe : ici il ne reste qu'a peindre les resultats.
+    const silhouette = creerSilhouette({ onGroupe: peindreResultats });
+    const corps = h('div', { class: 'anatomie' }, silhouette.element, zoneResultats);
+
+    // Un seul ecouteur d'ajout, pose sur la zone de resultats : il survit a ses reconstructions
+    // (la delegation lit le DOM au moment du clic, pas au moment de la pose).
+    const detacher = [];
+    detacher.push(delegate(zoneResultats, 'click', '[data-ajout]', (ev, cible) => {
+      const ex = store.exercice(cible.getAttribute('data-ajout'));
+      if (!ex) return;
+      if (!parExercice.has(ex.id)) ajouterExercice(ex);
+      peindreEtatAjout(cible, true, ex.nom);
+    }));
+
+    function nettoyer() {
+      for (const off of detacher) { try { off(); } catch (_) { /* deja detache */ } }
+      detacher.length = 0;
+      if (!etat.feuille) return;
+      etat.feuille = null;
+      etat.feuilleNom = null;
+      // Meme synchronisation d'URL que la feuille « Créer éclair » : fermer par la croix, Echap
+      // ou le voile doit retirer ?sheet=… pour que le retour d'Android ne la rouvre pas.
+      if (!etat.detruit) router.fermerFeuille();
+    }
+
+    etat.feuilleNom = 'anatomie';
+    etat.feuille = sheet.ouvrir({
+      titre: 'Choisir par muscle',
+      classe: 'feuille-anatomie',
+      contenu: corps,
+      onFermer: nettoyer
     }) || null;
   }
 
@@ -971,6 +1082,7 @@ export function mount(conteneur, params) {
     }
 
     if (action === 'creer-eclair') { router.ouvrirFeuille('creer-eclair'); return; }
+    if (action === 'anatomie') { router.ouvrirFeuille('anatomie'); return; }
     if (action === 'valider') { finaliser(); return; }
   }));
 
@@ -1043,6 +1155,7 @@ export function mount(conteneur, params) {
 
   // Feuille demandee des l'URL d'entree (lien partage, rechargement) : elle s'ouvre au montage.
   if (params && params.sheet === 'creer-eclair') ouvrirFeuilleEclair();
+  else if (params && params.sheet === 'anatomie') ouvrirFeuilleAnatomie();
 
   // ───────────────────────────────────────────────────────────────────────────
   // Contrat de vue
@@ -1055,9 +1168,13 @@ export function mount(conteneur, params) {
      */
     onParams(p) {
       if (etat.detruit) return;
-      const veutFeuille = !!(p && p.sheet === 'creer-eclair');
-      if (veutFeuille && !etat.feuille) ouvrirFeuilleEclair();
-      else if (!veutFeuille && etat.feuille) fermerFeuille();
+      // Deux feuilles locales partagent le parametre ?sheet= : celle qui correspond au nom
+      // demande reste (ou s'ouvre), toute autre se ferme d'abord — une seule feuille a la fois.
+      const nom = p && (p.sheet === 'creer-eclair' || p.sheet === 'anatomie') ? p.sheet : null;
+      if (nom === etat.feuilleNom) return;
+      if (etat.feuille) fermerFeuille();
+      if (nom === 'creer-eclair') ouvrirFeuilleEclair();
+      else if (nom === 'anatomie') ouvrirFeuilleAnatomie();
     },
 
     destroy() {

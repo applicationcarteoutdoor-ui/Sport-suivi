@@ -48,7 +48,8 @@ const MARGE_BAS = 22;     // place des etiquettes X, jamais inclinees
 const MARGE_GAUCHE = 8;
 const MARGE_DROITE = 8;
 
-const RAYON_POINT = 3;    // ⚠ points TOUJOURS visibles : la ligne seule ment sur la densite reelle
+const RAYON_POINT = 4;    // ⚠ points TOUJOURS visibles : la ligne seule ment sur la densite reelle
+                          //   (v7 : 8 px de diametre, le plancher des specs de dataviz)
 
 const MAX_GRADUATIONS_Y = 4;
 const CIBLE_GRADUATIONS_Y = 3;

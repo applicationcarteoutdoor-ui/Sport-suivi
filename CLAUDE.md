@@ -139,7 +139,33 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-21, v6 livrée)
+## État et risques connus (2026-07-22, v7 livrée)
+
+- v7 en ligne :
+  · **« Séance libre » supprimée** de l'accueil (doublon de Composer — composer sans enregistrer
+    EST la séance libre). Le libellé « Séance libre » reste pour nommer une séance sans modèle.
+  · **Vue anatomique** : bouton `bouton-anatomie` dans le composeur → feuille routée
+    (`?sheet=anatomie`) avec silhouettes face/dos (`js/ui/silhouette.js`, groupes `data-groupe`
+    = catégories de `CATEGORIES`) ; tap muscle → liste des exercices (lien vidéo YouTube
+    `target=_blank`, bouton d'ajout qui réutilise `ajouterExercice()`). Icône `anatomie`
+    ajoutée (77 clés).
+  · **Courbes** : palette catégorique dédiée `--graphique-1..4` (tokens.css, validée daltonisme
+    et contraste clair/sombre — NE JAMAIS colorer une série avec accent/succès, deux verts
+    depuis la v5). « Poids + reps » = DEUX graphes EMPILÉS (`courbe-pile-poids` /
+    `courbe-pile-reps`, couleur posée sur l'ENVELOPPE : en mono-série le moteur ne pose aucun
+    groupe `.courbe-serie`). Plus JAMAIS de double axe Y. Points r=4.
+  · **Poids de corps** : logique UNIQUE `store.dernierPoidsConnu()` /
+    `store.poidsPourNouvelleSeance()` (14 jours) — trois copies locales avaient divergé (le
+    composeur redemandait le poids à chaque séance). Ne pas re-localiser.
+  · **Navigation** : fond FLOUTÉ derrière les feuilles (`backdrop-filter` sur
+    `.feuille-conteneur[data-ouvert]`), entrée des vues en fondu-glissé (`vue-entree`),
+    désactivés par prefers-reduced-motion.
+  · **Composeur** : chaque exercice = carte d'UNE ligne 64px (`ligne-exercice-compacte`)
+    — c'est le « juste milieu » validé après deux allers-retours (v6 trop serré).
+  · **Auto-réparation du précache** (`ui/update.js`) : un SW actif SANS cache `muscu-shell-*`
+    (éviction, purge partielle) répondait « à jour » pour toujours, hors-ligne mort. Désormais
+    `verifier()` détecte l'absence de coquille et rejoue PRECACHE+ACTIVER en silence
+    (`etat.reparationVersion`). État réellement rencontré en dev.
 
 - v6 en ligne :
   · **Séances types** remplacent les favoris : le « + » (historique, détail) crée une routine

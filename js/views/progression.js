@@ -521,21 +521,45 @@ export function mount(conteneur, params = {}) {
     const seances = store.seances();
 
     // ── Mode « Poids + reps » : charge et repetitions du MEME exercice ───────
-    // Deux unites distinctes : ui/chart.js leur donne une echelle Y chacune (kg a gauche,
-    // repetitions a droite). Les seances abandonnees restent exclues par le domaine.
+    // v7 : DEUX graphes EMPILES qui partagent la lecture du temps — plus jamais deux echelles Y
+    // sur un meme graphe (anti-pattern n°1 de dataviz, et retour utilisateur : « on ne comprend
+    // rien, les courbes ont la meme couleur »). Chaque graphe porte son titre et sa couleur.
     if (modeDouble && doublePossible()) {
       const id = principal();
       const cle = cleChargeDouble();
       const stCharge = serieTemporelle(seances, id, cle, bornes);
       const stReps = serieTemporelle(seances, id, 'reps-max', bornes);
       afficherAvis(stCharge.message || null);
-      courbe = renderLineChart(hoteCourbe, {
-        series: [
-          { id: id + ':charge', libelle: LIBELLES_METRIQUES[cle] || 'Charge', points: stCharge.points, unite: stCharge.unite },
-          { id: id + ':reps', libelle: LIBELLES_METRIQUES['reps-max'] || 'Répétitions max', points: stReps.points, unite: stReps.unite }
-        ],
-        sens: 'haut'
+
+      const titrePile = (rang, texte) => h('p', { class: 'courbe-pile-titre' },
+        h('span', { class: 'courbe-legende-marque', 'data-serie': String(rang), 'aria-hidden': 'true' }, '●'),
+        h('span', null, texte));
+
+      // ⚠ La couleur passe par l'ENVELOPPE (currentColor traverse tout le SVG du moteur) : en
+      //   rendu mono-serie le moteur ne pose pas de groupe .courbe-serie, une regle par serie
+      //   n'aurait aucune prise. Pastille du titre et trace partagent donc la meme source.
+      const enveloppePoids = h('div', { class: 'courbe-pile courbe-pile-poids' },
+        titrePile(1, (LIBELLES_METRIQUES[cle] || 'Charge') + (stCharge.unite ? ' (' + stCharge.unite + ')' : '')));
+      hoteCourbe.appendChild(enveloppePoids);
+      const cCharge = renderLineChart(enveloppePoids, {
+        points: stCharge.points, unite: stCharge.unite, sens: 'haut', hauteur: 180
       });
+
+      const enveloppeReps = h('div', { class: 'courbe-pile courbe-pile-reps' },
+        titrePile(2, 'Répétitions (max par séance)'));
+      hoteCourbe.appendChild(enveloppeReps);
+      const cReps = renderLineChart(enveloppeReps, {
+        points: stReps.points, unite: stReps.unite, sens: 'haut', hauteur: 150
+      });
+
+      courbe = {
+        detruire() {
+          try { cCharge.detruire(); } catch (_) { /* deja detruit */ }
+          try { cReps.detruire(); } catch (_) { /* deja detruit */ }
+          if (enveloppePoids.parentNode) enveloppePoids.parentNode.removeChild(enveloppePoids);
+          if (enveloppeReps.parentNode) enveloppeReps.parentNode.removeChild(enveloppeReps);
+        }
+      };
       return;
     }
 

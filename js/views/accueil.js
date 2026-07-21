@@ -61,37 +61,14 @@ function seancesTerminees() {
   return store.seances().filter(estSeanceComptable);
 }
 
-// v6 : le poids de corps n'est plus demande a chaque seance (retour utilisateur). Un poids
-// enregistre — en seance ou dans les reglages — reste valable 14 jours.
-const VALIDITE_POIDS_JOURS = 14;
-
-/**
- * Dernier poids de corps connu, toutes sources confondues : les seances chargees en memoire et
- * la trace des prefs (posee par la feuille de poids ET par la pesee des reglages — le magasin
- * IDB `poids` n'est pas charge en memoire, la trace le represente).
- */
-function dernierPoidsConnu() {
-  let meilleur = null;
-  for (const s of store.seances()) {
-    if (!estNombre(s.poidsDeCorpsKg) || !s.date) continue;
-    if (!meilleur || s.date > meilleur.date) meilleur = { kg: s.poidsDeCorpsKg, date: s.date };
-  }
-  const trace = prefs.lire().dernierPoids;
-  if (trace && estNombre(trace.kg) && trace.date && (!meilleur || trace.date > meilleur.date)) {
-    meilleur = { kg: trace.kg, date: trace.date };
-  }
-  return meilleur;
-}
-
 /**
  * Poids a geler sur la seance qui demarre, ou null.
- * Null au-dela de 14 jours : c'est ce qui fait s'ouvrir la feuille de saisie de l'ecran de
- * seance — laquelle se pre-remplit alors avec le dernier poids connu, pas avec un defaut.
+ * v7 : la logique (14 jours, seances + trace des prefs) vit dans store.poidsPourNouvelleSeance —
+ * LOGIQUE UNIQUE partagee avec le composeur et l'ecran de seance (trois copies locales avaient
+ * diverge : le composeur redemandait le poids a chaque seance).
  */
 function poidsDuJour() {
-  const dernier = dernierPoidsConnu();
-  if (!dernier) return null;
-  return joursEntre(dernier.date, dayKey()) <= VALIDITE_POIDS_JOURS ? dernier.kg : null;
+  return store.poidsPourNouvelleSeance();
 }
 
 /** Lieu a preselectionner : le lieu unique s'il n'y en a qu'un, sinon rien (choisi a la cloture). */
@@ -377,8 +354,9 @@ export function mount(conteneur) {
 
   // Cles synthetiques des trois entrees fixes de la grille. Prefixees pour ne jamais entrer en
   // collision avec un id de modele ('usr:…', 'mod:…', 'tpl:…').
+  // v7 : plus de tuile « Séance libre » (retour utilisateur : doublon de Composer — composer
+  // sans enregistrer de routine EST la seance libre).
   const CLE_COMPOSER = 'action:composer';
-  const CLE_LIBRE = 'action:libre';
   const CLE_CARDIO = 'action:cardio';
 
   function tuile({ cle, nomIcone, titre, detail, pastille, action, id, classe }) {
@@ -403,12 +381,6 @@ export function mount(conteneur) {
       return tuile({
         cle, nomIcone: 'composer', titre: 'Composer', detail: 'Exercice par exercice',
         action: 'composer', classe: 'tuile-composer'
-      });
-    }
-    if (cle === CLE_LIBRE) {
-      return tuile({
-        cle, nomIcone: 'halteres', titre: 'Séance libre', detail: 'Sans plan préparé',
-        action: 'libre', classe: 'tuile-libre'
       });
     }
     if (cle === CLE_CARDIO) {
@@ -448,7 +420,7 @@ export function mount(conteneur) {
   }
 
   function majLanceur(cle, noeud) {
-    if (cle === CLE_COMPOSER || cle === CLE_LIBRE || cle === CLE_CARDIO) return;
+    if (cle === CLE_COMPOSER || cle === CLE_CARDIO) return;
     const modele = store.modele(cle);
     if (!modele) return;
     const nom = noeud.querySelector('.tuile-lanceur-nom');
@@ -465,7 +437,7 @@ export function mount(conteneur) {
     //   v6 : plus de tri « favorites d'abord » — le concept de favori a disparu.
     const routinesUtilisateur = actifs.filter(estRoutine).map((m) => m.id);
     const livres = actifs.filter((m) => !estRoutine(m)).map((m) => m.id);
-    const cles = [CLE_COMPOSER, CLE_LIBRE, CLE_CARDIO].concat(routinesUtilisateur, livres);
+    const cles = [CLE_COMPOSER, CLE_CARDIO].concat(routinesUtilisateur, livres);
     reconcilier(grilleLanceurs, cles, noeudsLanceurs, fabriquerLanceur, majLanceur);
     majPlafond();
   }
@@ -939,7 +911,6 @@ export function mount(conteneur) {
     if (action === 'menu-seance') { ouvrirMenuSeance(id); return; }
     if (action === 'gerer-routine') { ouvrirMenuRoutine(id); return; }
     if (action === 'composer') { router.aller('#/composer'); return; }
-    if (action === 'libre') { demarrerSeance(null, null); return; }
     if (action === 'cardio') { choisirCardio(); return; }
     if (action === 'modele') {
       const modele = store.modele(id);

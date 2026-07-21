@@ -46,6 +46,9 @@ const etat = {
   versionPrecachee: null,
   // Version dont le PRECACHE est en cours, pour ignorer un PRECACHE_OK obsolete.
   versionEnCours: null,
+  // v7 : version en cours de REPARATION silencieuse (precache perdu, version inchangee).
+  // Le PRECACHE_OK de cette version declenche ACTIVER sans bandeau ni rechargement.
+  reparationVersion: null,
   // ⚠ Arme UNIQUEMENT au clic sur « Recharger ». Un simple booleen `refreshing` pose a l'init ne
   //   protegerait PAS du rechargement parasite : a la toute premiere visite, clients.claim() emet
   //   un controllerchange alors que l'utilisateur n'a rien demande, et la page se rechargerait
@@ -185,6 +188,18 @@ function surMessageSW(ev) {
 
   if (m.type === 'PRECACHE_OK') {
     if (etat.versionEnCours && m.version !== etat.versionEnCours) return; // reponse obsolete
+
+    // v7 : REPARATION silencieuse — le precache vient d'etre reconstruit pour la version DEJA
+    // chargee. On l'active sans bandeau ni rechargement : les fichiers sont ceux du code qui
+    // tourne, il n'y a rien a proposer a l'utilisateur.
+    if (etat.reparationVersion && m.version === etat.reparationVersion) {
+      etat.reparationVersion = null;
+      etat.versionEnCours = null;
+      const sw = travailleur();
+      if (sw) sw.postMessage({ type: 'ACTIVER', version: m.version });
+      return;
+    }
+
     etat.versionPrecachee = m.version || etat.versionEnCours;
     etat.versionEnCours = null;
     const version = etat.versionPrecachee;
@@ -316,7 +331,30 @@ export async function verifier(options) {
     }
 
     if (!manifeste || !manifeste.version) return 'erreur';
-    if (manifeste.version === APP_VERSION) return 'a-jour';
+
+    if (manifeste.version === APP_VERSION) {
+      // v7 : AUTO-REPARATION. Un SW actif peut perdre son precache (eviction de stockage, purge
+      // partielle) : plus aucun cache muscu-shell-*, tout part au reseau, le hors-ligne est mort
+      // — et cette branche repondait « a-jour » POUR TOUJOURS, sans porte de sortie. Si aucun
+      // cache de coquille n'existe, on redemande PRECACHE puis ACTIVER, en silence.
+      // ⚠ A la toute premiere visite, l'install est en cours et travailleur() est nul : on ne
+      //   fait rien, l'install normale s'en charge.
+      try {
+        if (typeof caches !== 'undefined') {
+          const noms = await caches.keys();
+          if (!noms.some((n) => n.indexOf('muscu-shell-') === 0)) {
+            const sw = travailleur();
+            if (sw) {
+              etat.reparationVersion = manifeste.version;
+              etat.versionEnCours = manifeste.version;
+              sw.postMessage({ type: 'PRECACHE', manifest: manifeste });
+              return 'precache';
+            }
+          }
+        }
+      } catch (_) { /* diagnostic impossible : « a-jour » reste la reponse honnete */ }
+      return 'a-jour';
+    }
     if (manifeste.version === etat.versionEnCours) return 'precache'; // deja en cours
 
     const sw = travailleur();

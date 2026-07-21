@@ -815,6 +815,20 @@ export const ICONES = {
 
   'coche': () => [PL('5,12.6 9.9,17.5 19,7.5')],
 
+  // Planche anatomique : personnage de FACE, bras legerement ecartes (bien moins ouverts que
+  // 'poids-du-corps'), deux lignes de section sur le buste — c'est la CARTE du corps, pas un
+  // exercice. Ouvre la vue « choisir par muscle » du composeur.
+  'anatomie': () => [
+    tete(12, 4.1),
+    L(12, 5.7, 12, 13.2),
+    L(12, 7.4, 8.6, 12.4),
+    L(12, 7.4, 15.4, 12.4),
+    L(12, 13.2, 9.6, 20.4),
+    L(12, 13.2, 14.4, 20.4),
+    L(10.6, 9.8, 13.4, 9.8),
+    L(10.8, 11.6, 13.2, 11.6)
+  ],
+
   // Triangle aux trois sommets ARRONDIS (courbes), point d'exclamation centre.
   'avertissement': () => [
     P('M10.4 5 L3.6 16.9 C2.9 18.2 3.8 19.8 5.2 19.8 H18.8 '
