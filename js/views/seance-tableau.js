@@ -100,9 +100,9 @@ export function mount(conteneur, params) {
   const rangees = new Map();
 
   // ── Coquille : noeuds empruntes, jamais remplaces ──────────────────────────
-  const barre = noeud('barre-action');
-  const btnPrimaire = noeud('btn-primaire');
-  const zoneMinuteur = noeud('zone-minuteur');
+  // v3 : cette vue n'utilise PLUS la barre d'action basse. « Terminer la séance » vit DANS la
+  // page (apres « + Ajouter un exercice ») et dans le menu ⋮. On ne touche donc ni a
+  // #barre-action (barre.hidden reste tel quel), ni a #btn-primaire, ni a #zone-minuteur.
   const sousTitre = noeud('sous-titre-ecran');
   const btnMenu = noeud('btn-menu');
   const coquille = document.querySelector('.coquille') || document.body;
@@ -120,12 +120,18 @@ export function mount(conteneur, params) {
     class: 'bouton bouton-large ajouter-exercice', type: 'button', 'data-action': 'ajouter-exercice'
   }, '+ Ajouter un exercice');
 
+  // Demande utilisateur (v3) : « Terminer » au milieu de l'app, dans le flux de la page,
+  // APRES « + Ajouter un exercice » — plus de barre d'action basse sur cet ecran.
+  const btnTerminer = h('button', {
+    class: 'bouton bouton-primaire terminer-en-page', type: 'button', 'data-action': 'terminer'
+  }, 'Terminer la séance');
+
   const vide = h('div', { class: 'etat-vide' },
     h('p', { class: 'etat-vide-titre' }, 'Aucune séance en cours'),
     h('button', { class: 'bouton bouton-primaire', type: 'button', 'data-action': 'accueil' }, 'Revenir à l’accueil'));
   vide.hidden = true;
 
-  const racine = h('section', { class: 'vue vue-seance tableau-seance' }, bandeauPoids, defile, btnAjouter, vide);
+  const racine = h('section', { class: 'vue vue-seance tableau-seance' }, bandeauPoids, defile, btnAjouter, btnTerminer, vide);
   conteneur.appendChild(racine);
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -353,17 +359,16 @@ export function mount(conteneur, params) {
     desabonnements.push(on(btnValider, 'click', () => {
       if (detruit || !seance) return;
       const opts = Object.assign({}, valeurs, { kind });
+      // Demande utilisateur (v3) : AUCUN toast de confirmation ici — la cellule qui passe a
+      // l'etat « faite » suffit. Les toasts d'ERREUR (persister, abandon) restent, eux.
       if (serie && serie.done === true) {
         session.modifierSerie(seance, entree.id, serie.id, opts);
-        fini(r);
-        toast.afficher('Série corrigée');
       } else {
         // validerSerie cible la serie designee, ou en cree une si la rangee est deja pleine.
         if (serie) opts.serieId = serie.id;
         session.validerSerie(seance, entree.id, opts);
-        fini(r);
-        toast.afficher('Série enregistrée');
       }
+      fini(r);
     }));
     desabonnements.push(on(btnNonFaite, 'click', () => {
       if (detruit || !seance) return;
@@ -559,16 +564,8 @@ export function mount(conteneur, params) {
   }
 
   function construire() {
-    if (barre) barre.hidden = false;
     if (btnMenu) btnMenu.hidden = false;
     if (sousTitre) sousTitre.hidden = false;
-    // v2 : plus de zone minuteur dans la barre — le bouton primaire prend toute la largeur.
-    if (zoneMinuteur) zoneMinuteur.hidden = true;
-    if (btnPrimaire) {
-      btnPrimaire.textContent = 'Terminer la séance';
-      btnPrimaire.classList.add('barre-action-pleine');
-      btnPrimaire.disabled = false;
-    }
     coquille.setAttribute('data-seance', 'active');
 
     for (const entree of seance.entrees) {
@@ -588,6 +585,7 @@ export function mount(conteneur, params) {
     if (!seance) return;
     if (action === 'poids') { ouvrirPoids(); return; }
     if (action === 'ajouter-exercice') { ouvrirAjoutExercice(); return; }
+    if (action === 'terminer') { terminerSeance(); return; }
 
     const entryId = cible.getAttribute('data-entry');
     const entree = seance.entrees.find((e) => e.id === entryId);
@@ -617,9 +615,6 @@ export function mount(conteneur, params) {
     }
   }));
 
-  if (btnPrimaire) desabonnements.push(on(btnPrimaire, 'click', () => {
-    if (!detruit && seance) terminerSeance();
-  }));
   if (btnMenu) desabonnements.push(on(btnMenu, 'click', () => {
     if (!detruit && seance) ouvrirMenu();
   }));
@@ -633,6 +628,7 @@ export function mount(conteneur, params) {
       bandeauPoids.hidden = true;
       defile.hidden = true;
       btnAjouter.hidden = true;
+      btnTerminer.hidden = true;
       if (sousTitre) sousTitre.hidden = true;
       return;
     }
@@ -656,9 +652,7 @@ export function mount(conteneur, params) {
       for (const off of desabonnements) { try { off(); } catch (_) { /* deja detache */ } }
       racine.remove();
       coquille.removeAttribute('data-seance');
-      if (barre) barre.hidden = true;
-      if (zoneMinuteur) zoneMinuteur.hidden = false;
-      if (btnPrimaire) btnPrimaire.classList.remove('barre-action-pleine');
+      // v3 : la barre d'action basse n'a jamais ete touchee par cette vue — rien a restaurer.
       if (btnMenu) btnMenu.hidden = true;
       if (sousTitre) { sousTitre.hidden = true; sousTitre.textContent = ''; }
     }

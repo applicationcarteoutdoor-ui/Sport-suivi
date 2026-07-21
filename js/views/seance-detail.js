@@ -1,8 +1,16 @@
 // js/views/seance-detail.js — route #/historique/:id.
 //
-// Detail d'une seance passee. LECTURE SEULE par defaut ; un tap sur une ligne de serie ouvre
-// l'edition, exactement comme en salle — c'est le meme fragment vivant (ui/set-row.js) qui est
-// remonte ici. Sans ce chemin, une erreur de saisie reperee le lendemain serait definitive.
+// Detail d'une seance passee, EN TABLEAU — le MEME dessin que l'ecran de seance
+// (views/seance-tableau.js), demande utilisateur v3 : « Dans l'historique, reprends
+// l'affichage de tableau. » Colonne de gauche = exercice (icone, nom, compteur),
+// colonnes suivantes = les series realisees. Les classes (tab-entete, tab-coin, tab-col,
+// tab-rangee, tab-sport, tab-cellules, tab-cellule…) sont IDENTIQUES a celles de l'ecran de
+// seance : la feuille de style garantit UNE seule geometrie pour les deux ecrans. Les petites
+// fonctions de rendu (texteCellule, totalCible, exGele) sont RECOPIEES de seance-tableau.js
+// plutot qu'importees : les deux vues partagent un vocabulaire CSS, pas un cycle de vie.
+//
+// Difference assumee avec l'ecran de salle : PAS de cellule « attente » ni « future » ici.
+// La seance est close, on n'affiche que l'existant — faites, non faites, echauffements.
 //
 // Trois regles portent ce fichier :
 //
@@ -14,37 +22,43 @@
 //
 //   2. TOUTE MODIFICATION PASSE PAR store.commit('seance:modifier'). La vue n'ecrit jamais dans
 //      IndexedDB, et le commit reecrit updatedAt — sans quoi l'import « fusionner » ne pourrait
-//      plus departager deux versions de la meme seance.
+//      plus departager deux versions de la meme seance. Un tap sur une cellule ouvre l'editeur
+//      (steppers + pave, comme en salle) ; « Valider » = UN commit, pas d'ecriture differee.
 //
-//   3. AUCUN RE-RENDU. Corriger une serie mute la ligne concernee (figer) et les trois chiffres
-//      d'en-tete. La liste des exercices, le defilement et la ligne voisine ne bougent pas.
+//   3. AUCUN RE-RENDU global. Corriger une serie ne reconstruit que les cellules de SA rangee,
+//      l'en-tete de colonnes et les deux chiffres du resume. Le defilement et les autres rangees
+//      ne bougent pas.
 //
 // ⚠ store.commit remplace l'objet seance en memoire par une COPIE : aucune reference n'est
 //   conservee entre deux operations, tout est re-resolu par id au moment de s'en servir.
 
-import { h, delegate, vider } from '../lib/dom.js';
+import { h, on, delegate, vider } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import { formatLong } from '../lib/dates.js';
 import { formatFr, formatDuree } from '../lib/num.js';
 import {
-  estComptable, estSeanceEnCours, estSeanceAbandonnee, LIBELLES_STATUTS_SEANCE
+  estComptable, estSeanceEnCours, estSeanceAbandonnee, LIBELLES_STATUTS_SEANCE,
+  champsSaisieEntree, pasChamp
 } from '../data/schema.js';
-import { packDeLExercice } from '../data/packs.js';
 import * as store from '../data/store.js';
-import { tonnageSeance } from '../domain/metrics.js';
 import * as session from '../domain/session.js';
-import * as setRow from '../ui/set-row.js';
 import { icone, iconePourExercice } from '../ui/icons.js';
 import * as sheet from '../ui/sheet.js';
+import * as stepper from '../ui/stepper.js';
+import * as keypad from '../ui/keypad.js';
 import * as toast from '../ui/toast.js';
 import * as router from '../ui/router.js';
 
-// Ecriture differee pendant l'edition : un commit par appui sur « + » ferait une transaction
-// IndexedDB par tap. La correction est de toute facon flushee a la fermeture de l'edition et au
-// demontage de la vue, donc aucune fenetre de perte n'est ouverte.
-const DELAI_COMMIT_MS = 700;
-
 const estNombre = (v) => typeof v === 'number' && Number.isFinite(v);
+
+// Libelles et unites des champs de saisie — copie de seance-tableau.js. Locaux a l'editeur :
+// c'est de l'affichage, pas du schema, et MODES reste le seul endroit qui sait QUELS champs
+// existent par mode.
+const LIBELLES_CHAMPS = {
+  reps: 'Répétitions', chargeKg: 'Charge', lestKg: 'Lest',
+  valeur: 'Cran', dureeSec: 'Durée', distanceM: 'Distance'
+};
+const UNITES_CHAMPS = { reps: '', chargeKg: 'kg', lestKg: 'kg', valeur: '', dureeSec: 's', distanceM: 'm' };
 
 function formatDureeCourte(sec) {
   if (!estNombre(sec) || sec <= 0) return '—';
@@ -61,6 +75,43 @@ function nombreSeries(seance) {
     for (const serie of entree.series || []) if (estComptable(serie)) n++;
   }
   return n;
+}
+
+// Pseudo-exercice construit depuis les coefficients GELES de l'entree (invariant n°7) : pasChamp
+// lit mode/lestable/incrementKg, on lui donne ceux DU JOUR de la seance. Copie de seance-tableau.
+function exGele(entree) {
+  return {
+    mode: entree.modeUtilise,
+    lestable: entree.lestableUtilise === true,
+    incrementKg: estNombre(entree.incrementKgUtilise) ? entree.incrementKgUtilise : 2.5
+  };
+}
+
+// Copie de seance-tableau.js — nombre total de series prevues, echauffement compris.
+function totalCible(entree) {
+  const c = (entree && entree.cibles) || {};
+  if (!estNombre(c.series)) return 0;
+  return c.series + (estNombre(c.seriesEchauffement) ? c.seriesEchauffement : 0);
+}
+
+// Valeur principale (grande) et suffixes (petits) d'une cellule, derives des champs du mode.
+// Copie EXACTE de seance-tableau.js : les deux ecrans doivent afficher la meme chose.
+function texteCellule(entree, serie) {
+  const champs = champsSaisieEntree(entree);
+  let grand = '';
+  const petits = [];
+  for (const c of champs) {
+    const v = serie ? serie[c] : null;
+    if (!estNombre(v)) continue;
+    if (!grand) { grand = c === 'dureeSec' ? formatDuree(v) : formatFr(v); continue; }
+    if (c === 'chargeKg') petits.push('×' + formatFr(v));
+    else if (c === 'lestKg') { if (v !== 0) petits.push((v > 0 ? '+' : '') + formatFr(v)); }
+    else if (c === 'valeur') petits.push('n°' + formatFr(v));
+    else if (c === 'distanceM') petits.push(formatFr(v) + ' m');
+    else if (c === 'dureeSec') petits.push(formatDuree(v));
+    else petits.push(formatFr(v));
+  }
+  return { grand, petit: petits.join(' ') };
 }
 
 /** Cibles GELEES sur l'entree — la copie du modele au lancement, jamais le modele d'aujourd'hui. */
@@ -152,17 +203,22 @@ export function mount(conteneur, params = {}) {
   let idCourant = null;
   let attenteHistorique = false;
 
-  // Fragments vivants montes par cette vue : elle seule a le droit de les detruire.
-  /** @type {Array<{api:Object, entreeId:string, serieId:string}>} */
-  let rangees = [];
-  let chiffres = null;          // { duree, tonnage, series } — noeuds mutes, jamais remplaces
-  let barreEdition = null;
+  // Noeuds du tableau, reconstruits avec le contenu. rangees : entryId -> { rangee, zoneCellules,
+  // sport }. Les ENTREES n'y sont PAS conservees (le commit remplace la seance par une copie) :
+  // chaque peinture les re-resout depuis store.seance(idCourant).
+  const rangees = new Map();
+  let enteteRangee = null;
+  let chiffres = null;          // { duree, series } — noeuds mutes, jamais remplaces
 
-  // Edition en cours : une seule ligne a la fois. Deux lignes ouvertes simultanement rendraient
-  // le brouillon a enregistrer ambigu.
-  let edition = null;           // { entreeId, serieId, api, kind }
-  let minuteurCommit = 0;
+  // Ecouteurs poses sur les boutons des feuilles (editeur) : detaches au demontage. Les feuilles
+  // vivent HORS du sous-arbre de la vue, leurs noeuds ne partent pas avec racine.remove().
+  const desabonnements = [];
+
+  // Serialisation des ecritures : deux corrections rapprochees ne doivent jamais se doubler.
   let chaine = Promise.resolve();
+
+  // Feuille d'edition ou d'information ouverte par cette vue (hors confirmations routees).
+  let editeurHandle = null;
 
   // Feuille (confirmation) — c'est un PARAMETRE de la route courante, pas une navigation : le
   // bouton retour d'Android la ferme au lieu de quitter le detail.
@@ -171,73 +227,236 @@ export function mount(conteneur, params = {}) {
 
   // ── Ecriture ────────────────────────────────────────────────────────────────
 
-  function planifierCommit() {
-    if (minuteurCommit) clearTimeout(minuteurCommit);
-    minuteurCommit = setTimeout(() => { minuteurCommit = 0; appliquerEdition(false); }, DELAI_COMMIT_MS);
-  }
-
   /**
-   * Ecrit le brouillon de la ligne en edition.
-   * @param {boolean} figer true : referme l'edition une fois la ligne enregistree.
+   * Applique une correction a UNE serie et repeint ce qui en depend : les cellules de sa rangee,
+   * l'en-tete de colonnes et le resume. Un appel = un commit ('seance:modifier').
    */
-  function appliquerEdition(figer) {
-    if (minuteurCommit) { clearTimeout(minuteurCommit); minuteurCommit = 0; }
-    const encours = edition;
-    if (!encours) return chaine;
-
-    const valeurs = Object.assign({}, encours.api.valeurs());
-    if (encours.kind) valeurs.kind = encours.kind;
-
+  function corrigerSerie(entreeId, serieId, champs) {
     chaine = chaine.then(async () => {
       const s = store.seance(idCourant);
       if (!s) return;
       // domain/session.js mute la seance en place et reecrit updatedAt ; store.commit en fait une
       // copie datee avant de l'ecrire.
-      session.modifierSerie(s, encours.entreeId, encours.serieId, valeurs);
+      session.modifierSerie(s, entreeId, serieId, champs);
       const resultat = await store.commit('seance:modifier', { seance: s });
       const fraiche = resultat && resultat.seance;
       if (!fraiche) return;
       peindreResume(fraiche);
-      if (figer) {
-        const serie = retrouverSerie(fraiche, encours.entreeId, encours.serieId);
-        if (serie) encours.api.figer(serie);
-      }
+      majRangee(entreeId, fraiche);
+      majEntete(fraiche);
     }).catch((err) => {
       console.error('[seance-detail] enregistrement de la correction en échec', err);
       toast.afficher('La correction n\'a pas pu être enregistrée.');
     });
-
-    if (figer) {
-      edition = null;
-      if (barreEdition) barreEdition.hidden = true;
-    }
     return chaine;
   }
 
-  function retrouverSerie(seance, entreeId, serieId) {
-    const entree = (seance.entrees || []).find((e) => e.id === entreeId);
-    if (!entree) return null;
-    return (entree.series || []).find((s) => s.id === serieId) || null;
-  }
-
-  function ouvrirEdition(info) {
-    if (edition && edition.serieId === info.serieId) return;
-    // La ligne precedente est enregistree ET refermee avant que la nouvelle ne s'ouvre.
-    if (edition) appliquerEdition(true);
-    edition = { entreeId: info.entreeId, serieId: info.serieId, api: info.api, kind: null };
-    if (barreEdition) barreEdition.hidden = false;
-  }
-
-  // ── Peinture ciblee de l'en-tete ────────────────────────────────────────────
+  // ── Peinture ciblee ─────────────────────────────────────────────────────────
 
   function peindreResume(seance) {
     if (!chiffres || !seance) return;
     chiffres.duree.textContent = formatDureeCourte(seance.dureeSec);
-    const t = tonnageSeance(seance);
-    chiffres.tonnage.textContent = t.kg > 0
-      ? (t.fiable ? '' : '≈ ') + formatFr(Math.round(t.kg)) + ' kg'
-      : '—';
     chiffres.series.textContent = String(nombreSeries(seance));
+  }
+
+  // Copie de seance-tableau.js, sans la mention d'attente : compteur fait/cible et mention
+  // « lesté » derivee des coefficients GELES.
+  function sousTexteSport(entree) {
+    const morceaux = [];
+    if (champsSaisieEntree(entree).indexOf('lestKg') !== -1) morceaux.push('lesté');
+    const faites = (entree.series || []).filter((s) => s.done === true).length;
+    const cible = totalCible(entree);
+    morceaux.push(cible ? faites + '/' + cible : String(faites));
+    return morceaux.join(' · ');
+  }
+
+  /**
+   * Une cellule de serie EXISTANTE. Deux etats seulement — la seance est close :
+   *   faite (chiffres du jour, data-kind pour l'echauffement) | ratee (✕, hors agregats).
+   * Structure DOM et classes STRICTEMENT identiques a l'ecran de seance.
+   */
+  function cellule(entree, serie, rang) {
+    const btn = h('button', {
+      class: 'tab-cellule', type: 'button', 'data-action': 'cellule',
+      'data-entry': entree.id, 'data-serie': serie.id, 'data-rang': String(rang)
+    });
+    if (serie.done === true) {
+      btn.setAttribute('data-etat', 'faite');
+      if (serie.kind === 'echauffement') btn.setAttribute('data-kind', 'echauffement');
+      const t = texteCellule(entree, serie);
+      btn.appendChild(h('span', { class: 'tab-cellule-grand' }, t.grand || '✓'));
+      if (t.petit) btn.appendChild(h('span', { class: 'tab-cellule-petit' }, t.petit));
+    } else {
+      // Prevue et non faite ce jour-la : conservee (elle porte l'information « c'etait prevu et
+      // ca n'a pas ete fait »), exclue de tout agregat. Meme dessin qu'en salle.
+      btn.setAttribute('data-etat', 'ratee');
+      btn.appendChild(h('span', { class: 'tab-cellule-grand' }, '✕'));
+    }
+    return btn;
+  }
+
+  /** Reconstruit LES CELLULES d'une rangee (et rien d'autre) depuis la seance fournie. */
+  function majRangee(entreeId, seance) {
+    const r = rangees.get(entreeId);
+    const entree = (seance.entrees || []).find((e) => e.id === entreeId);
+    if (!r || !entree) return;
+    const sous = r.sport.querySelector('.tab-sport-sous');
+    if (sous) sous.textContent = sousTexteSport(entree);
+    vider(r.zoneCellules);
+    (entree.series || []).forEach((serie, i) => {
+      r.zoneCellules.appendChild(cellule(entree, serie, i));
+    });
+  }
+
+  /** L'entete « Exercice | S1 S2 … » suit la rangee la plus longue. Pas de colonne « + » ici. */
+  function majEntete(seance) {
+    if (!enteteRangee) return;
+    vider(enteteRangee);
+    let max = 0;
+    for (const e of seance.entrees || []) max = Math.max(max, (e.series || []).length);
+    enteteRangee.appendChild(h('span', { class: 'tab-coin' }, 'Exercice'));
+    for (let i = 1; i <= max; i++) enteteRangee.appendChild(h('span', { class: 'tab-col' }, 'S' + i));
+  }
+
+  function creerRangee(entree) {
+    const ex = entree.exerciceId ? store.exercice(entree.exerciceId) : null;
+    const zoneCellules = h('div', { class: 'tab-cellules' });
+    const sport = h('button', {
+      class: 'tab-sport', type: 'button', 'data-action': 'sport', 'data-entry': entree.id
+    },
+      // ⚠ iconePourExercice et non ex.icone : un exercice cree par l'utilisateur n'a pas de champ
+      //   `icone`, la resolution passe par l'id puis le pack — comme partout ailleurs.
+      h('span', { class: 'tab-sport-dessin' }, icone(iconePourExercice(ex || entree.exerciceId))),
+      h('span', { class: 'tab-sport-textes' },
+        h('span', { class: 'tab-sport-nom' }, nomEntree(entree)),
+        h('span', { class: 'tab-sport-sous' }, sousTexteSport(entree))));
+    const rangee = h('div', { class: 'tab-rangee', 'data-entry': entree.id }, sport, zoneCellules);
+    rangees.set(entree.id, { rangee, zoneCellules, sport });
+    return rangee;
+  }
+
+  // ── Editeur de cellule : steppers +/− et pave, comme en salle ───────────────
+
+  function fermerEditeur() {
+    const poignee = editeurHandle;
+    editeurHandle = null;
+    if (poignee) poignee.fermer();
+  }
+
+  /**
+   * Tap sur une cellule : correction d'une serie EXISTANTE. « Valider » enregistre les valeurs
+   * (et re-valide une serie marquee non faite par erreur) ; « Non faite » la sort des agregats
+   * sans la perdre ; « Supprimer » passe par la feuille de confirmation routee — JAMAIS de
+   * suppression sans confirmation sur une seance passee.
+   */
+  function ouvrirEditeur(entreeId, serieId) {
+    const seance = store.seance(idCourant);
+    const entree = seance && (seance.entrees || []).find((e) => e.id === entreeId);
+    const serie = entree && (entree.series || []).find((s) => s.id === serieId);
+    if (!entree || !serie) return;
+
+    const ex = exGele(entree);
+    const champs = champsSaisieEntree(entree);
+    const rang = entree.series.indexOf(serie);
+    const etaitFaite = serie.done === true;
+    const valeurs = {};
+    for (const c of champs) { if (estNombre(serie[c])) valeurs[c] = serie[c]; }
+
+    let kind = serie.kind === 'echauffement' ? 'echauffement' : 'effective';
+    const poignees = [];
+
+    const contenuEditeur = h('div', { class: 'editeur-serie' });
+    for (const c of champs) {
+      const hote = h('div', { class: 'editeur-stepper' });
+      contenuEditeur.appendChild(h('div', { class: 'editeur-champ' },
+        h('span', { class: 'editeur-libelle' },
+          LIBELLES_CHAMPS[c] + (UNITES_CHAMPS[c] ? ' (' + UNITES_CHAMPS[c] + ')' : '')),
+        hote));
+      const p = stepper.monter(hote, {
+        valeur: estNombre(valeurs[c]) ? valeurs[c] : 0,
+        pas: pasChamp(ex, c),
+        // Le lest est SIGNE : −20 = assistance elastique. Tout le reste part de zero.
+        min: c === 'lestKg' ? undefined : 0,
+        onChange: (v) => { valeurs[c] = v; },
+        onTapValeur: () => {
+          keypad.ouvrir({
+            champs: [{
+              cle: c, label: LIBELLES_CHAMPS[c], valeur: estNombre(valeurs[c]) ? valeurs[c] : 0,
+              unite: UNITES_CHAMPS[c], pas: pasChamp(ex, c),
+              entier: c === 'reps' || c === 'dureeSec' || c === 'distanceM',
+              signe: c === 'lestKg'
+            }],
+            onValider: (res) => {
+              if (res && estNombre(res[c])) { valeurs[c] = res[c]; p.setValeur(res[c]); }
+            }
+          });
+        }
+      });
+      poignees.push(p);
+    }
+
+    const puceEchauf = h('button', {
+      class: 'puce-echauf', type: 'button', 'aria-pressed': kind === 'echauffement' ? 'true' : 'false'
+    }, 'Échauffement');
+    desabonnements.push(on(puceEchauf, 'click', () => {
+      kind = kind === 'echauffement' ? 'effective' : 'echauffement';
+      puceEchauf.setAttribute('aria-pressed', kind === 'echauffement' ? 'true' : 'false');
+    }));
+    contenuEditeur.appendChild(h('div', { class: 'editeur-options' }, puceEchauf));
+
+    const btnValider = h('button', { class: 'bouton bouton-primaire bouton-large', type: 'button' }, 'Valider la série');
+    const btnNonFaite = h('button', { class: 'bouton bouton-fantome', type: 'button' }, 'Non faite');
+    const btnSupprimer = h('button', { class: 'bouton bouton-fantome bouton-danger-doux', type: 'button' }, 'Supprimer');
+    contenuEditeur.appendChild(h('div', { class: 'editeur-actions' }, btnValider, btnNonFaite, btnSupprimer));
+
+    fermerEditeur();
+    const poignee = sheet.ouvrir({
+      titre: nomEntree(entree) + ' — Série ' + (rang + 1),
+      contenu: contenuEditeur,
+      onFermer: () => {
+        for (const p of poignees) p.detruire();
+        if (editeurHandle === poignee) editeurHandle = null;
+      }
+    });
+    editeurHandle = poignee;
+
+    desabonnements.push(on(btnValider, 'click', () => {
+      const opts = Object.assign({}, valeurs, { kind });
+      // Une serie « non faite » que l'on valide ici redevient faite : c'est la correction
+      // inverse de « Non faite ». modifierSerie pose l'horodatage exige par le schema.
+      if (!etaitFaite) opts.done = true;
+      corrigerSerie(entreeId, serieId, opts);
+      poignee.fermer();
+    }));
+    desabonnements.push(on(btnNonFaite, 'click', () => {
+      // La serie est CONSERVEE (elle porte l'information « c'etait prevu et ca n'a pas ete
+      // fait »), simplement exclue de tout agregat.
+      corrigerSerie(entreeId, serieId, { done: false });
+      poignee.fermer();
+    }));
+    desabonnements.push(on(btnSupprimer, 'click', () => {
+      poignee.fermer();
+      router.ouvrirFeuille('suppr-serie', { entree: entreeId, serie: serieId });
+    }));
+  }
+
+  /** Tap sur la colonne exercice : l'objectif GELE du jour, en lecture seule. */
+  function ouvrirFicheExercice(entreeId) {
+    const seance = store.seance(idCourant);
+    const entree = seance && (seance.entrees || []).find((e) => e.id === entreeId);
+    if (!entree) return;
+    const cibles = texteCibles(entree);
+    fermerEditeur();
+    const poignee = sheet.ouvrir({
+      titre: nomEntree(entree),
+      contenu: h('div', { class: 'confirmation' },
+        h('p', { class: 'confirmation-texte' },
+          cibles || 'Aucun objectif enregistré pour cet exercice ce jour-là.'),
+        h('p', { class: 'texte-attenue' },
+          'Objectif tel qu\'il était le jour de la séance. Le modèle actuel a pu changer depuis.')),
+      onFermer: () => { if (editeurHandle === poignee) editeurHandle = null; }
+    });
+    editeurHandle = poignee;
   }
 
   // ── Suppressions ────────────────────────────────────────────────────────────
@@ -269,7 +488,7 @@ export function mount(conteneur, params = {}) {
     store.commit('seance:abandonner', { id: idCourant })
       // La reconstruction du contenu n'est PAS faite ici : l'abonnement a 'seance:abandonner'
       // s'en charge deja, et le declencher deux fois demonterait puis remonterait toutes les
-      // lignes de series pour rien.
+      // rangees pour rien.
       .then(() => toast.afficher('Séance abandonnée. Elle reste ici, hors des statistiques.', { duree: 8000 }))
       .catch((err) => {
         console.error('[seance-detail] abandon en échec', err);
@@ -278,20 +497,15 @@ export function mount(conteneur, params = {}) {
   }
 
   function supprimerSerie(entreeId, serieId) {
-    const s = store.seance(idCourant);
-    if (!s) return;
-    if (edition && edition.serieId === serieId) {
-      // Le brouillon de cette ligne n'a plus d'objet : l'enregistrer ressusciterait la serie.
-      if (minuteurCommit) { clearTimeout(minuteurCommit); minuteurCommit = 0; }
-      edition = null;
-      if (barreEdition) barreEdition.hidden = true;
-    }
-    session.supprimerSerie(s, entreeId, serieId);
     chaine = chaine.then(async () => {
+      const s = store.seance(idCourant);
+      if (!s) return;
+      session.supprimerSerie(s, entreeId, serieId);
       const resultat = await store.commit('seance:modifier', { seance: s });
-      const i = rangees.findIndex((r) => r.serieId === serieId);
-      if (i !== -1) { rangees[i].api.detruire(); rangees.splice(i, 1); }
-      if (resultat && resultat.seance) peindreResume(resultat.seance);
+      const fraiche = (resultat && resultat.seance) || s;
+      peindreResume(fraiche);
+      majRangee(entreeId, fraiche);
+      majEntete(fraiche);
       toast.afficher('Série supprimée.');
     }).catch((err) => {
       console.error('[seance-detail] suppression de série en échec', err);
@@ -392,11 +606,9 @@ export function mount(conteneur, params = {}) {
 
   // ── Construction ────────────────────────────────────────────────────────────
 
-  function demonterRangees() {
-    for (const r of rangees) r.api.detruire();
-    rangees = [];
-    edition = null;
-    barreEdition = null;
+  function demonterTableau() {
+    rangees.clear();
+    enteteRangee = null;
     chiffres = null;
   }
 
@@ -409,7 +621,8 @@ export function mount(conteneur, params = {}) {
   }
 
   function construire(id) {
-    demonterRangees();
+    fermerEditeur();
+    demonterTableau();
     vider(contenu);
     idCourant = id || null;
     attenteHistorique = false;
@@ -432,10 +645,10 @@ export function mount(conteneur, params = {}) {
     }
 
     // ── En-tete : les faits du jour ───────────────────────────────────────────
+    // v3 : plus de tonnage ici — coherence avec l'ecran de fin simplifie.
     const cDuree = chiffreCle('—', 'Durée');
-    const cTonnage = chiffreCle('—', 'Tonnage');
     const cSeries = chiffreCle('0', 'Séries');
-    chiffres = { duree: cDuree.val, tonnage: cTonnage.val, series: cSeries.val };
+    chiffres = { duree: cDuree.val, series: cSeries.val };
 
     const snapshot = seance.modeleSnapshot;
     const titre = snapshot && snapshot.nom
@@ -457,7 +670,7 @@ export function mount(conteneur, params = {}) {
         pastilleStatut(seance)
       ),
       mentionStatut ? h('p', { class: 'mention-statut' }, mentionStatut) : null,
-      h('div', { class: 'entete-seance' }, cDuree.bloc, cTonnage.bloc, cSeries.bloc),
+      h('div', { class: 'entete-seance' }, cDuree.bloc, cSeries.bloc),
       // ⚠ Le snapshot est la COPIE du modele au lancement. Le dire evite que l'ecart avec le
       //   modele d'aujourd'hui soit pris pour un bug.
       h('p', { class: 'mention-snapshot' }, snapshot && snapshot.nom
@@ -472,93 +685,22 @@ export function mount(conteneur, params = {}) {
 
     peindreResume(seance);
 
-    // ── Exercices et series ───────────────────────────────────────────────────
+    // ── Le tableau : memes rangees, memes cellules que l'ecran de seance ──────
     if (!seance.entrees || !seance.entrees.length) {
       contenu.appendChild(h('p', { class: 'historique-resume' }, 'Aucun exercice enregistré dans cette séance.'));
+    } else {
+      enteteRangee = h('div', { class: 'tab-entete' });
+      const zoneRangees = h('div', { class: 'tab-corps' });
+      for (const entree of seance.entrees) {
+        zoneRangees.appendChild(creerRangee(entree));
+        majRangee(entree.id, seance);
+      }
+      majEntete(seance);
+      contenu.appendChild(h('div', { class: 'detail-tableau' },
+        h('div', { class: 'tableau-defile' }, enteteRangee, zoneRangees)));
+      contenu.appendChild(h('p', { class: 'historique-resume' },
+        'Touche une case pour corriger la série.'));
     }
-
-    for (const entree of seance.entrees || []) {
-      const hoteSeries = h('div', { class: 'liste' });
-      const cibles = texteCibles(entree);
-      const ex = entree.exerciceId ? store.exercice(entree.exerciceId) : null;
-
-      // Vignette de l'exercice : le meme pictogramme que dans la liste d'historique et dans le
-      // selecteur. C'est ce qui rend une seance passee reconnaissable en la faisant defiler,
-      // sans lire un seul nom.
-      contenu.appendChild(h('div', { class: 'entree' },
-        h('div', { class: 'entree-entete' },
-          h('span', {
-            class: 'entree-vignette',
-            'aria-hidden': 'true',
-            'data-pack': packDeLExercice(ex || {})
-          }, icone(iconePourExercice(ex || entree.exerciceId), { taille: 24 })),
-          h('p', { class: 'entree-nom' }, nomEntree(entree))
-        ),
-        cibles ? h('p', { class: 'ligne-liste-secondaire' }, cibles) : null,
-        hoteSeries
-      ));
-
-      const metriqueCardio = ex ? ex.metriqueCardio : null;
-
-      (entree.series || []).forEach((serie, i) => {
-        const api = setRow.monter(hoteSeries, {
-          serie,
-          entree,                                   // porteuse des COEFFICIENTS GELES
-          numero: i + 1,
-          etat: serie.done === true ? 'faite' : 'non-faite',
-          metriqueCardio,
-          callbacks: {
-            // Tap : set-row est deja passe en edition, on ne fait qu'enregistrer laquelle.
-            onEditer: () => ouvrirEdition({ entreeId: entree.id, serieId: serie.id, api }),
-            onChange: () => { if (edition && edition.serieId === serie.id) planifierCommit(); },
-            onKind: (kind) => {
-              if (!edition || edition.serieId !== serie.id) {
-                ouvrirEdition({ entreeId: entree.id, serieId: serie.id, api });
-              }
-              edition.kind = kind;
-              planifierCommit();
-            },
-            // « Non faite » : la serie est CONSERVEE (elle porte l'information « c'etait prevu
-            // et ca n'a pas ete fait »), simplement exclue de tout agregat.
-            onNonFaite: () => {
-              const s = store.seance(idCourant);
-              if (!s) return;
-              if (edition && edition.serieId === serie.id) {
-                if (minuteurCommit) { clearTimeout(minuteurCommit); minuteurCommit = 0; }
-                edition = null;
-                if (barreEdition) barreEdition.hidden = true;
-              }
-              session.modifierSerie(s, entree.id, serie.id, { done: false });
-              chaine = chaine.then(async () => {
-                const resultat = await store.commit('seance:modifier', { seance: s });
-                const fraiche = resultat && resultat.seance;
-                if (!fraiche) return;
-                peindreResume(fraiche);
-                const maj = retrouverSerie(fraiche, entree.id, serie.id);
-                if (maj) api.figer(maj);
-              }).catch((err) => console.error('[seance-detail] marquage non faite en échec', err));
-            },
-            // Appui long : suppression, et JAMAIS sans confirmation sur une seance passee.
-            onSupprimer: () => router.ouvrirFeuille('suppr-serie', { entree: entree.id, serie: serie.id })
-          }
-        });
-        rangees.push({ api, entreeId: entree.id, serieId: serie.id });
-      });
-    }
-
-    // ── Barre d'edition et zone dangereuse ────────────────────────────────────
-    barreEdition = h('div', { class: 'carte', hidden: true },
-      h('p', { class: 'ligne-liste-secondaire' }, 'Série en cours de modification.'),
-      h('button', {
-        class: 'bouton bouton-primaire bouton-large',
-        type: 'button',
-        dataset: { action: 'fin-edition' }
-      }, 'Terminer la modification')
-    );
-    contenu.appendChild(barreEdition);
-
-    contenu.appendChild(h('p', { class: 'historique-resume' },
-      'Touche une série pour la corriger. Appui long pour la supprimer.'));
 
     // ── Zone dangereuse ───────────────────────────────────────────────────────
     // L'abandon n'a de sens que sur une seance ENCORE OUVERTE : sur une seance close il n'aurait
@@ -591,9 +733,14 @@ export function mount(conteneur, params = {}) {
   // ── Delegation : un seul ecouteur click pour la vue ─────────────────────────
   const off = delegate(racine, 'click', '[data-action]', (ev, cible) => {
     const action = cible.getAttribute('data-action');
-    if (action === 'fin-edition') { ev.preventDefault(); appliquerEdition(true); return; }
     if (action === 'suppr-seance') { ev.preventDefault(); router.ouvrirFeuille('suppr-seance'); return; }
-    if (action === 'abandon-seance') { ev.preventDefault(); router.ouvrirFeuille('abandon-seance'); }
+    if (action === 'abandon-seance') { ev.preventDefault(); router.ouvrirFeuille('abandon-seance'); return; }
+    if (action === 'cellule') {
+      ev.preventDefault();
+      ouvrirEditeur(cible.getAttribute('data-entry'), cible.getAttribute('data-serie'));
+      return;
+    }
+    if (action === 'sport') { ev.preventDefault(); ouvrirFicheExercice(cible.getAttribute('data-entry')); }
   });
 
   const desabonner = [
@@ -621,15 +768,17 @@ export function mount(conteneur, params = {}) {
 
   return {
     destroy() {
-      // Flush : une correction saisie dans les 700 dernieres millisecondes ne doit pas se perdre
-      // parce que l'utilisateur a change d'ecran.
-      if (edition) appliquerEdition(true);
-      if (minuteurCommit) { clearTimeout(minuteurCommit); minuteurCommit = 0; }
       off();
       for (const stop of desabonner) stop();
       desabonner.length = 0;
+      for (const stop of desabonnements) { try { stop(); } catch (_) { /* deja detache */ } }
+      desabonnements.length = 0;
       if (feuilleNom) fermerFeuilleLocale();
-      demonterRangees();
+      // ⚠ Feuille d'edition et pave vivent HORS du sous-arbre retire ci-dessous : sans fermeture
+      //   explicite, ils resteraient ouverts par-dessus l'ecran suivant.
+      try { fermerEditeur(); } catch (_) { /* deja fermee */ }
+      try { keypad.fermer(); } catch (_) { /* deja ferme */ }
+      demonterTableau();
       if (racine.parentNode) racine.parentNode.removeChild(racine);
     },
 
@@ -637,10 +786,7 @@ export function mount(conteneur, params = {}) {
       const params2 = p || {};
       // Meme cle de route pour deux seances differentes : le routeur n'a pas remonte la vue,
       // c'est donc a elle de reconstruire son propre contenu.
-      if (params2.id && params2.id !== idCourant) {
-        if (edition) appliquerEdition(true);
-        construire(params2.id);
-      }
+      if (params2.id && params2.id !== idCourant) construire(params2.id);
       gererFeuille(params2);
     }
   };

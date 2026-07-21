@@ -4,18 +4,22 @@
 //   · PLUSIEURS seances en cours cohabitent (store.seancesEnCours()). L'accueil ne montre donc
 //     plus « la » seance active mais une RANGEE de cartes qui defile horizontalement. Une seance
 //     oubliee doit rester atteignable : c'est le seul ecran qui la liste.
-//   · Les ROUTINES de l'utilisateur passent devant les modeles livres dans la rangee de
-//     lancement : ce qu'on a ecrit soi-meme se lance plus souvent que ce qui est livre.
-//   · Moins de phrases, plus de pictogrammes. Chaque tuile porte une icone issue de ui/icons.js,
-//     resolue depuis le PREMIER exercice du modele : deux routines differentes ne se ressemblent
-//     donc jamais, et on les distingue sans lire.
+//   · Le LANCEMENT est une GRILLE VERTICALE pleine largeur (2 colonnes de tuiles hautes), plus
+//     une rangee defilante : retour utilisateur v3, chaque point d'entree doit etre visible sans
+//     defiler de cote. Ordre IMPOSE : Composer (mis en avant), Seance libre, Sortie cardio, puis
+//     les routines de l'utilisateur, puis les modeles livres. La grille est la vedette de
+//     l'ecran ; le resume de la semaine passe apres elle.
+//   · Moins de phrases, plus de pictogrammes. Chaque tuile porte une icone DOMINANTE issue de
+//     ui/icons.js, resolue depuis le PREMIER exercice du modele : deux routines differentes ne se
+//     ressemblent donc jamais, et on les distingue sans lire.
 //
 // ⚠ CE QUI N'EST PAS NEGOCIABLE, meme au nom du visuel : les CHIFFRES du resume de la semaine
 //   restent des chiffres lisibles, jamais des jauges decoratives. Une icone qui remplace un
 //   nombre pendant une seance est une regression, pas un progres.
 //
 // CONTRAT DE RENDU (zone B). Le sous-arbre est construit UNE FOIS au montage. Il n'existe aucune
-// fonction de re-rendu global. Les deux rangees sont RECONCILIEES par cle : un noeud deja
+// fonction de re-rendu global. La rangee des seances en cours et la grille de lancement sont
+// RECONCILIEES par cle : un noeud deja
 // construit est conserve et mute (textContent, attributs), un noeud disparu est retire, un noeud
 // nouveau est insere a sa place. Rien de vivant (minuteur, saisie) n'y est monte ; les feuilles,
 // elles, vivent dans la coquille et sont fermees par destroy().
@@ -174,10 +178,11 @@ function resumeModele(modele) {
 // Reconciliation d'une rangee par cle
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// ⚠ Ni vider() ni reconstruction : une rangee qui DEFILE horizontalement perdrait sa position de
-//   defilement a chaque reconstruction, et le doigt pose sur une carte se retrouverait sur une
-//   autre. On conserve donc les noeuds existants, on ne cree que ce qui manque, on ne retire que
-//   ce qui a disparu, et on remet tout dans l'ordre par insertBefore.
+// ⚠ Ni vider() ni reconstruction : la rangee des seances DEFILE horizontalement et perdrait sa
+//   position a chaque reconstruction ; la grille de lancement vit dans le defilement VERTICAL de
+//   la page, et une reconstruction deroberait la tuile sous le doigt. On conserve donc les noeuds
+//   existants, on ne cree que ce qui manque, on ne retire que ce qui a disparu, et on remet tout
+//   dans l'ordre par insertBefore.
 //
 // @param {Element} hote
 // @param {string[]} cles ordre voulu
@@ -331,38 +336,44 @@ export function mount(conteneur) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 2. Lancer une seance — rangee de tuiles a icone
+  // 2. Lancer une seance — grille verticale pleine largeur de tuiles a icone
   // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // ⚠ Retour utilisateur v3 : plus de defilement lateral ici. La grille occupe la page sur
+  //   2 colonnes de tuiles hautes — icone dominante, nom dessous — et l'ordre est IMPOSE :
+  //   Composer (premiere tuile, mise en avant), Seance libre, Sortie cardio, routines de
+  //   l'utilisateur, modeles livres.
 
-  const rangeeLanceurs = h('div', { class: 'rangee-defilante rangee-lanceurs', role: 'list' });
+  const grilleLanceurs = h('div', { class: 'grille-lanceurs', role: 'list' });
 
   const mentionPlafond = h('p', { class: 'mention-plafond', hidden: true });
 
   const blocLanceurs = h('section', { class: 'bloc-lancement' },
     h('h2', { class: 'section-titre' },
       icone('lecture', { taille: 20, classe: 'section-titre-icone' }),
-      h('span', {}, 'Lancer')
+      h('span', {}, 'Lancer une séance')
     ),
-    rangeeLanceurs,
+    grilleLanceurs,
     mentionPlafond
   );
 
-  // Cles synthetiques des deux entrees fixes de la rangee. Prefixees pour ne jamais entrer en
+  // Cles synthetiques des trois entrees fixes de la grille. Prefixees pour ne jamais entrer en
   // collision avec un id de modele ('usr:…', 'mod:…', 'tpl:…').
   const CLE_COMPOSER = 'action:composer';
+  const CLE_LIBRE = 'action:libre';
   const CLE_CARDIO = 'action:cardio';
 
   function tuile({ cle, nomIcone, titre, detail, pastille, action, id, classe }) {
     return h('button', {
       type: 'button',
-      class: ['tuile-lancement', classe],
+      class: ['tuile-lanceur', classe],
       dataset: id ? { action, id } : { action },
       role: 'listitem',
       'data-cle': cle
     },
-      h('span', { class: 'tuile-icone' }, icone(nomIcone, { taille: 34 })),
-      h('span', { class: 'tuile-nom' }, titre),
-      detail ? h('span', { class: 'tuile-detail' }, detail) : null,
+      h('span', { class: 'tuile-lanceur-icone' }, icone(nomIcone, { taille: 48 })),
+      h('span', { class: 'tuile-lanceur-nom' }, titre),
+      detail ? h('span', { class: 'tuile-lanceur-detail' }, detail) : null,
       pastille ? h('span', { class: 'pastille-origine' }, pastille) : null
     );
   }
@@ -372,6 +383,12 @@ export function mount(conteneur) {
       return tuile({
         cle, nomIcone: 'plus', titre: 'Composer', detail: 'Exercice par exercice',
         action: 'composer', classe: 'tuile-composer'
+      });
+    }
+    if (cle === CLE_LIBRE) {
+      return tuile({
+        cle, nomIcone: 'halteres', titre: 'Séance libre', detail: 'Sans plan préparé',
+        action: 'libre', classe: 'tuile-libre'
       });
     }
     if (cle === CLE_CARDIO) {
@@ -388,7 +405,7 @@ export function mount(conteneur) {
       titre: modele.nom || 'Séance',
       detail: resumeModele(modele),
       // ⚠ La pastille n'est posee que sur les modeles LIVRES : marquer aussi les routines
-      //   couvrirait toute la rangee d'etiquettes et n'apprendrait plus rien. On distingue ce qui
+      //   couvrirait toute la grille d'etiquettes et n'apprendrait plus rien. On distingue ce qui
       //   est minoritaire, jamais ce qui est majoritaire.
       pastille: estRoutine(modele) ? null : 'Livré',
       action: 'modele',
@@ -398,24 +415,24 @@ export function mount(conteneur) {
   }
 
   function majLanceur(cle, noeud) {
-    if (cle === CLE_COMPOSER || cle === CLE_CARDIO) return;
+    if (cle === CLE_COMPOSER || cle === CLE_LIBRE || cle === CLE_CARDIO) return;
     const modele = store.modele(cle);
     if (!modele) return;
-    const nom = noeud.querySelector('.tuile-nom');
-    const detail = noeud.querySelector('.tuile-detail');
+    const nom = noeud.querySelector('.tuile-lanceur-nom');
+    const detail = noeud.querySelector('.tuile-lanceur-detail');
     if (nom) nom.textContent = modele.nom || 'Séance';
     if (detail) detail.textContent = resumeModele(modele);
   }
 
   function majLanceurs() {
     const actifs = store.modeles().filter((m) => m && m.archived !== true);
-    // ⚠ Les ROUTINES d'abord : ce que l'utilisateur a ecrit lui-meme se lance beaucoup plus
-    //   souvent que ce qui est livre, et la rangee defile — au-dela de la troisieme tuile, une
-    //   entree n'existe plus vraiment.
+    // ⚠ ORDRE IMPOSE par le retour utilisateur v3 : les trois gestes de creation d'abord —
+    //   Composer en tete de grille — puis les ROUTINES de l'utilisateur (ce qu'on a ecrit
+    //   soi-meme se lance plus souvent que ce qui est livre), et les modeles livres en dernier.
     const routines = actifs.filter(estRoutine).map((m) => m.id);
     const livres = actifs.filter((m) => !estRoutine(m)).map((m) => m.id);
-    const cles = routines.concat(livres, [CLE_COMPOSER, CLE_CARDIO]);
-    reconcilier(rangeeLanceurs, cles, noeudsLanceurs, fabriquerLanceur, majLanceur);
+    const cles = [CLE_COMPOSER, CLE_LIBRE, CLE_CARDIO].concat(routines, livres);
+    reconcilier(grilleLanceurs, cles, noeudsLanceurs, fabriquerLanceur, majLanceur);
     majPlafond();
   }
 
@@ -424,7 +441,7 @@ export function mount(conteneur) {
    *
    * ⚠ Le store REFUSE le demarrage au-dela de MAX_SEANCES_EN_COURS. Laisser les tuiles actives
    *   ferait echouer le tap avec un message d'erreur technique, apres coup. On desarme donc la
-   *   rangee et on DIT pourquoi, avant le geste.
+   *   grille et on DIT pourquoi, avant le geste.
    */
   function majPlafond() {
     const atteint = store.seancesEnCours().length >= MAX_SEANCES_EN_COURS;
@@ -434,17 +451,18 @@ export function mount(conteneur) {
         'le maximum. Termine ou abandonne l\'une d\'elles pour en lancer une nouvelle.';
     }
     blocLanceurs.setAttribute('data-plafond', atteint ? 'atteint' : 'libre');
-    for (const bouton of rangeeLanceurs.children) {
+    for (const bouton of grilleLanceurs.children) {
       bouton.disabled = atteint;
     }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 3. Resume de la semaine — tuiles chiffrees compactes
+  // 3. Resume de la semaine — tuiles chiffrees compactes, SOUS la grille de lancement
   // ═══════════════════════════════════════════════════════════════════════════
   //
   // ⚠ Le CHIFFRE d'abord, l'icone ensuite. C'est l'inverse du reste de l'ecran, et c'est
-  //   volontaire : un pictogramme ne remplace jamais un nombre.
+  //   volontaire : un pictogramme ne remplace jamais un nombre. Le bloc vient APRES la grille
+  //   (retour v3) : lancer est le geste principal, consulter vient ensuite.
 
   function tuileChiffree(nomIcone, libelle) {
     const valeur = h('span', { class: 'tuile-chiffre-valeur' }, '—');
@@ -794,6 +812,7 @@ export function mount(conteneur) {
     if (action === 'ouvrir-seance') { ouvrirSeance(id); return; }
     if (action === 'menu-seance') { ouvrirMenuSeance(id); return; }
     if (action === 'composer') { router.aller('#/composer'); return; }
+    if (action === 'libre') { demarrerSeance(null, null); return; }
     if (action === 'cardio') { choisirCardio(); return; }
     if (action === 'modele') {
       const modele = store.modele(id);

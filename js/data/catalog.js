@@ -1,4 +1,4 @@
-// data/catalog.js — CATALOGUE livre : 40 exercices, dont 6 cardio.
+// data/catalog.js — CATALOGUE livre : 48 exercices, dont 6 cardio.
 //
 // Chaque entree est un Exercice complet au sens de schema.js, fabrique par nouvelExercice() :
 // passer par la fabrique garantit que le catalogue et un exercice cree par l'utilisateur ont
@@ -15,6 +15,11 @@ import { nouvelExercice, transitionPermise } from './schema.js';
 // fabriquerait des createdAt differents et `synchroniser` ne saurait plus distinguer un exercice
 // deja installe d'un exercice neuf.
 const LIVRE_LE = Date.parse('2026-01-01T00:00:00Z');
+
+// Deuxieme vague du catalogue (retours utilisateur, 2026-07) : son propre horodatage, FIXE pour
+// la meme raison. Les entrees de cette vague le passent explicitement a ex() — dans Object.assign,
+// `p` prime sur les valeurs par defaut.
+const LIVRE_LE_V2 = Date.parse('2026-07-20T00:00:00Z');
 
 /**
  * Nom du pictogramme d'un exercice : SON IDENTIFIANT PRIVE DE SON PREFIXE. Aucune exception.
@@ -141,8 +146,8 @@ export const CATALOGUE = [
     reposParDefautSec: 90
   }),
   // ⚠ « Pompes mains surelevees » (regression debutante des pompes classiques) n'est pas livree :
-  //   le catalogue est plafonne a 40 entrees, et c'est la seule variante de la liste qui
-  //   n'apporte aucun stimulus distinct. Elle se recree en deux champs via « Creer eclair ».
+  //   le catalogue initial etait plafonne a 40 entrees, et c'est la seule variante de la liste
+  //   qui n'apporte aucun stimulus distinct. Elle se recree en deux champs via « Creer eclair ».
 
   // ── Dips ───────────────────────────────────────────────────────────────────
   ex({
@@ -593,6 +598,132 @@ export const CATALOGUE = [
     // null : sauter sur place ne parcourt aucune distance, une allure y serait un chiffre invente.
     metriqueCardio: null,
     reposParDefautSec: 60
+  }),
+
+  // ── Vague de retours utilisateur (2026-07) : 8 exercices ───────────────────
+  // ⚠ Le squat au poids du corps recoit l'id 'cat:squat-poids-du-corps' et NON 'cat:squat' :
+  //   'cat:squat' designe deja « Squat à la barre » plus haut, et les ids sont FIGES A VIE.
+  //   Le reutiliser aurait fait pire qu'un doublon : synchroniser() aurait REECRIT le squat barre
+  //   de toutes les installations existantes (nom, materiel, coefficients) sans aucune erreur.
+  //   Consequence de la convention id → icone : son icone est 'squat-poids-du-corps', a definir
+  //   dans js/ui/icons.js ('squat' reste l'icone du squat barre).
+  ex({
+    id: 'cat:squat-poids-du-corps',
+    nom: 'Squat',
+    alias: ['air squat', 'squat poids du corps', 'squat sans charge', 'bodyweight squat'],
+    categorie: 'quadriceps',
+    materiel: 'aucun',
+    mode: 'poids-du-corps',
+    lestable: true,          // gilet leste ou disque serre contre la poitrine
+    unilateral: false,
+    incrementKg: 2.5,
+    bodyweightFactor: 0.85,  // la quasi-totalite du corps descend, seuls pieds et tibias portent
+    reposParDefautSec: 90,
+    createdAt: LIVRE_LE_V2,
+    updatedAt: LIVRE_LE_V2
+  }),
+  ex({
+    id: 'cat:squat-bulgare',
+    nom: 'Squat bulgare',
+    alias: ['fentes bulgares', 'fente bulgare', 'bulgarian split squat', 'split squat'],
+    categorie: 'quadriceps',
+    materiel: 'banc',        // le pied arriere repose sur le banc
+    mode: 'poids-du-corps',
+    lestable: true,          // halteres tenus le long du corps
+    unilateral: true,        // une jambe a la fois : tonnage compte PAR COTE
+    incrementKg: 1.25,
+    bodyweightFactor: 0.85,
+    reposParDefautSec: 90,
+    createdAt: LIVRE_LE_V2,
+    updatedAt: LIVRE_LE_V2
+  }),
+  ex({
+    id: 'cat:goblet-squat',
+    nom: 'Goblet squat',
+    alias: ['squat goblet', 'squat kettlebell', 'goblet'],
+    categorie: 'quadriceps',
+    materiel: 'kettlebell',
+    mode: 'charge',
+    lestable: false,
+    unilateral: false,
+    incrementKg: 1.25,
+    reposParDefautSec: 90,
+    createdAt: LIVRE_LE_V2,
+    updatedAt: LIVRE_LE_V2
+  }),
+  ex({
+    id: 'cat:hip-thrust',
+    nom: 'Hip thrust',
+    alias: ['extension de hanches', 'pont fessier', 'glute bridge', 'releve de bassin'],
+    categorie: 'fessiers',
+    materiel: 'barre',
+    mode: 'charge',
+    lestable: false,
+    unilateral: false,
+    incrementKg: 2.5,
+    reposParDefautSec: 120,
+    createdAt: LIVRE_LE_V2,
+    updatedAt: LIVRE_LE_V2
+  }),
+  ex({
+    id: 'cat:souleve-de-terre-roumain',
+    nom: 'Soulevé de terre roumain',
+    alias: ['rdl', 'romanian deadlift', 'souleve roumain', 'sdt roumain', 'sdt jambes semi-tendues'],
+    categorie: 'ischios',
+    materiel: 'barre',
+    mode: 'charge',
+    lestable: false,
+    unilateral: false,
+    incrementKg: 2.5,
+    reposParDefautSec: 150,
+    createdAt: LIVRE_LE_V2,
+    updatedAt: LIVRE_LE_V2
+  }),
+  ex({
+    id: 'cat:crunchs',
+    nom: 'Crunchs',
+    alias: ['crunch', 'enroulement de buste', 'abdos crunch'],
+    categorie: 'abdos',
+    materiel: 'aucun',
+    mode: 'poids-du-corps',
+    lestable: true,          // disque tenu contre la poitrine
+    unilateral: false,
+    incrementKg: 1.25,
+    bodyweightFactor: 0.3,   // seul le haut du buste s'enroule
+    reposParDefautSec: 60,
+    createdAt: LIVRE_LE_V2,
+    updatedAt: LIVRE_LE_V2
+  }),
+  ex({
+    id: 'cat:burpees',
+    nom: 'Burpees',
+    alias: ['burpee'],
+    categorie: 'corps-entier',
+    materiel: 'aucun',
+    mode: 'poids-du-corps',
+    lestable: false,         // le mouvement ne se leste pas proprement
+    unilateral: false,
+    // Non lestable : l'increment ne sert ici qu'a valider() (strictement positif exige) et a la
+    // tolerance de record — meme raison que sur les exercices cardio ci-dessus.
+    incrementKg: 1.25,
+    bodyweightFactor: 0.65,
+    reposParDefautSec: 60,
+    createdAt: LIVRE_LE_V2,
+    updatedAt: LIVRE_LE_V2
+  }),
+  ex({
+    id: 'cat:face-pull',
+    nom: 'Face pull',
+    alias: ['tirage visage', 'face pulls', 'tirage corde epaules'],
+    categorie: 'epaules',
+    materiel: 'poulie',
+    mode: 'machine',         // on note le cran de la colonne, comme leg curl / leg extension
+    lestable: false,
+    unilateral: false,
+    incrementKg: 5,
+    reposParDefautSec: 90,
+    createdAt: LIVRE_LE_V2,
+    updatedAt: LIVRE_LE_V2
   })
 ];
 
@@ -651,8 +782,8 @@ function memeValeur(a, b) {
  *   chaque ouverture de l'application — un bug invisible, silencieux et repete a l'infini.
  *   Le catalogue livre PROPOSE ; l'utilisateur DISPOSE, et sa decision est definitive.
  *
- * ⚠ Ne retourne que ce qui a REELLEMENT change : renvoyer les 40 exercices a chaque demarrage
- *   ferait 40 ecritures IDB inutiles au moment precis ou l'ecran doit etre peint.
+ * ⚠ Ne retourne que ce qui a REELLEMENT change : renvoyer les 48 exercices a chaque demarrage
+ *   ferait 48 ecritures IDB inutiles au moment precis ou l'ecran doit etre peint.
  */
 export function synchroniser(existants) {
   const index = new Map();

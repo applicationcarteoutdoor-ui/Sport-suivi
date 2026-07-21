@@ -318,7 +318,12 @@ groupe('intégrité — chaque icône déclarée existe');
   const { PACKS, verifierPacks } = await import('./js/data/packs.js');
   const defini = (n) => typeof n === 'string' && Object.prototype.hasOwnProperty.call(ICONES, n);
 
-  egal('le catalogue livré compte 40 exercices', CATALOGUE.length, 40);
+  egal('le catalogue livré compte 48 exercices', CATALOGUE.length, 48);
+
+  // Les ids sont figés à vie et servent de clé partout (CATALOGUE_PAR_ID, synchroniser,
+  // séances passées) : un doublon écraserait silencieusement un exercice dans l'index.
+  const idsCatalogue = new Set(CATALOGUE.map((e) => e.id));
+  egal('les ids du catalogue sont uniques', idsCatalogue.size, CATALOGUE.length);
 
   const exSansIcone = CATALOGUE.filter((e) => !e.icone).map((e) => e.id);
   vrai('chaque exercice du catalogue déclare une icône', exSansIcone.length === 0,
@@ -327,6 +332,26 @@ groupe('intégrité — chaque icône déclarée existe');
   const exOrphelins = CATALOGUE.filter((e) => !defini(e.icone)).map((e) => e.id + ' → ' + e.icone);
   vrai('chaque icône d\'exercice existe dans ICONES', exOrphelins.length === 0,
     'aucune icône manquante', exOrphelins.join(', ') || 'aucune');
+
+  // Vague de retours utilisateur (2026-07) : chacun des 8 nouveaux exercices est livré, valide,
+  // et son icône est une clé PROPRE de ICONES (une clé héritée d'Object.prototype ne compte pas —
+  // c'est ce que vérifie `defini`, bâti sur hasOwnProperty).
+  // ⚠ 'cat:squat-poids-du-corps' et non 'cat:squat' : cet id désigne déjà le squat à la barre.
+  const nouveauxIds = [
+    'cat:squat-poids-du-corps', 'cat:squat-bulgare', 'cat:goblet-squat', 'cat:hip-thrust',
+    'cat:souleve-de-terre-roumain', 'cat:crunchs', 'cat:burpees', 'cat:face-pull'
+  ];
+  const catalogueParId = new Map(CATALOGUE.map((e) => [e.id, e]));
+  for (const id of nouveauxIds) {
+    const nouveau = catalogueParId.get(id);
+    vrai(`nouvel exercice ${id} présent dans le catalogue`, !!nouveau,
+      'présent', nouveau ? 'présent' : 'ABSENT');
+    vrai(`icône de ${id} : clé propre de ICONES`, !!nouveau && defini(nouveau.icone),
+      'définie dans ICONES', nouveau ? String(nouveau.icone) : 'exercice absent');
+    const verdict = valider(nouveau, 'exercice');
+    vrai(`valider() accepte ${id}`, verdict.ok, 'ok',
+      verdict.erreurs.join(' ; ') || 'ok');
+  }
 
   const packsOrphelins = PACKS.filter((p) => !defini(p.icone)).map((p) => p.id + ' → ' + p.icone);
   vrai('chaque icône de pack existe dans ICONES', packsOrphelins.length === 0,

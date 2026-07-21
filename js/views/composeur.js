@@ -351,7 +351,12 @@ export function mount(conteneur, params) {
   function marquerTuile(exerciceId) {
     const tuile = tuiles.get(exerciceId);
     if (!tuile) return;
-    tuile.setAttribute('aria-pressed', parExercice.has(exerciceId) ? 'true' : 'false');
+    const choisi = parExercice.has(exerciceId);
+    tuile.setAttribute('aria-pressed', choisi ? 'true' : 'false');
+    // La coche n'existe visuellement QUE sur une tuile selectionnee. C'est le JS qui commande sa
+    // visibilite via l'attribut hidden : aucune regle CSS ne doit l'afficher sans condition.
+    const marque = tuile.querySelector('.exercice-tuile-marque');
+    if (marque) marque.hidden = !choisi;
   }
 
   function peindreGrille() {
@@ -379,16 +384,21 @@ export function mount(conteneur, params) {
     }
 
     for (const ex of trouves) {
+      const choisi = parExercice.has(ex.id);
       const tuile = h('button', {
         type: 'button',
         class: 'exercice-tuile',
         'data-action': 'basculer',
         'data-id': ex.id,
-        'aria-pressed': parExercice.has(ex.id) ? 'true' : 'false'
+        'aria-pressed': choisi ? 'true' : 'false'
       },
         h('span', { class: 'exercice-tuile-dessin' }, icone(iconePourExercice(ex), { taille: 34 })),
         h('span', { class: 'exercice-tuile-nom' }, ex.nom),
-        h('span', { class: 'exercice-tuile-marque', 'aria-hidden': 'true' }, icone('coche', { taille: 16 }))
+        // hidden des la construction quand la tuile n'est pas selectionnee : la grille etant
+        // reconstruite a chaque changement de pack ou de recherche, l'etat initial doit etre
+        // juste sans attendre un passage par marquerTuile().
+        h('span', { class: 'exercice-tuile-marque', 'aria-hidden': 'true', hidden: !choisi },
+          icone('coche', { taille: 16 }))
       );
       tuiles.set(ex.id, tuile);
       grille.appendChild(tuile);

@@ -7,12 +7,16 @@
 //   - aucune chaine de balisage nulle part, donc aucun probleme d'echappement ;
 //   - stroke='currentColor' partout : une icone prend la couleur de son texte, donc elle est
 //     juste en theme clair ET en theme sombre SANS le moindre re-rendu a la bascule. C'est la
-//     raison pour laquelle aucune couleur litterale n'apparait dans ce fichier.
+//     raison pour laquelle aucune couleur litterale n'apparait dans ce fichier — la tete des
+//     silhouettes, seul remplissage du fichier, est en fill='currentColor' pour la meme raison.
 //
-// Style de dessin, impose et uniforme (voir GABARIT ci-dessous) : viewBox 0 0 24 24, trait seul,
-// jamais de remplissage, epaisseur 1.75, bouts et jonctions arrondis. Chaque dessin reste sous
-// huit traits : au-dela, l'icone devient une bouillie a 20 px, taille a laquelle elle sera
-// reellement lue dans une puce ou une ligne de serie.
+// Style de dessin, impose et uniforme (voir GABARIT ci-dessous) : viewBox 0 0 24 24, trait 1.75,
+// bouts et jonctions arrondis. Les silhouettes sont CONSTRUITES : tete = petit cercle PLEIN
+// (r ~1.6), membres et buste = traits arrondis, et c'est la POSTURE qui raconte l'exercice.
+// Le materiel a une grammaire fixe : barre = long fut + disques (cercles), haltere = fut court +
+// deux petits rectangles arrondis, poulie = petit cercle + cable oblique, banc = trait EPAIS,
+// kettlebell = cercle + anse. Chaque dessin reste entre 6 et 9 elements : au-dela, l'icone
+// devient une bouillie a 20 px, taille a laquelle elle sera reellement lue dans une puce.
 
 import { svg } from '../lib/dom.js';
 
@@ -29,48 +33,44 @@ const P = (d) => svg('path', { d });
 const PL = (points) => svg('polyline', { points });
 const R = (x, y, width, height, rx) => svg('rect', { x, y, width, height, rx });
 
+/** Trait EPAIS : la matiere d'un banc, d'une assise, d'un plateau de presse. */
+const T = (x1, y1, x2, y2) => svg('line', { x1, y1, x2, y2, 'stroke-width': 2.75 });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Formes recurrentes
 // ─────────────────────────────────────────────────────────────────────────────
-// Une barre chargee, un banc, un haltere ou une colonne de machine reviennent dans une vingtaine
-// de dessins. Les factoriser evite de recopier vingt fois les memes coordonnees — et surtout
-// garantit qu'une barre a TOUJOURS la meme allure d'une icone a l'autre, ce qui est la moitie du
-// travail d'une famille d'icones coherente.
+// Une tete, une barre chargee, un haltere ou un montant de machine reviennent dans une trentaine
+// de dessins. Les factoriser garantit qu'une barre a TOUJOURS la meme allure d'une icone a
+// l'autre — c'est la moitie du travail d'une famille d'icones coherente.
 
-/** Barre horizontale chargee : le fut, plus un disque a chaque extremite. */
-function barreChargee(y, x1, x2, demiDisque) {
-  const d = demiDisque == null ? 2.5 : demiDisque;
+/** Tete de silhouette : cercle PLEIN (le seul remplissage du fichier, en currentColor). */
+const tete = (cx, cy, r) => svg('circle', { cx, cy, r: r == null ? 1.6 : r, fill: 'currentColor' });
+
+/** Barre chargee : le fut, plus un DISQUE (cercle) a chaque extremite. */
+function barreChargee(y, x1, x2, rayon) {
+  const r = rayon == null ? 2.4 : rayon;
   return [
     L(x1, y, x2, y),
-    L(x1 + 1.6, y - d, x1 + 1.6, y + d),
-    L(x2 - 1.6, y - d, x2 - 1.6, y + d)
+    C(x1 + r + 0.6, y, r),
+    C(x2 - r - 0.6, y, r)
   ];
 }
 
-/** Haltere court : fut plus deux embouts. */
-function haltere(cx, cy, demiLong, demiHaut) {
-  const dl = demiLong == null ? 3 : demiLong;
-  const dh = demiHaut == null ? 1.6 : demiHaut;
+/** Haltere : fut court + deux petits rectangles arrondis centres sur ses extremites. */
+function haltere(cx, cy, demiLong) {
+  const dl = demiLong == null ? 2.5 : demiLong;
   return [
     L(cx - dl, cy, cx + dl, cy),
-    L(cx - dl + 0.5, cy - dh, cx - dl + 0.5, cy + dh),
-    L(cx + dl - 0.5, cy - dh, cx + dl - 0.5, cy + dh)
+    R(cx - dl - 0.9, cy - 1.6, 1.8, 3.2, 0.8),
+    R(cx + dl - 0.9, cy - 1.6, 1.8, 3.2, 0.8)
   ];
-}
-
-/** Banc : plateau horizontal et un pied qui descend au sol. */
-function banc(y, x1, x2, xPied) {
-  return [L(x1, y, x2, y), L(xPied, y, xPied, 20.6)];
 }
 
 /** Ligne de sol, reference commune a tous les mouvements au poids du corps. */
 const sol = (y) => L(2.5, y == null ? 20.6 : y, 21.5, y == null ? 20.6 : y);
 
-/** Montant vertical d'une machine ou d'une colonne a poulie. */
-const colonne = (x) => L(x, 2.5, x, 21.5);
-
-/** Tete de la silhouette. */
-const tete = (cx, cy, r) => C(cx, cy, r == null ? 1.75 : r);
+/** Montant vertical d'une machine a poulie (colonne gauche ou droite du cadre). */
+const montant = (x) => L(x, 3.4, x, 20.5);
 
 // ═════════════════════════════════════════════════════════════════════════════
 // ICONES — dictionnaire nom -> fonction de dessin.
@@ -84,52 +84,49 @@ export const ICONES = {
   // Packs et materiel (8) — ce que l'utilisateur voit sur la grille d'entree
   // ───────────────────────────────────────────────────────────────────────────
 
+  // Silhouette debout, bras ouverts : la personne SANS materiel.
   'poids-du-corps': () => [
-    tete(12, 4.8, 2),
-    L(12, 6.8, 12, 14),
-    L(5.5, 10, 18.5, 10),
-    L(12, 14, 9, 20.5),
-    L(12, 14, 15, 20.5)
+    tete(12, 4.1),
+    L(12, 5.7, 12, 13),
+    L(12, 7.6, 7, 11.6),
+    L(12, 7.6, 17, 11.6),
+    L(12, 13, 8.6, 20.4),
+    L(12, 13, 15.4, 20.4)
   ],
 
-  // ⚠ Haltere et barre partagent la meme grammaire (un fut, des disques) : sans un contraste
-  //   FRANC ils deviennent la meme icone a 20 px. Le contraste est ici la LONGUEUR du fut —
-  //   l'haltere tient au centre du cadre, la barre le traverse de bord a bord — et le nombre de
-  //   disques, un seul par cote contre deux.
+  // ⚠ Haltere et barre partagent la meme grammaire (un fut, des masses au bout) : sans un
+  //   contraste FRANC ils deviennent la meme icone a 20 px. Le contraste est double : la
+  //   LONGUEUR du fut (l'haltere tient au centre, la barre traverse le cadre) et la NATURE des
+  //   masses (rectangles arrondis contre grands disques ronds).
   'halteres': () => [
-    L(6, 12, 18, 12),
-    L(7.6, 8.6, 7.6, 15.4),
-    L(16.4, 8.6, 16.4, 15.4),
-    L(4.6, 10.2, 4.6, 13.8),
-    L(19.4, 10.2, 19.4, 13.8)
+    L(7, 12, 17, 12),
+    R(4.3, 8.2, 2.7, 7.6, 1.1),
+    R(17, 8.2, 2.7, 7.6, 1.1)
   ],
 
-  'barre': () => [
-    L(1.8, 12, 22.2, 12),
-    L(5.2, 7.2, 5.2, 16.8),
-    L(7.8, 9.4, 7.8, 14.6),
-    L(18.8, 7.2, 18.8, 16.8),
-    L(16.2, 9.4, 16.2, 14.6)
-  ],
+  'barre': () => barreChargee(12, 1.8, 22.2, 3.3).concat([
+    L(9.8, 10.6, 9.8, 13.4),
+    L(14.2, 10.6, 14.2, 13.4)
+  ]),
 
+  // La grammaire de la poulie : petite roue en haut, cable OBLIQUE, poignee perpendiculaire.
   'poulie': () => [
-    colonne(4),
-    L(4, 4, 12, 4),
-    C(12, 5.8, 1.8),
-    L(12, 7.6, 12, 14.5),
-    L(9, 14.5, 15, 14.5)
+    L(5, 3, 17, 3),
+    C(11, 5.5, 2.3),
+    L(12.6, 7.2, 16.6, 15.2),
+    L(14.4, 17.6, 20, 14.8)
   ],
 
   // Colonne de plaques entre deux rails, et le cable qui y plonge : sans le cable, le rectangle
   // raye se lit comme une liste de texte et non comme une machine.
   'machine': () => [
-    L(5, 3, 19, 3),
-    L(5, 3, 5, 21),
-    L(19, 3, 19, 21),
-    L(12, 3, 12, 8),
-    R(8.4, 8, 7.2, 11, 1),
-    L(8.4, 11.7, 15.6, 11.7),
-    L(8.4, 15.4, 15.6, 15.4)
+    L(5, 2.8, 5, 21.2),
+    L(19, 2.8, 19, 21.2),
+    L(5, 2.8, 19, 2.8),
+    L(12, 2.8, 12, 8.4),
+    R(8.2, 8.4, 7.6, 9.8, 1.2),
+    L(8.2, 11.7, 15.8, 11.7),
+    L(8.2, 15, 15.8, 15)
   ],
 
   // Le coeur : le seul symbole qui dit « cardio » sans dire QUEL cardio.
@@ -144,272 +141,297 @@ export const ICONES = {
     C(20.6, 12, 1.7)
   ],
 
-  // Pack « gainage » : la planche, MIROIR de l'icone de l'exercice « Gainage planche » (tete a
-  // gauche au lieu de la droite). Un tronc abstrait avait ete essaye ici et se lisait comme une
-  // pile ou un telephone : la silhouette, elle, est reconnue immediatement, et la repetition
-  // entre un pack et l'exercice qu'il contient est une aide plutot qu'une confusion.
+  // Pack « gainage » : la planche, MIROIR de l'icone de l'exercice « planche » (tete a gauche
+  // au lieu de la droite). La silhouette est reconnue immediatement, et la repetition entre un
+  // pack et l'exercice qu'il contient est une aide plutot qu'une confusion.
   'gainage': () => [
-    tete(5.2, 10, 1.7),
-    L(6.7, 10.9, 16, 15),
-    L(16, 15, 20.5, 18.6),
-    L(6.6, 11.7, 8.4, 18.8),
-    L(4.6, 18.8, 10.4, 18.8),
+    tete(4.7, 9.7),
+    L(6.2, 10.5, 19.6, 18.2),
+    L(6.6, 11, 7.8, 18.6),
+    L(4.6, 18.7, 10.2, 18.7),
     sol()
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Dos — tractions. Le discriminant est la PRISE, dessinee au contact de la barre :
-  // mains larges et bras plies (pronation), mains serrees (supination), poignees
-  // perpendiculaires (neutre).
+  // Dos — tractions. Le corps est SUSPENDU sous la barre ; le discriminant est la PRISE :
+  // mains larges coudes ouverts (pronation), mains serrees coudes devant et jambes croisees
+  // (supination), poignees perpendiculaires et corps droit (neutre).
   // ───────────────────────────────────────────────────────────────────────────
 
   'tractions-pronation': () => [
     L(3, 3.5, 21, 3.5),
-    PL('8,3.5 6.8,7.5 9.8,9.5'),
-    PL('16,3.5 17.2,7.5 14.2,9.5'),
-    tete(12, 7, 1.7),
-    L(12, 9.5, 12, 15),
-    L(12, 15, 10.5, 20.5),
-    L(12, 15, 13.5, 20.5)
+    PL('7.4,3.5 6.8,7.2 10,9.2'),
+    PL('16.6,3.5 17.2,7.2 14,9.2'),
+    tete(12, 7.3),
+    L(12, 9.2, 12, 14.8),
+    L(12, 14.8, 10.4, 20.4),
+    L(12, 14.8, 13.6, 20.4)
   ],
 
   'tractions-supination': () => [
     L(3, 3.5, 21, 3.5),
-    PL('10,3.5 9,7.5 10.4,9.5'),
-    PL('14,3.5 15,7.5 13.6,9.5'),
-    tete(12, 7, 1.7),
-    L(12, 9.5, 12, 14.5),
-    PL('12,14.5 9,17.5 10,20.5'),
-    PL('12,14.5 15,17.5 14,20.5')
+    PL('10,3.5 8.9,7 11,9.1'),
+    PL('14,3.5 15.1,7 13,9.1'),
+    tete(12, 7.3),
+    L(12, 9.2, 12, 14.4),
+    PL('12,14.4 9.7,17.2 10.7,20.3'),
+    PL('12,14.4 14.3,17.2 13.3,20.3')
   ],
 
   'tractions-neutre': () => [
     L(3, 3.5, 21, 3.5),
-    L(9, 2, 9, 5.5),
-    L(15, 2, 15, 5.5),
-    PL('9,5.5 8.4,8 10,9.6'),
-    PL('15,5.5 15.6,8 14,9.6'),
-    tete(12, 7.4, 1.7),
-    L(12, 10, 12, 20.5)
+    L(9.5, 3.5, 9.5, 6.1),
+    L(14.5, 3.5, 14.5, 6.1),
+    PL('9.5,6.1 9.2,8.1 10.6,9.3'),
+    PL('14.5,6.1 14.8,8.1 13.4,9.3'),
+    tete(12, 7.6),
+    L(12, 9.5, 12, 20.3)
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Pectoraux et triceps — pompes. Tete a DROITE dans toute la famille ; ce qui change est
-  // l'inclinaison du corps et ce que les mains touchent.
+  // Pectoraux et triceps — pompes. Tete a DROITE dans toute la famille, corps oblique d'un seul
+  // trait, bras FLECHI (coude casse) : c'est le milieu de la repetition. Ce qui change entre les
+  // variantes est ce que touchent les mains et les pieds.
   // ───────────────────────────────────────────────────────────────────────────
 
   'pompes': () => [
-    tete(18.8, 10, 1.7),
-    L(17.3, 10.9, 8, 15),
-    L(8, 15, 3.5, 18.6),
-    L(17.6, 11.6, 16.4, 20.6),
+    tete(19.3, 9.5),
+    L(17.8, 10.3, 4.6, 17.2),
+    L(4.6, 17.2, 3.8, 18.7),
+    PL('17.3,10.9 15.2,14.8 17.9,18.7'),
     sol()
   ],
 
-  // Pieds SURELEVES sur un banc : le corps descend vers la tete, a l'inverse des pompes a plat.
+  // Pieds SURELEVES sur un banc (trait epais) : le corps plonge vers la tete.
   'pompes-declinees': () => [
-    tete(5.6, 15.2, 1.7),
-    L(7.2, 14.6, 15, 11),
-    L(15, 11, 19, 9.2),
-    L(5.8, 16.9, 5.8, 20.6),
-    ...banc(8.8, 15.5, 22, 20),
+    T(2.5, 10, 8.8, 10),
+    L(7.6, 9.4, 18.4, 14),
+    tete(20.1, 14.7),
+    PL('18,14.8 16.2,17.4 18.8,18.7'),
     sol()
   ],
 
   // Mains JOINTES : le losange sous la poitrine est le seul detail qui separe cette icone des
-  // pompes classiques, il est donc dessine en grand et pose exactement sous les epaules.
+  // pompes classiques, il est donc dessine en grand, bras tendu jusqu'a lui.
   'pompes-diamant': () => [
-    tete(18.8, 10, 1.7),
-    L(17.3, 10.9, 8, 15),
-    L(8, 15, 3.5, 18.6),
-    L(17.6, 11.6, 16, 17.2),
-    P('M16 17.2 L17.7 19 L16 20.8 L14.3 19 Z'),
+    tete(19.3, 9.5),
+    L(17.8, 10.3, 4.6, 17.2),
+    L(17.3, 10.9, 16.3, 16.6),
+    P('M16.3 16.7 L18 18.5 L16.3 20.3 L14.6 18.5 Z'),
     sol()
   ],
 
-  // Mains SURELEVEES : regression des pompes classiques. Absente du catalogue livre, mais un
-  // exercice cree par l'utilisateur peut la reclamer par son identifiant.
+  // Mains SURELEVEES sur un banc : regression des pompes classiques. Absente du catalogue livre,
+  // mais un exercice cree par l'utilisateur peut la reclamer par son identifiant.
   'pompes-surelevees': () => [
-    tete(18.4, 8.2, 1.7),
-    L(16.9, 9.1, 8, 13.8),
-    L(8, 13.8, 3.5, 17.6),
-    L(17.4, 9.9, 16.6, 15),
-    ...banc(15, 12.5, 21.5, 19.5),
+    T(15.2, 12.4, 21.5, 12.4),
+    tete(18.9, 7.7),
+    L(17.4, 8.6, 4.6, 17.4),
+    L(16.9, 9.3, 17.7, 10.9),
     sol()
   ],
 
   // ── Dips ───────────────────────────────────────────────────────────────────
 
+  // Deux barres paralleles, bras qui POUSSENT dessus, jambes repliees derriere.
   'dips-barres': () => [
-    L(2.5, 9, 8.5, 9),
-    L(15.5, 9, 21.5, 9),
-    tete(12, 6.4, 1.7),
-    L(12, 8.4, 12, 15),
-    L(12, 10, 7.5, 9.3),
-    L(12, 10, 16.5, 9.3),
-    PL('12,15 15.4,17.6 13.4,20.6')
+    L(2.5, 8.5, 8.5, 8.5),
+    L(15.5, 8.5, 21.5, 8.5),
+    tete(12, 5.7),
+    L(12, 7.3, 12, 14.4),
+    L(12, 9.2, 7.6, 8.7),
+    L(12, 9.2, 16.4, 8.7),
+    PL('12,14.4 14.4,17.2 12.6,20.4')
   ],
 
+  // Mains derriere soi sur un banc, jambes tendues devant : la posture inverse des dips barres.
   'dips-banc': () => [
-    ...banc(10, 2.5, 10.5, 4.5),
-    tete(13, 6.8, 1.7),
-    L(13, 8.6, 13, 14),
-    L(13, 10.2, 8.5, 10.2),
-    L(13, 14, 19.5, 16.6),
-    L(19.5, 16.6, 19.5, 20.6)
+    T(2.5, 10.6, 9.6, 10.6),
+    tete(12.8, 6.4),
+    L(12.8, 8, 12.8, 14.4),
+    L(12.8, 9.6, 8.8, 9.9),
+    L(12.8, 14.4, 19.6, 16.6),
+    L(19.6, 16.6, 19.8, 20.4),
+    sol()
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Pectoraux — developpes
+  // Pectoraux — developpes. Toujours : personne ALLONGEE sur un banc trait epais, bras
+  // verticaux, charge au-dessus. Le discriminant est la charge (barre a disques ou halteres)
+  // et l'inclinaison du banc.
   // ───────────────────────────────────────────────────────────────────────────
 
-  'developpe-couche-barre': () => barreChargee(6.5, 2.5, 21.5, 3).concat([
-    L(8, 7.5, 8, 14),
-    L(16, 7.5, 16, 14),
-    L(4, 15.5, 20, 15.5),
-    L(7, 15.5, 7, 20.2),
-    L(17, 15.5, 17, 20.2)
+  'developpe-couche-barre': () => barreChargee(6.2, 3, 21, 2.2).concat([
+    L(9, 6.2, 9, 13.6),
+    L(15, 6.2, 15, 13.6),
+    L(4.8, 14.2, 17.6, 14.2),
+    tete(19.4, 14),
+    T(3, 17, 21, 17)
   ]),
 
   'developpe-couche-halteres': () => [
-    PL('6,8 8,14 16,14 18,8'),
-    L(3.5, 16, 20.5, 16),
-    ...haltere(6, 6.5, 2.8, 1.8),
-    ...haltere(18, 6.5, 2.8, 1.8)
+    T(3.5, 17, 20.5, 17),
+    L(4.8, 14.4, 16.6, 14.4),
+    tete(18.6, 14.2),
+    L(9.8, 14, 7.2, 9.2),
+    L(12.6, 14, 15.2, 9.2),
+    R(5.9, 5.4, 2.6, 3.6, 1),
+    R(13.9, 5.4, 2.6, 3.6, 1)
   ],
 
-  // Le dossier INCLINE est le discriminant : une diagonale nette de bas-gauche a haut-droite.
-  'developpe-incline-barre': () => [
-    L(4, 20.2, 16, 8),
-    L(2.5, 20.2, 9, 20.2),
-    L(14, 9.5, 14, 6),
-    ...barreChargee(5, 6, 21.5, 2.5)
-  ],
+  // Le dossier INCLINE (trait epais en diagonale) est le discriminant.
+  'developpe-incline-barre': () => barreChargee(4.8, 8, 22, 2).concat([
+    T(4, 19.6, 14.4, 9.6),
+    tete(16, 8.6),
+    L(14.8, 9.6, 15.6, 5)
+  ]),
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Epaules — developpe militaire (debout, barre au-dessus de la tete)
+  // Epaules — developpe militaire : DEBOUT, barre chargee verrouillee au-dessus de la tete,
+  // bras tendus en V renverse.
   // ───────────────────────────────────────────────────────────────────────────
 
-  'developpe-militaire': () => barreChargee(4, 4, 20, 2.5).concat([
-    L(9, 4.6, 10.8, 8.6),
-    L(15, 4.6, 13.2, 8.6),
-    tete(12, 10.8, 1.75),
-    PL('12,12.6 12,16.4 9.6,20.8'),
-    L(12, 16.4, 14.4, 20.8)
+  'developpe-militaire': () => barreChargee(4.2, 4.5, 19.5, 2).concat([
+    L(8.6, 4.6, 10.6, 10.2),
+    L(15.4, 4.6, 13.4, 10.2),
+    tete(12, 8.6),
+    L(12, 10.2, 12, 15.4),
+    L(12, 15.4, 9.8, 20.6),
+    L(12, 15.4, 14.2, 20.6)
   ]),
 
   // ───────────────────────────────────────────────────────────────────────────
   // Dos — tirages horizontaux et verticaux
   // ───────────────────────────────────────────────────────────────────────────
 
+  // Buste CHARNIERE, barre tiree sous la poitrine : vue de profil, le disque est un cercle.
   'rowing-barre': () => [
-    tete(4.6, 7.6, 1.7),
-    L(6.3, 8.3, 15, 11.4),
-    PL('15,11.4 16,15.5 15,20.4'),
-    L(11, 10, 11, 15),
-    ...barreChargee(15, 5, 19.5, 2.4)
+    tete(4.8, 6.6),
+    L(6.4, 7.2, 14.6, 10.6),
+    PL('14.6,10.6 16,15 15,20.4'),
+    L(9.8, 8.6, 10.4, 14.2),
+    L(6.6, 14.6, 14.2, 14.6),
+    C(10.4, 14.6, 2.5),
+    sol()
   ],
 
+  // Un genou sur le banc, buste penche, l'autre bras tire l'haltere vers la hanche.
   'rowing-halteres': () => [
-    tete(18, 8, 1.7),
-    L(16.5, 8.9, 8.5, 12.4),
-    L(9.2, 12.6, 9.2, 15),
-    L(14, 11.2, 14, 15.4),
-    R(12.3, 15.4, 3.4, 2.4, 1),
-    ...banc(15, 3, 12.2, 5)
+    T(2.8, 15.2, 10.2, 15.2),
+    L(9.4, 11.8, 8, 14.6),
+    L(9, 11.8, 17.6, 8.6),
+    tete(19.4, 8.2),
+    L(14.6, 9.6, 14.2, 13),
+    ...haltere(14.2, 14.2, 2.3)
   ],
 
+  // Assis au sol, poulie BASSE a droite, dos droit, cable tire vers le ventre.
   'rowing-poulie-basse': () => [
-    colonne(21),
-    C(19.7, 17.6, 1.4),
-    L(18.4, 17.2, 11, 14.8),
-    L(10, 13.3, 10, 16.3),
-    L(3, 17.2, 8.4, 17.2),
-    tete(6, 8.6, 1.8),
-    L(6, 10.5, 6.6, 15.4),
-    L(7.2, 13, 10, 14.9)
+    montant(20.8),
+    C(19.2, 17.8, 1.6),
+    L(17.7, 17.2, 11.8, 14.8),
+    tete(5.8, 8.2),
+    L(5.8, 9.8, 6.8, 16.6),
+    L(6.8, 16.6, 12.8, 16.8),
+    L(6.4, 11.4, 11.8, 14.8),
+    sol()
   ],
 
-  // Barre LARGE et personne assise dessous : le contraire exact des extensions triceps, ou la
-  // barre est courte et la personne debout a cote.
+  // Poulie HAUTE, barre LARGE au-dessus, personne assise dessous : le contraire exact des
+  // extensions triceps, ou la barre est courte et la personne debout a cote.
   'tirage-vertical': () => [
-    colonne(21),
-    C(19.6, 4.6, 1.4),
-    L(19.6, 6, 12.5, 8.2),
-    L(6, 8.2, 18, 8.2),
-    L(8.5, 8.2, 11, 12),
-    L(15, 8.2, 12.8, 12),
-    tete(11.8, 13.6, 1.8),
-    L(7, 19.4, 15.5, 19.4)
+    montant(20.8),
+    C(19.2, 4.9, 1.6),
+    L(17.7, 5.5, 13.2, 7.7),
+    L(5.5, 8, 17, 8),
+    L(7.8, 8, 9.9, 13.8),
+    L(14.8, 8, 13.7, 13.8),
+    tete(11.8, 13),
+    L(11.8, 14.6, 11.8, 19.6)
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
   // Chaine posterieure et jambes
   // ───────────────────────────────────────────────────────────────────────────
 
-  // Les deux GROS disques au sol sont la signature du souleve de terre : rien d'autre dans la
-  // famille ne pose la barre par terre.
+  // Les deux GROS disques posent la barre AU SOL : rien d'autre dans la famille ne le fait.
+  // Buste penche, genoux plies, bras tendu jusqu'a la barre.
   'souleve-de-terre': () => [
-    L(2.5, 17, 21.5, 17),
-    C(5.2, 17, 3.4),
-    C(18.8, 17, 3.4),
-    tete(12, 5.4, 1.7),
-    L(11.8, 7.1, 11.2, 11.6),
-    L(11.2, 11.6, 11, 16.4),
-    PL('11.2,11.6 13.6,14 13.2,17.6')
+    L(2.8, 16.6, 21.2, 16.6),
+    C(6, 16.6, 3.2),
+    C(18, 16.6, 3.2),
+    tete(11.6, 4.4),
+    L(11.9, 6, 13.6, 10.8),
+    PL('13.6,10.8 12.4,13.8 12.9,16.2'),
+    L(11.6, 6.8, 11, 16.2),
+    sol(19.8)
   ],
 
-  'squat': () => barreChargee(7.4, 3, 21, 2.8).concat([
-    tete(12, 3.6, 1.6),
-    L(12, 8.6, 12, 13),
-    PL('12,13 9,16.2 9,20.6'),
-    PL('12,13 15,16.2 15,20.6')
+  // Barre sur les epaules (sous la tete), hanches basses, genoux ouverts : la flexion est
+  // FRANCHE, c'est elle qui dit « squat ».
+  'squat': () => barreChargee(6.8, 3.2, 20.8, 2.1).concat([
+    tete(12, 3.6),
+    L(12, 7.2, 12, 12.6),
+    PL('12,12.6 8.2,14.6 9.2,20.4'),
+    PL('12,12.6 15.8,14.6 14.8,20.4'),
+    sol()
   ]),
 
-  'presse-a-cuisses': () => [
-    L(3.2, 19.4, 3.2, 12.6),
-    L(3.2, 19.4, 9, 19.4),
-    PL('9,18.6 14,16 14.6,11.6'),
-    L(10.8, 10.2, 18.2, 13.4),
-    R(14.2, 3.6, 6, 5, 1),
-    L(16.4, 17, 21.6, 6)
-  ],
-
-  'fentes': () => [
-    tete(12, 4.4, 1.7),
-    L(12, 6.2, 12, 12),
-    PL('12,12 17,15.2 17,20.6'),
-    PL('12,12 8,16 5,20.6'),
-    L(9.2, 8.6, 9.2, 11.2),
-    L(14.8, 8.6, 14.8, 11.2),
+  // Squat SANS charge : la meme flexion franche que 'squat', bras tendus DEVANT (l'equilibre du
+  // squat au poids du corps) a la place de la barre. C'est l'absence de materiel qui se lit.
+  'squat-poids-du-corps': () => [
+    tete(12, 3.9),
+    L(12, 5.5, 12, 12.6),
+    L(12, 7.6, 18.4, 8.6),
+    PL('12,12.6 8.2,14.6 9.2,20.4'),
+    PL('12,12.6 15.8,14.6 14.8,20.4'),
     sol()
   ],
 
-  // Leg curl : ALLONGE, le rouleau part vers le HAUT derriere la jambe.
+  // Assise en bas a gauche, plateau charge en haut a droite, jambes qui poussent entre les deux.
+  'presse-a-cuisses': () => [
+    T(2.6, 18.8, 9.6, 18.8),
+    L(7.2, 15.9, 4.3, 11.7),
+    tete(3.8, 10.1),
+    PL('7.2,15.9 12.8,11.6 16.8,5.8'),
+    T(14.2, 3.2, 21.2, 10.2)
+  ],
+
+  // Fente : buste droit, jambe avant pliee a angle droit, jambe arriere etendue loin derriere.
+  'fentes': () => [
+    tete(10.6, 4.2),
+    L(10.6, 5.8, 10.6, 12.2),
+    PL('10.6,12.2 15.2,13.6 15.2,20.4'),
+    PL('10.6,12.2 7,16.6 4.2,20.2'),
+    sol()
+  ],
+
+  // Leg curl : ALLONGE face au banc, le talon remonte le rouleau vers le HAUT.
   'leg-curl': () => [
-    tete(4.6, 11.4, 1.7),
-    L(6.3, 12.8, 15, 12.8),
-    ...banc(14.4, 3, 16, 6),
-    PL('15,12.8 19.6,12.6 20,8.4'),
-    C(20, 6.4, 1.9)
+    T(3, 15.8, 16, 15.8),
+    tete(4.4, 13.5),
+    L(6, 13.9, 14.8, 14.1),
+    PL('14.8,14.1 18.8,12.6 19.5,8.4'),
+    C(19.7, 6.7, 1.7)
   ],
 
-  // Leg extension : ASSIS, le rouleau part vers l'AVANT devant le tibia.
+  // Leg extension : ASSIS, le tibia deplie le rouleau vers l'AVANT.
   'leg-extension': () => [
-    L(4, 18.4, 4, 8.8),
-    L(4, 18.4, 10.4, 18.4),
-    tete(6.2, 6.8, 1.7),
-    L(10, 17.2, 15, 17.2),
-    L(15, 17.2, 18.6, 13.4),
-    C(19.9, 12, 1.9)
+    T(4.6, 9, 4.6, 17),
+    T(4.6, 17, 11, 17),
+    tete(7.3, 6.3),
+    L(7.1, 7.9, 7.9, 15.2),
+    PL('7.9,15.4 13.9,15.6 18.5,11.9'),
+    C(19.7, 10.9, 1.7)
   ],
 
+  // Sur la pointe du pied au bord d'une marche, mollet bombe : l'extension de cheville.
   'mollets': () => [
-    L(13, 3.6, 13, 14),
-    P('M13 8 C 16.2 10, 16.2 12.8, 13.4 14.6'),
-    PL('11.8,15.4 11.8,17 17.4,17'),
-    L(8, 17, 20, 17),
-    L(8, 17, 8, 20.6),
+    L(9, 17.2, 20.5, 17.2),
+    L(9, 17.2, 9, 20.6),
+    tete(13.9, 3.8),
+    L(13.9, 5.4, 13.5, 17),
+    P('M13.5 11.6 C 15.9 12.9, 15.9 15.1, 13.7 16.8'),
     sol()
   ],
 
@@ -417,77 +439,88 @@ export const ICONES = {
   // Biceps
   // ───────────────────────────────────────────────────────────────────────────
 
-  // Curl barre : les DEUX bras, une barre longue et chargee.
+  // Curl barre : silhouette de face, les DEUX coudes casses, barre a disques a mi-montee.
   'curl-barre': () => [
-    PL('8,4 8,10 11.5,12.5'),
-    PL('16,4 16,10 12.5,12.5'),
-    L(3.5, 12.6, 20.5, 12.6),
-    L(5.6, 10, 5.6, 15.2),
-    L(18.4, 10, 18.4, 15.2)
+    tete(12, 3.9),
+    L(12, 5.5, 12, 12.8),
+    PL('9.2,7 8.5,11.6 10.2,13.8'),
+    PL('14.8,7 15.5,11.6 13.8,13.8'),
+    L(4.6, 13.8, 19.4, 13.8),
+    C(5.9, 13.8, 1.9),
+    C(18.1, 13.8, 1.9),
+    L(12, 12.8, 10.4, 20.4),
+    L(12, 12.8, 13.6, 20.4)
   ],
 
-  // Curl haltere : UN seul bras, flechi, avec le renflement du biceps.
+  // Curl haltere : UN seul bras flechi, renflement du biceps, haltere (fut + rectangles) en haut.
   'curl-halteres': () => [
-    PL('4.6,16.6 12,16.6 15,8.4'),
-    P('M6 15.4 C 9 12.6, 12 13.2, 12.6 15.6'),
-    ...haltere(16, 6.6, 3, 1.9)
+    PL('4.8,17 12,16.6 15.4,8.8'),
+    P('M6.4 15.7 C 9.4 12.7, 12.5 13.4, 13 15.9'),
+    ...haltere(15.4, 8.8, 2.5)
   ],
 
+  // Poulie BASSE a gauche, cable oblique remonte par l'avant-bras.
   'curl-poulie': () => [
-    colonne(3),
-    C(4.5, 18, 1.5),
-    L(5.9, 17.6, 12.6, 14.8),
-    L(11.6, 13.4, 14.2, 15.8),
-    PL('17.4,5.6 17.4,12 13.6,14.9')
+    montant(3.2),
+    C(4.9, 18.5, 1.6),
+    L(6.4, 17.9, 12.8, 14.6),
+    tete(16.8, 5.2),
+    L(16.8, 6.8, 16.8, 14.2),
+    PL('16.8,8.6 16.2,12.2 12.8,14.6'),
+    L(16.8, 14.2, 15.2, 20.4),
+    L(16.8, 14.2, 18.4, 20.4)
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
   // Triceps
   // ───────────────────────────────────────────────────────────────────────────
 
-  // Barre COURTE, personne DEBOUT a cote de la colonne : a lire par contraste avec le tirage
-  // vertical, ou la barre est large et la personne assise sous la poulie.
+  // Poulie HAUTE, barre COURTE, personne DEBOUT a cote de la colonne : a lire par contraste
+  // avec le tirage vertical, ou la barre est large et la personne assise sous la poulie.
   'extensions-triceps-poulie': () => [
-    colonne(21),
-    C(19.6, 4.6, 1.4),
-    L(19.6, 6, 12.6, 10.4),
-    L(9.5, 10.4, 15.5, 10.4),
-    tete(6.2, 4.6, 1.7),
-    L(6.2, 6.4, 6.2, 11.6),
-    L(6.2, 11.6, 10, 10.6),
-    L(6.2, 15, 6.2, 20.6)
+    montant(20.8),
+    C(19.2, 4.9, 1.6),
+    L(17.8, 5.7, 13.8, 10),
+    L(11, 10.4, 16.4, 10.4),
+    tete(7, 4.7),
+    L(7, 6.3, 7, 20.3),
+    PL('7,8.2 9.8,11 12.8,10.5')
   ],
 
+  // Haltere DERRIERE la nuque, les deux coudes pointes vers le ciel.
   'extensions-triceps-nuque': () => [
-    tete(12, 9.4, 1.8),
-    L(12, 11.4, 12, 19.6),
-    PL('9.6,11.4 9,6 11,3.9'),
-    PL('14.4,11.4 15,6 13,3.9'),
-    ...haltere(12, 3.5, 3.6, 1.7)
+    tete(12, 9.3),
+    L(12, 10.9, 12, 19.4),
+    PL('10.2,11.3 9.2,5.9 11.2,4.4'),
+    PL('13.8,11.3 14.8,5.9 12.8,4.4'),
+    ...haltere(12, 3.4, 3.3)
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Epaules — isolation. Les deux se lisent a l'ANGLE DES BRAS : horizontal pour les
-  // elevations laterales, releve vers l'arriere avec le buste penche pour l'oiseau.
+  // Epaules — isolation. Les deux se lisent a l'ANGLE DES BRAS : croix horizontale pour les
+  // elevations laterales, ailes relevees buste penche pour l'oiseau. Les petits rectangles au
+  // bout des bras sont les halteres vus de face.
   // ───────────────────────────────────────────────────────────────────────────
 
   'elevations-laterales': () => [
-    tete(12, 5, 1.8),
-    L(12, 7, 12, 17.5),
-    L(12, 9.2, 4, 9.2),
-    L(12, 9.2, 20, 9.2),
-    L(3, 7.4, 3, 11),
-    L(21, 7.4, 21, 11)
+    tete(12, 4.5),
+    L(12, 6.5, 12, 14.6),
+    L(12, 8.8, 4.8, 8.4),
+    L(12, 8.8, 19.2, 8.4),
+    R(2.4, 6.6, 1.8, 3.6, 0.8),
+    R(19.8, 6.6, 1.8, 3.6, 0.8),
+    L(12, 14.6, 10, 20.5),
+    L(12, 14.6, 14, 20.5)
   ],
 
   'oiseau': () => [
-    tete(12, 5.8, 1.8),
-    L(12, 7.8, 10, 15.4),
-    L(11.4, 10.2, 4.4, 6),
-    L(11.4, 10.2, 18.4, 6),
-    L(3.2, 4.4, 3.2, 7.8),
-    L(19.6, 4.4, 19.6, 7.8),
-    L(10, 15.4, 9.2, 20.6)
+    tete(12.2, 5.4),
+    L(12.2, 7, 10.4, 14.8),
+    L(11.6, 9.6, 4.8, 5.8),
+    L(11.6, 9.6, 18.6, 5.8),
+    R(3.5, 3.8, 1.8, 3.2, 0.8),
+    R(18.1, 3.8, 1.8, 3.2, 0.8),
+    L(10.4, 14.8, 9.6, 20.4)
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -495,43 +528,126 @@ export const ICONES = {
   // ───────────────────────────────────────────────────────────────────────────
 
   // AVANT-BRAS au sol (coude plie) : c'est ce qui separe la planche des pompes, ou le bras
-  // est tendu.
+  // est tendu et casse a mi-hauteur.
   'planche': () => [
-    tete(18.8, 10, 1.7),
-    L(17.3, 10.9, 8, 15),
-    L(8, 15, 3.5, 18.6),
-    L(17.4, 11.7, 15.6, 18.8),
-    L(13.6, 18.8, 19.4, 18.8),
+    tete(19.3, 9.7),
+    L(17.8, 10.5, 4.4, 18.2),
+    L(17.4, 11, 16.2, 18.6),
+    L(13.8, 18.7, 19.4, 18.7),
     sol()
   ],
 
+  // Corps en diagonale sur UN bras d'appui, l'autre bras leve vers le ciel.
   'planche-laterale': () => [
-    tete(20.4, 7, 1.6),
-    L(19, 8, 5, 17.2),
-    L(17.6, 9.4, 16.6, 18.6),
-    L(17.6, 9.4, 14, 3.6),
+    tete(19.8, 7.2),
+    L(18.4, 8.2, 4.8, 18.4),
+    L(17.2, 9.1, 16.4, 18.6),
+    L(17.4, 8.7, 13.6, 3.4),
     sol()
   ],
 
-  // Bras TENDUS et corps entierement pendu : la suspension est une traction qui n'a pas commence.
+  // Bras TENDUS et corps droit, immobile : la suspension est une traction qui n'a pas commence.
   'suspension-barre': () => [
     L(3, 3.5, 21, 3.5),
-    L(9, 3.5, 9, 10.4),
-    L(15, 3.5, 15, 10.4),
-    tete(12, 7.6, 1.7),
-    L(12, 10.2, 12, 15.4),
-    L(12, 15.4, 10.6, 21),
-    L(12, 15.4, 13.4, 21)
+    L(9.2, 3.5, 10.9, 9.1),
+    L(14.8, 3.5, 13.1, 9.1),
+    tete(12, 7.5),
+    L(12, 9.1, 12, 15.6),
+    L(12, 15.6, 11.1, 20.7),
+    L(12, 15.6, 12.9, 20.7)
   ],
 
+  // Suspendu, jambes MONTEES a l'horizontale : l'equerre.
   'releve-de-jambes': () => [
     L(3, 3.5, 21, 3.5),
-    L(8.5, 3.5, 8.5, 9.6),
-    L(15.5, 3.5, 15.5, 9.6),
-    tete(12, 7, 1.7),
-    L(12, 9.6, 12, 15.4),
-    L(12, 15.4, 19.6, 15.4),
-    L(19.6, 15.4, 19.6, 12.8)
+    L(9.2, 3.5, 10.9, 8.9),
+    L(14.8, 3.5, 13.1, 8.9),
+    tete(12, 7.3),
+    L(12, 8.9, 11.7, 14.6),
+    L(11.7, 14.6, 19.4, 13.2)
+  ],
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Abdos, jambes, epaules — les 7 exercices ajoutes avec la v3 du catalogue.
+  // Convention stricte : nom d'icone = id du catalogue sans le prefixe 'cat:'.
+  // (Le huitieme, cat:squat, reutilise l'icone 'squat' plus haut.)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // Pied ARRIERE sureleve sur le banc, jambe avant qui plie : le squat unilateral.
+  'squat-bulgare': () => [
+    T(14.8, 13.4, 21.5, 13.4),
+    tete(9.4, 4.1),
+    L(9.4, 5.7, 9, 11.8),
+    PL('9,11.8 7.6,15.8 8,20.4'),
+    PL('9,11.8 13.4,16.4 17,12.6'),
+    sol()
+  ],
+
+  // Kettlebell (cercle + anse) serree contre la poitrine, hanches basses genoux ouverts.
+  'goblet-squat': () => [
+    tete(12, 3.7),
+    L(9.7, 6.4, 11, 8.6),
+    L(14.3, 6.4, 13, 8.6),
+    P('M10.5 9.2 Q 12 7.3 13.5 9.2'),
+    C(12, 10.6, 2.1),
+    PL('12,12.7 8.2,14.5 9,20.4'),
+    PL('12,12.7 15.8,14.5 15,20.4'),
+    sol()
+  ],
+
+  // Epaules sur le banc, hanches en PONT, disque de barre pose sur le bassin.
+  'hip-thrust': () => [
+    T(2.5, 13.4, 8.2, 13.4),
+    tete(3.7, 10.3),
+    L(6.4, 12.4, 13.8, 10.9),
+    L(13.8, 10.9, 17.8, 12.7),
+    L(17.8, 12.7, 18, 20.3),
+    C(13.6, 8.2, 2.3),
+    L(10.6, 8.2, 16.6, 8.2),
+    sol()
+  ],
+
+  // Charniere de hanche jambes TENDUES, barre qui S'ARRETE aux tibias : par contraste avec le
+  // souleve de terre classique (genoux plies, gros disques poses au sol).
+  'souleve-de-terre-roumain': () => [
+    tete(4.7, 7.1),
+    L(6.3, 7.5, 14.2, 9),
+    L(14.2, 9, 14.9, 20.3),
+    L(7.6, 7.9, 7.2, 13.9),
+    L(3.4, 14.3, 10.9, 14.3),
+    C(7.1, 14.3, 2.2),
+    sol()
+  ],
+
+  // Dos au sol, genoux plies, seules les epaules s'ENROULENT : le crunch, pas le sit-up.
+  'crunchs': () => [
+    P('M14.2 18.7 C 11 18.4, 8.2 16.6, 7 14.2'),
+    tete(6.2, 12.4),
+    L(14.2, 18.7, 17.6, 13.9),
+    L(17.6, 13.9, 20.3, 18.7),
+    sol()
+  ],
+
+  // Le saut final, bras en V, pieds DECOLLES du sol : l'instant le plus identifiable du burpee.
+  'burpees': () => [
+    tete(12, 3.6),
+    L(12, 5.2, 12, 11.6),
+    L(12, 6.9, 7.8, 3.4),
+    L(12, 6.9, 16.2, 3.4),
+    L(12, 11.6, 8.4, 16),
+    L(12, 11.6, 15.6, 16),
+    sol()
+  ],
+
+  // Poulie HAUTE tiree VERS LE VISAGE, coude haut : ni un tirage (personne debout), ni une
+  // extension triceps (le cable arrive a hauteur de tete, pas de barre poussee vers le bas).
+  'face-pull': () => [
+    montant(20.8),
+    C(19.2, 5.1, 1.6),
+    L(17.7, 5.9, 12.9, 8.9),
+    tete(6.5, 7.7),
+    L(6.5, 9.3, 6.5, 20.3),
+    PL('6.8,10.3 10.7,8.3 12.9,8.9')
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -540,46 +656,49 @@ export const ICONES = {
 
   // Course : buste PENCHE, foulee ample, bras plies.
   'course-a-pied': () => [
-    tete(15.2, 4.8, 1.8),
-    L(14.2, 6.8, 11, 12),
-    PL('13.8,8.4 16.8,10.2 15.8,13.2'),
-    L(13.4, 8.6, 9, 7),
-    PL('11,12 12.4,16 15.2,19.4'),
-    PL('11,12 7,15 6.8,19.6')
+    tete(15.7, 4.3),
+    L(14.8, 5.9, 11.6, 11.8),
+    PL('14.2,7.2 17,9.2 15.9,12.2'),
+    L(13.9, 7.5, 9.4, 6.4),
+    PL('11.6,11.8 15,15 13.8,19.8'),
+    PL('11.6,11.8 7.6,14.2 6,19')
   ],
 
   // Marche : buste DROIT, foulee courte, bras presque tendus.
   'marche': () => [
-    tete(13, 4.6, 1.8),
-    L(13, 6.6, 12, 13),
-    L(12.8, 8.2, 15.2, 12.2),
-    L(12.8, 8.2, 10.2, 11.4),
-    PL('12,13 13.6,17 15,20.6'),
-    PL('12,13 9.6,17 8.6,20.6')
+    tete(12.7, 4.3),
+    L(12.7, 5.9, 12.1, 13),
+    L(12.5, 8, 14.7, 12),
+    L(12.5, 8, 10.1, 11.6),
+    PL('12.1,13 13.9,17 14.9,20.5'),
+    PL('12.1,13 10.1,17 9.1,20.5')
   ],
 
   'velo': () => [
-    C(5.6, 17, 3.5),
-    C(18.4, 17, 3.5),
-    PL('5.6,17 11.6,17 9,9.8 15,9.8 18.4,17'),
-    L(15, 9.8, 17.2, 8),
-    L(9, 9.8, 6.8, 9.2)
+    C(5.6, 16.8, 3.4),
+    C(18.4, 16.8, 3.4),
+    PL('5.6,16.8 11.4,16.8 8.8,10 14.6,10 18.4,16.8'),
+    L(14.6, 10, 16.8, 7.8),
+    L(8.8, 10, 6.9, 9.2)
   ],
 
+  // Rameur : volant a gauche, rail au sol, rameur assis qui tire, jambes vers l'avant.
   'rameur': () => [
-    C(18.4, 11, 3.2),
-    L(3, 19.6, 20.4, 19.6),
-    R(8, 16, 4.6, 2.2, 0.7),
-    L(15.4, 11.6, 6, 13.4),
-    L(5, 11.8, 5, 15.2)
+    C(4.7, 14.6, 2.9),
+    L(2.6, 19.6, 21.4, 19.6),
+    R(11.6, 16.5, 4.4, 2, 0.7),
+    tete(16.4, 7.1),
+    L(16, 8.7, 14, 16.4),
+    L(15, 10.8, 7.4, 13.2),
+    L(13.9, 16.6, 8.6, 17.9)
   ],
 
   'elliptique': () => [
-    E(9, 15.2, 6, 3.4),
-    L(19, 4, 19, 19.4),
-    L(14.4, 19.8, 22, 19.8),
-    L(19, 6.2, 10.4, 13.4),
-    L(4.4, 15.8, 8, 14)
+    E(9, 15.6, 6, 3.1),
+    L(18.8, 4.2, 18.8, 19.4),
+    L(14.6, 19.7, 22, 19.7),
+    L(18.8, 6.4, 10.6, 13.6),
+    L(4.6, 16, 8.2, 14.2)
   ],
 
   'corde-a-sauter': () => [
@@ -598,7 +717,7 @@ export const ICONES = {
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Interface (16)
+  // Interface (16) — geometrie simple, propre, centree. Pas de silhouettes ici.
   // ───────────────────────────────────────────────────────────────────────────
 
   'plus': () => [L(12, 5, 12, 19), L(5, 12, 19, 12)],
@@ -675,7 +794,9 @@ export const ICONES = {
 
 // Attributs communs a TOUTES les icones. Poses sur la racine et herites par les enfants : les
 // fonctions de dessin ci-dessus n'ont donc jamais a repeter stroke ni fill, et une seule ligne
-// ici suffirait a changer l'epaisseur de trait de toute l'application.
+// ici suffirait a changer l'epaisseur de trait de toute l'application. Deux exceptions locales,
+// posees enfant par enfant : la tete des silhouettes (fill currentColor) et les traits epais de
+// banc (stroke-width 2.75).
 const GABARIT = {
   viewBox: '0 0 24 24',
   fill: 'none',

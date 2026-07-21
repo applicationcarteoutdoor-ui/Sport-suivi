@@ -1077,6 +1077,70 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   8 ter. Retours v3 — regles des ecrans retouches (l'agent de style est mort en
+   vol sur la limite de facturation : ces 19 regles ont ete ecrites a la main).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Seance : « Terminer » vit DANS la page, apres « + Ajouter un exercice ». */
+.terminer-en-page {
+  width: 100%;
+  min-height: var(--cible-geante);
+  margin-top: var(--esp-3);
+}
+
+/* Accueil pleine page : les lanceurs en GRILLE (fini le defilement lateral). */
+.grille-lanceurs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--esp-2);
+}
+.tuile-lanceur-icone { color: var(--accent); }
+.tuile-lanceur-nom { font-weight: 700; font-size: var(--txt-m); line-height: 1.2; }
+.tuile-lanceur-detail { font-size: var(--txt-xs); color: var(--texte-attenue); }
+
+/* Fin de seance simplifiee : un titre, le commentaire — plus de bilan chiffre. */
+.fin-titre { font-size: var(--txt-xl); font-weight: 700; margin: 0; }
+
+/* Detail d'une seance passee : reprend le TABLEAU de l'ecran de saisie. */
+.detail-tableau {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-l);
+  background: var(--surface);
+}
+
+/* Progression clarifiee : en-tete d'exercice, records en cartes, comparaison. */
+.entete-detail { display: flex; align-items: center; gap: var(--esp-3); }
+.entete-detail-picto { flex: 0 0 auto; color: var(--accent); }
+.entete-detail-nom { font-size: var(--txt-xl); font-weight: 700; margin: 0; }
+.bloc-detail { display: flex; flex-direction: column; gap: var(--esp-2); }
+.carte-record {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--esp-3);
+  border-radius: var(--rayon-m);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  min-width: 108px;
+}
+.carte-record-valeur { font-size: var(--txt-l); font-weight: 700; font-variant-numeric: tabular-nums; }
+.carte-record-libelle { font-size: var(--txt-xs); color: var(--texte-attenue); text-transform: uppercase; letter-spacing: 0.03em; }
+.carte-record-date { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+.carte-record-vide { font-size: var(--txt-s); color: var(--texte-attenue); padding: var(--esp-3); }
+.lien-comparer {
+  font-size: var(--txt-s);
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: var(--esp-1) 0;
+  cursor: pointer;
+}
+.zone-comparaison { display: flex; flex-wrap: wrap; align-items: center; gap: var(--esp-2); }
+.zone-comparaison-aide { font-size: var(--txt-s); color: var(--texte-attenue); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
    9. Accessibilite et mouvement
    ───────────────────────────────────────────────────────────────────────────── */
 

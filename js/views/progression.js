@@ -1,19 +1,26 @@
 // views/progression.js — routes #/progression et #/progression/:exerciceId.
 //
-// v2 : l'ecran s'ouvre sur une GRILLE D'ICONES des exercices REELLEMENT PRATIQUES. Plus de
-// selecteur a ouvrir pour le cas courant — on voit ce qu'on a fait, on tape dessus, la courbe
-// apparait. Le catalogue complet reste accessible, mais en second rideau : il ne sert qu'a
-// consulter un exercice jamais pratique, c'est-a-dire une courbe vide.
+// v3 : refonte de LISIBILITE (retour utilisateur : « je ne la trouve pas tres claire »).
+// La page se lit de HAUT EN BAS, sans mode cache :
+//   1. « Mes exercices » : grille d'icones des exercices REELLEMENT PRATIQUES (grandes tuiles).
+//   2. Une SECTION DETAIL pour l'exercice choisi, dans un ordre FIXE : carte record bien
+//      visible -> puces de metrique (libelles francais complets, jamais de jargon) -> puces de
+//      plage -> courbe -> tableau des dernieres seances.
+//   3. La comparaison est DISCRETE : un simple lien « Comparer a un autre exercice » sous la
+//      courbe, qui ouvre le selecteur et superpose la courbe choisie. L'appui long et la barre
+//      permanente de comparaison ont DISPARU — ils etaient la source principale de confusion.
+//   4. L'ecran ne s'ouvre JAMAIS vide : sans exercice dans l'adresse, le plus pratique
+//      recemment est choisi automatiquement.
 //
 // CONTRAT DE RENDU (zone B) : le DOM de cette vue est construit UNE SEULE FOIS au montage.
 // Il n'existe aucune fonction rerender(). Changer d'exercice, de plage ou de metrique ne
 // remplace que les noeuds que la vue POSSEDE reellement :
 //   - la grille d'icones (reconstruite quand la LISTE change ; sinon on ne mute que des attributs),
-//   - la barre de metriques et les puces de comparaison (idem),
+//   - l'en-tete de detail, la carte record, la barre de metriques, la zone de comparaison,
 //   - le corps du tableau chronologique,
 //   - la courbe, qui est un FRAGMENT VIVANT : on appelle detruire() puis renderLineChart(),
 //     jamais vider() sur son conteneur (ui/chart.js le documente explicitement).
-// L'en-tete, les segments de plage et l'ossature du tableau ne sont JAMAIS retouches.
+// L'ossature, les segments de plage et l'en-tete du tableau ne sont JAMAIS retouches.
 //
 // AUCUN test sur le mode de l'exercice ici : les metriques proposables viennent de
 // domain/progression.metriquesDisponibles(), qui les derive de MODES. Ajouter un mode demain
@@ -22,7 +29,7 @@
 // ⚠ Les seances ABANDONNEES n'entrent dans AUCUN comptage : estSeanceComptable est le seul
 //   filtre, ici comme dans le domaine.
 
-import { h, on, delegate, vider } from '../lib/dom.js';
+import { h, delegate, vider } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import { formatFr, formatDuree, formatAllure } from '../lib/num.js';
 import { formatLong, formatCourt, dayKey, joursEntre, plage as plageDe } from '../lib/dates.js';
@@ -46,17 +53,9 @@ const PLAGES = ['3m', '1a', 'tout'];
 // Nombre de seances du tableau. Le plan le fixe a 20 : au-dela on ne consulte plus, on parcourt.
 const N_TABLEAU = 20;
 
-// Plafond de courbes superposees. Aligne sur celui de ui/chart.js : le refuser ICI evite a
-// l'utilisateur de selectionner une cinquieme icone pour rien.
+// Plafond de courbes superposees. Aligne sur celui de ui/chart.js : cacher le lien de
+// comparaison ICI evite a l'utilisateur d'ouvrir le selecteur pour rien.
 const MAX_COMPARAISON = 4;
-
-// Duree de l'appui long qui bascule en comparaison. 500 ms : la meme que dans set-row.js, pour
-// que le geste s'apprenne une seule fois dans toute l'application.
-const APPUI_LONG_MS = 500;
-
-// Au-dela de ce deplacement, l'appui long est annule : le doigt fait defiler la grille, il ne
-// selectionne pas.
-const TOLERANCE_GLISSE_PX = 10;
 
 const estNombre = (v) => typeof v === 'number' && Number.isFinite(v);
 
@@ -86,6 +85,8 @@ function depuisQuand(date) {
 
 /**
  * Exercices REELLEMENT PRATIQUES, tries par frequence recente puis par date de derniere pratique.
+ * Le PREMIER de la liste est donc « le plus pratique recemment » : c'est lui qui est choisi
+ * automatiquement quand la route ne designe personne — l'ecran ne s'ouvre jamais vide.
  *
  * ⚠ Un exercice sans aucune serie comptable n'y figure pas : une seance entierement en
  *   echauffement, ou un exercice passe, ne fabrique pas une icone qui n'ouvrirait qu'une courbe
@@ -152,9 +153,9 @@ export function mount(conteneur, params = {}) {
   const desabonnements = [];
   let courbe = null;              // fragment vivant : { detruire() }
 
-  // selection[0] est la serie PRINCIPALE : celle du tableau, des records et du titre.
+  // selection[0] est la serie PRINCIPALE : celle de l'en-tete, du record et du tableau.
+  // selection[1..3] sont les courbes SUPERPOSEES par le lien de comparaison.
   let selection = [];
-  let modeComparaison = false;
   let metrique = null;            // resolue a chaque changement de selection
   let pratiques = [];             // instantane courant de la grille
   let signatureGrille = '';       // pour ne reconstruire la grille QUE si la liste a change
@@ -163,15 +164,8 @@ export function mount(conteneur, params = {}) {
   if (PLAGES.indexOf(nomPlage) === -1) nomPlage = '3m';
 
   // ── Ossature, construite UNE fois ─────────────────────────────────────────
-
-  const titreGrille = h('h3', { class: 'section-titre' }, 'Tes exercices');
-
-  const boutonComparer = h('button', {
-    type: 'button',
-    class: 'bouton bouton-fantome bouton-comparer',
-    'data-action': 'comparer',
-    'aria-pressed': 'false'
-  }, icone('plus', { taille: 18 }), h('span', null, 'Comparer'));
+  // L'ordre du DOM est l'ordre de LECTURE voulu par la refonte : grille d'abord, puis pour
+  // l'exercice choisi : record -> metriques -> plage -> courbe -> comparaison -> tableau.
 
   const lienCatalogue = h('button', {
     type: 'button',
@@ -185,18 +179,27 @@ export function mount(conteneur, params = {}) {
     'aria-label': 'Exercices déjà pratiqués'
   });
 
-  // Puces de comparaison : visibles uniquement en mode comparaison. Elles disent, en clair, ce
-  // que la legende de la courbe dit en couleurs — l'un ne remplace pas l'autre.
-  const puces = h('div', { class: 'barre-comparaison', hidden: true });
-
   const blocGrille = h('section', { class: 'bloc-exercices' },
     h('div', { class: 'entete-section' },
-      titreGrille,
-      h('div', { class: 'entete-actions' }, boutonComparer, lienCatalogue)
+      h('h3', { class: 'section-titre' }, 'Mes exercices'),
+      h('div', { class: 'entete-actions' }, lienCatalogue)
     ),
-    grille,
-    puces
+    grille
   );
+
+  // En-tete de detail : icone + nom de l'exercice regarde. C'est lui qui repond a « de quoi
+  // parlent les blocs du dessous ? » — sans lui, la carte record semble flotter.
+  const porteIconeDetail = h('span', { class: 'entete-detail-picto' });
+  const nomDetail = h('h3', { class: 'entete-detail-nom' }, '');
+  const enteteDetail = h('div', { class: 'entete-detail' }, porteIconeDetail, nomDetail);
+
+  // Carte record : LA reponse a la question posee en salle (« c'est quoi mon record ? »).
+  // Contenu reconstruit a chaque changement d'exercice ou de metrique.
+  const carteRecord = h('div', { class: 'carte-record' });
+
+  // Metriques : conteneur stable, contenu reconstruit a chaque changement de selection (le mode
+  // change, donc la liste change). Libelles = LIBELLES_METRIQUES, en toutes lettres.
+  const barreMetriques = h('div', { class: 'metriques', role: 'tablist', 'aria-label': 'Métrique affichée' });
 
   // Plages : segments statiques. Seul aria-selected bouge — jamais les noeuds.
   const segmentsPlage = h('div', { class: 'segments', role: 'tablist', 'aria-label': 'Plage affichée' },
@@ -210,10 +213,6 @@ export function mount(conteneur, params = {}) {
     }, plageDe(nom).libelle))
   );
 
-  // Metriques : conteneur stable, contenu reconstruit a chaque changement de selection (le mode
-  // change, donc la liste change). Ce noeud appartient a la vue, rien d'autre n'y touche.
-  const barreMetriques = h('div', { class: 'metriques', role: 'tablist', 'aria-label': 'Métrique affichée' });
-
   // Message de repli du 1RM estime, et message d'absence de metrique commune. Une courbe qui
   // change de metrique sans le dire est incomprehensible : le message est rendu MOT POUR MOT tel
   // que le domaine le retourne.
@@ -222,11 +221,9 @@ export function mount(conteneur, params = {}) {
   // Hote de la courbe. ⚠ On ne le vide JAMAIS : le fragment retire lui-meme sa racine.
   const hoteCourbe = h('div', { class: 'hote-courbe' });
 
-  const listeRecords = h('div', { class: 'carte' });
-  const blocRecords = h('section', {},
-    h('h3', { class: 'section-titre' }, 'Records'),
-    listeRecords
-  );
+  // Comparaison DISCRETE, sous la courbe : un lien qui ouvre le selecteur, et les puces des
+  // courbes superposees (retirables une a une). Rien de permanent, aucun mode a apprendre.
+  const zoneComparaison = h('div', { class: 'zone-comparaison' });
 
   const corpsTableau = h('tbody', {});
   const tableau = h('table', { class: 'tableau-chrono' },
@@ -241,18 +238,21 @@ export function mount(conteneur, params = {}) {
     corpsTableau
   );
 
-  const titreTableau = h('h3', { class: 'section-titre' }, `${N_TABLEAU} dernières séances`);
+  const titreTableau = h('h3', { class: 'section-titre' }, 'Dernières séances');
 
-  const racine = h('section', { class: 'vue-progression' },
-    blocGrille,
-    segmentsPlage,
+  const blocDetail = h('section', { class: 'bloc-detail', hidden: true },
+    enteteDetail,
+    carteRecord,
     barreMetriques,
+    segmentsPlage,
     avisMetrique,
     hoteCourbe,
-    blocRecords,
+    zoneComparaison,
     titreTableau,
     tableau
   );
+
+  const racine = h('section', { class: 'vue-progression' }, blocGrille, blocDetail);
 
   // ── Acces a la selection ──────────────────────────────────────────────────
 
@@ -307,14 +307,25 @@ export function mount(conteneur, params = {}) {
     vider(grille);
 
     if (!pratiques.length) {
-      grille.appendChild(h('div', { class: 'etat-vide' },
+      // Etat « aucune seance » : messages simples, et une INVITATION a lancer une seance —
+      // c'est la seule action qui donnera un contenu a cet ecran.
+      const vide = h('div', { class: 'etat-vide' },
         icone('exercice', { taille: 40 }),
         h('p', { class: 'etat-vide-titre' }, store.historiquePret()
-          ? 'Aucun exercice pratiqué'
+          ? 'Aucune séance pour l’instant'
           : 'Chargement de l’historique…'),
-        h('p', { class: 'etat-vide-texte' },
-          'Termine une séance : ses exercices apparaîtront ici, en icônes.')
-      ));
+        h('p', { class: 'etat-vide-texte' }, store.historiquePret()
+          ? 'Termine une première séance : tes exercices apparaîtront ici, avec leur progression.'
+          : 'Tes exercices pratiqués arrivent…')
+      );
+      if (store.historiquePret()) {
+        vide.appendChild(h('button', {
+          type: 'button',
+          class: 'bouton bouton-primaire',
+          'data-action': 'composer'
+        }, icone('lecture', { taille: 18 }), h('span', null, 'Lancer une séance')));
+      }
+      grille.appendChild(vide);
       return;
     }
 
@@ -341,43 +352,54 @@ export function mount(conteneur, params = {}) {
     for (const tuile of grille.children) {
       const id = tuile.getAttribute && tuile.getAttribute('data-id');
       if (!id) continue;
-      const rang = selection.indexOf(id);
-      tuile.setAttribute('aria-pressed', rang !== -1 ? 'true' : 'false');
-      // data-serie porte le MEME rang que dans la legende de la courbe : la tuile et le trace
-      // partagent leur couleur et leur forme, sans quoi la comparaison demande un effort de
-      // memoire a chaque regard.
-      if (rang !== -1) tuile.setAttribute('data-serie', String(rang + 1));
-      else tuile.removeAttribute('data-serie');
+      tuile.setAttribute('aria-pressed', id === principal() ? 'true' : 'false');
     }
   }
 
-  /** Puces de comparaison. Reconstruites : elles n'appartiennent qu'a la vue. */
-  function peindrePuces() {
-    puces.hidden = !modeComparaison;
-    vider(puces);
-    if (!modeComparaison) return;
+  /** En-tete de detail : icone et nom de l'exercice principal. */
+  function peindreEnteteDetail() {
+    vider(porteIconeDetail);
+    const id = principal();
+    if (!id) { nomDetail.textContent = ''; return; }
+    porteIconeDetail.appendChild(
+      icone(iconePourExercice(exerciceDe(id) || id), { taille: 28, classe: 'entete-detail-icone' })
+    );
+    nomDetail.textContent = nomDe(id);
+  }
 
-    for (let i = 0; i < selection.length; i++) {
-      const id = selection[i];
-      puces.appendChild(h('button', {
-        type: 'button',
-        class: 'puce-comparaison',
-        'data-action': 'retirer',
-        'data-id': id,
-        'data-serie': String(i + 1),
-        'aria-label': `Retirer ${nomDe(id)} de la comparaison`
-      }, h('span', { class: 'puce-comparaison-nom' }, nomDe(id)), icone('croix', { taille: 14 })));
+  /**
+   * Carte record : la meilleure valeur de la METRIQUE AFFICHEE, en grand, avec sa date.
+   * records() n'expose que des points FIABLES : rien a filtrer ici, rien a decorer soi-meme.
+   */
+  function peindreRecord() {
+    vider(carteRecord);
+    const id = principal();
+    if (!id || !metrique) { carteRecord.hidden = true; return; }
+    carteRecord.hidden = false;
+
+    const rec = records(store.seances(), id)[metrique];
+    if (!rec) {
+      carteRecord.appendChild(h('p', { class: 'carte-record-vide' },
+        store.historiquePret()
+          ? 'Pas encore de record — termine une séance avec cet exercice pour en établir un.'
+          : 'Chargement de l’historique…'));
+      return;
     }
 
-    puces.appendChild(h('p', { class: 'barre-comparaison-aide' },
-      selection.length < MAX_COMPARAISON
-        ? 'Tape d’autres icônes pour les superposer.'
-        : 'Quatre courbes au maximum.'));
+    carteRecord.appendChild(h('span', { class: 'carte-record-libelle' },
+      `Record — ${LIBELLES_METRIQUES[metrique] || metrique}`));
+    carteRecord.appendChild(h('span', { class: 'carte-record-valeur' },
+      formatValeur(rec.valeur, rec.unite || UNITES[metrique] || '')));
+    // « il y a 3 j · 5 × 76 kg » : l'anciennete d'abord (c'est elle qu'on vient lire), le
+    // detail de la serie ensuite quand le domaine le fournit.
+    carteRecord.appendChild(h('span', { class: 'carte-record-date' },
+      `${depuisQuand(rec.date)}${rec.libelle ? ' · ' + rec.libelle : ''}`));
   }
 
   /**
    * Barre de metriques. La liste vient de MODES via metriquesDisponibles : cette vue ne sait
-   * pas ce qu'est un mode, et n'a donc rien a modifier quand un mode est ajoute.
+   * pas ce qu'est un mode, et n'a donc rien a modifier quand un mode est ajoute. Les libelles
+   * sont ceux de LIBELLES_METRIQUES — en toutes lettres, jamais de cle technique.
    */
   function peindreMetriques() {
     vider(barreMetriques);
@@ -440,7 +462,7 @@ export function mount(conteneur, params = {}) {
       // Selection heteroclite : deux exercices sans aucune metrique commune (une planche et une
       // sortie velo). On le DIT plutot que d'afficher un cadre vide.
       if (selection.length > 1) {
-        afficherAvis('Ces exercices n’ont aucune statistique commune : retire-en un pour voir sa courbe.');
+        afficherAvis('Ces exercices n’ont aucune statistique commune : retire la comparaison pour revoir la courbe.');
       }
       return;
     }
@@ -470,41 +492,43 @@ export function mount(conteneur, params = {}) {
       : renderLineChart(hoteCourbe, { series, unite, sens });
   }
 
-  /** Records de la serie PRINCIPALE. Les points non fiables sont deja exclus par le domaine. */
-  function peindreRecords() {
-    vider(listeRecords);
-    const id = principal();
-    if (!id) {
-      listeRecords.appendChild(h('p', { class: 'ligne-liste-secondaire' }, 'Aucun exercice sélectionné.'));
-      return;
+  /**
+   * Zone de comparaison, SOUS la courbe : les puces des courbes superposees (retirables), puis
+   * le lien discret qui ouvre le selecteur. Pas de mode, pas de barre permanente : ce qui est
+   * superpose se voit, ce qui n'existe pas n'occupe aucune place.
+   */
+  function peindreComparaison() {
+    vider(zoneComparaison);
+    if (!principal()) return;
+
+    // Puces des courbes SUPERPOSEES uniquement (rang >= 1) : la principale a deja son en-tete.
+    // data-serie porte le MEME rang que dans la legende de la courbe : puce et trace partagent
+    // leur couleur, sans quoi la comparaison demande un effort de memoire a chaque regard.
+    for (let i = 1; i < selection.length; i++) {
+      const id = selection[i];
+      zoneComparaison.appendChild(h('button', {
+        type: 'button',
+        class: 'puce-comparaison',
+        'data-action': 'retirer',
+        'data-id': id,
+        'data-serie': String(i + 1),
+        'aria-label': `Retirer ${nomDe(id)} de la comparaison`
+      }, h('span', { class: 'puce-comparaison-nom' }, nomDe(id)), icone('croix', { taille: 14 })));
     }
 
-    const table = records(store.seances(), id);
-    const cles = Object.keys(table);
-    if (!cles.length) {
-      listeRecords.appendChild(h('p', { class: 'ligne-liste-secondaire' },
-        'Aucun record : cet exercice n’a pas encore de série enregistrée.'));
-      return;
-    }
-
-    for (const cle of cles) {
-      const rec = table[cle];
-      listeRecords.appendChild(h('div', { class: 'ligne-reglage' },
-        h('span', null,
-          h('span', { class: 'ligne-liste-principal' }, LIBELLES_METRIQUES[cle] || cle),
-          h('br'),
-          h('span', { class: 'ligne-liste-secondaire' },
-            `${formatLong(rec.date)}${rec.libelle ? ' · ' + rec.libelle : ''}`)
-        ),
-        // ⚠ Le badge n'est pose que sur un record FIABLE. records() n'en rend pas d'autres :
-        //    rien a filtrer ici, et surtout rien a decorer soi-meme.
-        h('span', { class: 'badge-record' }, formatValeur(rec.valeur, rec.unite || UNITES[cle] || ''))
-      ));
+    if (selection.length < MAX_COMPARAISON) {
+      zoneComparaison.appendChild(h('button', {
+        type: 'button',
+        class: 'lien-comparer',
+        'data-action': 'comparer'
+      }, icone('plus', { taille: 16 }), h('span', null, 'Comparer à un autre exercice')));
+    } else {
+      zoneComparaison.appendChild(h('p', { class: 'zone-comparaison-aide' }, 'Quatre courbes au maximum.'));
     }
   }
 
   /**
-   * Tableau des 20 dernieres seances — TOUJOURS present sous la courbe.
+   * Tableau des dernieres seances — TOUJOURS present sous la courbe.
    * C'est lui que l'on vient reellement lire : la courbe donne la tendance, le tableau donne
    * les chiffres exacts a reproduire aujourd'hui. En comparaison, il liste la serie PRINCIPALE :
    * quatre tableaux entrelaces ne se lisent pas, et le titre dit lequel est affiche.
@@ -514,8 +538,8 @@ export function mount(conteneur, params = {}) {
     const id = principal();
 
     titreTableau.textContent = id && selection.length > 1
-      ? `${N_TABLEAU} dernières séances — ${nomDe(id)}`
-      : `${N_TABLEAU} dernières séances`;
+      ? `Dernières séances — ${nomDe(id)}`
+      : 'Dernières séances';
 
     if (!id) {
       corpsTableau.appendChild(h('tr', {},
@@ -560,11 +584,13 @@ export function mount(conteneur, params = {}) {
 
   /** Repeint tout ce qui depend de la selection. Chaque fonction ne touche que SES noeuds. */
   function peindreSelection() {
+    blocDetail.hidden = !principal();
     marquerGrille();
-    peindrePuces();
-    peindreMetriques();
+    peindreEnteteDetail();
+    peindreMetriques();     // resout `metrique` : DOIT preceder record et courbe
+    peindreRecord();
     peindreCourbe();
-    peindreRecords();
+    peindreComparaison();
     peindreTableau();
   }
 
@@ -572,83 +598,35 @@ export function mount(conteneur, params = {}) {
   function peindreDonnees() {
     peindreGrille();
     // Premiere arrivee de l'historique : aucun exercice n'etait selectionnable au montage.
+    // On choisit le plus pratique recemment — l'ecran ne reste jamais vide.
     if (!selection.length && pratiques.length) {
       selection = [pratiques[0].id];
       peindreSelection();
       return;
     }
+    peindreRecord();
     peindreCourbe();
-    peindreRecords();
     peindreTableau();
   }
 
   // ── Selection ─────────────────────────────────────────────────────────────
 
-  function basculerComparaison(actif) {
-    modeComparaison = actif;
-    boutonComparer.setAttribute('aria-pressed', actif ? 'true' : 'false');
-    // Sortir de la comparaison ne perd jamais la courbe qu'on regardait : on garde la principale.
-    if (!actif && selection.length > 1) selection = [selection[0]];
-    peindreSelection();
-  }
-
-  /** Ajoute ou retire un exercice de la comparaison. Le principal ne se retire pas tout seul. */
-  function basculerExercice(id) {
-    const rang = selection.indexOf(id);
-    if (rang === -1) {
-      if (selection.length >= MAX_COMPARAISON) return;
-      selection = selection.concat([id]);
-    } else {
-      if (selection.length === 1) return;
-      selection = selection.filter((x) => x !== id);
-    }
+  /** Superpose une courbe choisie dans le selecteur. La metrique commune est retranchee ensuite. */
+  function ajouterComparaison(id) {
+    if (!id || selection.indexOf(id) !== -1) return;
+    if (selection.length >= MAX_COMPARAISON) return;
+    selection = selection.concat([id]);
     // La metrique reste valide si elle appartient a l'intersection : peindreMetriques tranche.
     peindreSelection();
   }
 
-  // ── Appui long : entree dans la comparaison ───────────────────────────────
-  // ⚠ setTimeout et non requestAnimationFrame : rAF est GELE quand la page n'est pas rendue, et
-  //   un etat FONCTIONNEL ne doit jamais en dependre. Trois bugs de cette famille ont deja ete
-  //   corriges dans ce projet.
-
-  let minuteurAppui = null;
-  let departAppui = null;
-  let clicAnnule = false;
-
-  function annulerAppui() {
-    if (minuteurAppui !== null) { clearTimeout(minuteurAppui); minuteurAppui = null; }
-    departAppui = null;
+  /** Retire une courbe superposee. La principale ne se retire pas : c'est la page elle-meme. */
+  function retirerComparaison(id) {
+    if (!id || id === principal()) return;
+    if (selection.indexOf(id) === -1) return;
+    selection = selection.filter((x) => x !== id);
+    peindreSelection();
   }
-
-  desabonnements.push(on(grille, 'pointerdown', (ev) => {
-    const tuile = ev.target instanceof Element ? ev.target.closest('[data-action="exercice"]') : null;
-    if (!tuile || !grille.contains(tuile)) return;
-    const id = tuile.getAttribute('data-id');
-    if (!id) return;
-
-    annulerAppui();
-    // ⚠ Remis a faux a CHAQUE appui : un appui long suivi d'un clic ailleurs laisserait sinon le
-    //    drapeau arme, et le tap suivant sur une tuile serait avale sans rien faire.
-    clicAnnule = false;
-    departAppui = { x: ev.clientX, y: ev.clientY };
-    minuteurAppui = setTimeout(() => {
-      minuteurAppui = null;
-      // Le clic qui suivra le relachement doit etre ignore : sans ce drapeau, l'appui long
-      // ouvrirait la comparaison PUIS naviguerait vers l'exercice, annulant le geste.
-      clicAnnule = true;
-      if (!modeComparaison) basculerComparaison(true);
-      if (selection.indexOf(id) === -1) basculerExercice(id);
-    }, APPUI_LONG_MS);
-  }));
-
-  desabonnements.push(on(grille, 'pointermove', (ev) => {
-    if (!departAppui) return;
-    if (Math.abs(ev.clientX - departAppui.x) > TOLERANCE_GLISSE_PX
-      || Math.abs(ev.clientY - departAppui.y) > TOLERANCE_GLISSE_PX) annulerAppui();
-  }));
-
-  desabonnements.push(on(grille, 'pointerup', annulerAppui));
-  desabonnements.push(on(grille, 'pointercancel', annulerAppui));
 
   // ── Delegation : UN seul ecouteur click pour toute la vue ──────────────────
 
@@ -657,9 +635,7 @@ export function mount(conteneur, params = {}) {
 
     if (action === 'exercice') {
       const id = cible.getAttribute('data-id');
-      if (clicAnnule) { clicAnnule = false; return; }
       if (!id) return;
-      if (modeComparaison) { basculerExercice(id); return; }
       // Navigation : l'exercice affiche fait partie de l'adresse, donc partageable et
       // restaurable. Depuis #/progression/:exerciceId, le routeur appelle onParams() et ne
       // demonte RIEN — la vue reste en place, seuls les noeuds concernes changent.
@@ -667,14 +643,14 @@ export function mount(conteneur, params = {}) {
       return;
     }
 
-    if (action === 'retirer') {
-      const id = cible.getAttribute('data-id');
-      if (id) basculerExercice(id);
+    if (action === 'comparer') {
+      // Comparaison en UN geste : le selecteur s'ouvre, l'exercice choisi se superpose.
+      picker.ouvrir({ onChoisir: (ex) => { if (ex) ajouterComparaison(ex.id); } });
       return;
     }
 
-    if (action === 'comparer') {
-      basculerComparaison(!modeComparaison);
+    if (action === 'retirer') {
+      retirerComparaison(cible.getAttribute('data-id'));
       return;
     }
 
@@ -683,11 +659,15 @@ export function mount(conteneur, params = {}) {
       // sera vide. Le cas courant, lui, est deja a l'ecran sous forme d'icones.
       picker.ouvrir({
         onChoisir: (ex) => {
-          if (!ex) return;
-          if (modeComparaison) { basculerExercice(ex.id); return; }
-          aller('#/progression/' + encodeURIComponent(ex.id));
+          if (ex) aller('#/progression/' + encodeURIComponent(ex.id));
         }
       });
+      return;
+    }
+
+    if (action === 'composer') {
+      // Invitation de l'etat vide : composer puis lancer sa premiere seance.
+      aller('#/composer');
       return;
     }
 
@@ -698,7 +678,7 @@ export function mount(conteneur, params = {}) {
       // Memorisee : revenir sur cet ecran dans deux jours doit retrouver la meme fenetre.
       prefs.ecrire({ plageCourbe: nomPlage });
       marquerPlage();
-      peindreCourbe();       // la plage ne borne que la courbe : records et tableau sont globaux
+      peindreCourbe();       // la plage ne borne que la courbe : record et tableau sont globaux
       return;
     }
 
@@ -707,6 +687,7 @@ export function mount(conteneur, params = {}) {
       if (!cle || cle === metrique) return;
       metrique = cle;
       marquerMetrique();
+      peindreRecord();       // la carte record suit la metrique affichee
       peindreCourbe();
       return;
     }
@@ -729,6 +710,7 @@ export function mount(conteneur, params = {}) {
   peindreGrille();
   const demande = params.exerciceId || null;
   if (demande) selection = [demande];
+  // Jamais d'ecran vide : sans exercice dans l'adresse, le plus pratique recemment est choisi.
   else if (pratiques.length) selection = [pratiques[0].id];
   peindreSelection();
   marquerPlage();
@@ -742,18 +724,15 @@ export function mount(conteneur, params = {}) {
     onParams(p) {
       const suivant = (p && p.exerciceId) || null;
       if (!suivant || suivant === principal()) return;
-      // Une navigation designe UNE courbe : elle sort de la comparaison plutot que de laisser
-      // l'utilisateur devant une superposition qu'il n'a pas demandee.
+      // Une navigation designe UNE courbe : elle remplace toute superposition en cours plutot
+      // que de laisser l'utilisateur devant une comparaison qu'il n'a pas demandee.
       selection = [suivant];
-      modeComparaison = false;
-      boutonComparer.setAttribute('aria-pressed', 'false');
       // Metrique remise a zero : celle du mode precedent n'existe peut-etre pas dans le nouveau.
       metrique = null;
       peindreSelection();
     },
 
     destroy() {
-      annulerAppui();
       for (const off of desabonnements) { try { off(); } catch (_) { /* deja detache */ } }
       desabonnements.length = 0;
       // Le fragment vivant coupe SES propres ecouteurs : le laisser au ramasse-miettes
