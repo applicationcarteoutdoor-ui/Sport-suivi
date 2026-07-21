@@ -166,7 +166,7 @@ function pastilleStatut(seance) {
 function texteStatut(seance) {
   if (estSeanceAbandonnee(seance)) {
     return 'Séance abandonnée : elle est conservée telle quelle, mais elle n\'entre dans aucune ' +
-      'courbe, aucun record et aucun tonnage cumulé.';
+      'courbe, aucun record ni statistique.';
   }
   if (estSeanceEnCours(seance)) {
     return 'Séance encore en cours : ses chiffres évolueront jusqu\'à la clôture et n\'entrent ' +
@@ -575,7 +575,7 @@ export function mount(conteneur, params = {}) {
             'séries, et reste visible dans l\'historique, marquée « ' +
             LIBELLES_STATUTS_SEANCE.abandonnee + ' ».'),
           h('p', { class: 'confirmation-consequence' },
-            'Mais elle n\'entrera dans AUCUNE courbe ni statistique : ni tonnage, ni record, ni ' +
+            'Mais elle n\'entrera dans AUCUNE courbe ni statistique : ni record, ni ' +
             'rappel « Dernière fois ».')
         ),
         actions: [

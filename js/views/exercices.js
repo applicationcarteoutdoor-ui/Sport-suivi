@@ -578,7 +578,7 @@ function monterFiche(conteneur, params) {
       case 'materiel': return LIBELLES_MATERIELS[ex.materiel] || ex.materiel;
       case 'mode': return LIBELLES_MODES[ex.mode] || ex.mode;
       case 'lestable': return ex.lestable ? 'Oui (lest signé : +10 kg, −20 kg d\'assistance)' : 'Non';
-      case 'unilateral': return ex.unilateral ? 'Oui (tonnage compté double)' : 'Non';
+      case 'unilateral': return ex.unilateral ? 'Oui (compté par côté)' : 'Non';
       case 'incrementKg': return formatFr(ex.incrementKg) + ' kg';
       case 'bodyweightFactor': return formatFr(ex.bodyweightFactor);
       case 'reposParDefautSec': return formatDuree(ex.reposParDefautSec);
@@ -768,7 +768,7 @@ function monterFiche(conteneur, params) {
     } else if (cle === 'unilateral') {
       titreFeuille = 'Unilatéral';
       saisie = champInterrupteur('Exercice exécuté un côté à la fois', ex.unilateral,
-        'Dimension d\'affichage : le libellé indique « par côté » et le tonnage compte double. '
+        'Dimension d\'affichage : le libellé indique « par côté » et chaque côté compte. '
         + 'Aucun champ n\'est ajouté à la saisie d\'une série.');
       lire = () => ({ unilateral: saisie.lire() });
     } else if (cle === 'incrementKg') {
