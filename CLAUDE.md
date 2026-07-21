@@ -139,22 +139,34 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-21, v5 livrée)
+## État et risques connus (2026-07-21, v6 livrée)
 
-- v5 en ligne : **thème VERT** (tokens.css seul, bleu abandonné — ne pas le réintroduire),
-  réglages regroupés en 5 `<details>` pliants (`pli-reglages`), renommage de séance
-  (`seance.nom`, prime sur `modeleSnapshot.nom` dans TOUTES les vues — le snapshot n'est jamais
-  réécrit), cœur d'historique à état (`aria-pressed`, détection par nom de routine favorite),
-  composeur sans réglage de répétitions (`repsCibles: null` — les reps se saisissent en salle),
-  menu de séance en actions empilées, bouton menu de carte en coin (40 px).
-- v4 : favoris, double courbe poids+reps, date modifiable, tri par usage, confirmations
-  de suppression harmonisées, bouton « Rechercher une mise à jour » (réglages).
-- `tests.html` : 214/214 en navigateur au 2026-07-21 (v5 comprise). ⚠ En dev local, purger
+- v6 en ligne :
+  · **Séances types** remplacent les favoris : le « + » (historique, détail) crée une routine
+    ordinaire (`routineDepuisSeance` n'écrit PLUS `favori`) ; sur l'accueil, chaque tuile de
+    routine est enveloppée dans `.tuile-hote` avec un bouton crayon (`gerer-routine`) →
+    feuille Lancer / Modifier (`#/composer/routine?id=`) / Renommer / Supprimer. Le concept
+    « cœur/favori » ne doit PAS revenir (l'utilisateur : « je ne suis pas fan »).
+  · **Poids de corps mémorisé 14 jours** : `poidsDuJour()` (accueil) lit le dernier poids
+    connu (séances en mémoire + trace `prefs.dernierPoids`, posée par la feuille de poids de
+    séance ET par la pesée des réglages — le magasin IDB `poids` n'est pas chargé en mémoire).
+    La feuille de séance se pré-remplit avec le dernier poids, jamais 75 par défaut.
+  · **Composeur : UNE ligne par exercice** — icône, nom (ellipse), puces-valeurs
+    (`puce-valeur`, tap → pavé numérique, plus AUCUN stepper inline), commandes.
+  · **Toasts** : durée par défaut 3,5 s (toast.js) et plus AUCUN toast de succès nulle part
+    (les erreurs restent). Ne pas en réintroduire.
+  · **Courbe « Volume »** : la métrique `tonnage` est de retour dans MODES (charge,
+    poids-du-corps) sous le libellé « Volume » — c'est le tonnage du domaine, seul le nom
+    d'affichage change. Le tonnage reste absent des RÉSUMÉS (accueil, historique, détail).
+  · Icônes : refonte complète terminée (76 clés inchangées, ~25 dessins refaits).
+- v5 : thème VERT (le bleu est abandonné — ne pas le réintroduire), réglages en 5 `<details>`
+  pliants, renommage de séance (`seance.nom` prime sur `modeleSnapshot.nom` partout),
+  composeur sans réglage de répétitions (`repsCibles: null`).
+- `tests.html` : 214/214 en navigateur au 2026-07-21 (v6 comprise). ⚠ En dev local, purger
   SW + caches AVANT de conclure à un bug : le précache sert d'anciens modules et un simple
   reload ne suffit pas (il se ré-enregistre à chaque boot).
-- Icônes : retouches ponctuelles v5 (haltères, cœur — un SEUL tracé fermé, requis par le
-  remplissage CSS du favori —, composer). La refonte complète souhaitée par l'utilisateur
-  reste À FAIRE si redemandée.
+- `views/modeles.js` référence encore `favori` (bascule cœur) : écran secondaire, inerte
+  depuis la v6 (plus rien ne lit le flag). À nettoyer à l'occasion, sans urgence.
 - Les écrans v2/v3/v4 n'ont PAS tous subi de revue adversariale complète (budget) : les défauts
   de cette base sont typiquement SILENCIEUX (écran vide, bouton inerte, courbe plate — jamais
   d'erreur console). En cas de bug rapporté, chercher d'abord une couture entre modules

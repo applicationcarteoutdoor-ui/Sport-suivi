@@ -150,7 +150,7 @@ export function mount(conteneur) {
       await store.commit('seance:terminer', { seance: finale, endedAt: finale.endedAt });
 
       if (etat.detruit) return;
-      toast.afficher('Séance enregistrée');
+      /* v6 : pas de popup de succes — on arrive sur l'accueil, la seance est dans l'historique */
       // remplacer : le bouton retour ne doit pas ramener sur la cloture d'une seance close.
       router.aller('#/', { remplacer: true });
     } catch (err) {

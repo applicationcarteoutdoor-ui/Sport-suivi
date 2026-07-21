@@ -61,21 +61,37 @@ function seancesTerminees() {
   return store.seances().filter(estSeanceComptable);
 }
 
+// v6 : le poids de corps n'est plus demande a chaque seance (retour utilisateur). Un poids
+// enregistre — en seance ou dans les reglages — reste valable 14 jours.
+const VALIDITE_POIDS_JOURS = 14;
+
 /**
- * Poids de corps a geler sur la seance qui demarre, ou null.
- *
- * ⚠ On ne reporte QUE le poids du jour. Un poids d'hier serait faux sans que rien ne le signale,
- *   et surtout il empecherait views/seance.js — a qui appartient la saisie du poids — de la
- *   proposer : sa feuille ne s'ouvre que si `poidsDeCorpsKg` est absent. Rendre null ici, c'est
- *   donc demander la saisie, pas la perdre.
+ * Dernier poids de corps connu, toutes sources confondues : les seances chargees en memoire et
+ * la trace des prefs (posee par la feuille de poids ET par la pesee des reglages — le magasin
+ * IDB `poids` n'est pas charge en memoire, la trace le represente).
+ */
+function dernierPoidsConnu() {
+  let meilleur = null;
+  for (const s of store.seances()) {
+    if (!estNombre(s.poidsDeCorpsKg) || !s.date) continue;
+    if (!meilleur || s.date > meilleur.date) meilleur = { kg: s.poidsDeCorpsKg, date: s.date };
+  }
+  const trace = prefs.lire().dernierPoids;
+  if (trace && estNombre(trace.kg) && trace.date && (!meilleur || trace.date > meilleur.date)) {
+    meilleur = { kg: trace.kg, date: trace.date };
+  }
+  return meilleur;
+}
+
+/**
+ * Poids a geler sur la seance qui demarre, ou null.
+ * Null au-dela de 14 jours : c'est ce qui fait s'ouvrir la feuille de saisie de l'ecran de
+ * seance — laquelle se pre-remplit alors avec le dernier poids connu, pas avec un defaut.
  */
 function poidsDuJour() {
-  const aujourdHui = dayKey();
-  for (const s of store.seances()) {
-    if (!estNombre(s.poidsDeCorpsKg)) continue;
-    return s.date === aujourdHui ? s.poidsDeCorpsKg : null;
-  }
-  return null;
+  const dernier = dernierPoidsConnu();
+  if (!dernier) return null;
+  return joursEntre(dernier.date, dayKey()) <= VALIDITE_POIDS_JOURS ? dernier.kg : null;
 }
 
 /** Lieu a preselectionner : le lieu unique s'il n'y en a qu'un, sinon rien (choisi a la cloture). */
@@ -416,23 +432,19 @@ export function mount(conteneur) {
       id: modele.id,
       classe: estRoutine(modele) ? 'tuile-routine' : 'tuile-modele-livre'
     });
-    majPastilleFavori(noeud, modele);
-    return noeud;
-  }
-
-  /**
-   * Petit coeur en coin de tuile pour une routine FAVORITE — pastille absolue, comme
-   * pastille-origine. Ajoute ou retire, jamais reconstruit : la tuile reste sous le doigt.
-   */
-  function majPastilleFavori(noeud, modele) {
-    const existante = noeud.querySelector('.pastille-favori');
-    const voulu = estRoutine(modele) && modele.favori === true;
-    if (voulu && !existante) {
-      noeud.appendChild(h('span', { class: 'pastille-favori', 'aria-hidden': 'true' },
-        icone('coeur', { taille: 14 })));
-    } else if (!voulu && existante) {
-      noeud.removeChild(existante);
+    // v6 : une SEANCE TYPE (routine utilisateur) se gere depuis l'accueil — renommer, modifier,
+    // supprimer. Le bouton est un FRERE de la tuile (jamais de bouton dans un bouton) : la tuile
+    // est enveloppee, et la cle de reconciliation pointe l'enveloppe.
+    if (estRoutine(modele)) {
+      return h('div', { class: 'tuile-hote' }, noeud,
+        h('button', {
+          type: 'button',
+          class: 'tuile-gerer',
+          dataset: { action: 'gerer-routine', id: modele.id },
+          'aria-label': 'Gérer la séance type ' + (modele.nom || '')
+        }, icone('crayon', { taille: 16 })));
     }
+    return noeud;
   }
 
   function majLanceur(cle, noeud) {
@@ -443,21 +455,17 @@ export function mount(conteneur) {
     const detail = noeud.querySelector('.tuile-lanceur-detail');
     if (nom) nom.textContent = modele.nom || 'Séance';
     if (detail) detail.textContent = resumeModele(modele);
-    majPastilleFavori(noeud, modele);
   }
 
   function majLanceurs() {
     const actifs = store.modeles().filter((m) => m && m.archived !== true);
     // ⚠ ORDRE IMPOSE par le retour utilisateur v3 : les trois gestes de creation d'abord —
-    //   Composer en tete de grille — puis les ROUTINES de l'utilisateur (ce qu'on a ecrit
+    //   Composer en tete de grille — puis les SEANCES TYPES de l'utilisateur (ce qu'on a ecrit
     //   soi-meme se lance plus souvent que ce qui est livre), et les modeles livres en dernier.
-    //   v4 : parmi les routines, les FAVORITES passent devant (retour utilisateur : refaire une
-    //   seance enregistree doit etre le geste le plus court de l'accueil).
-    const toutesRoutines = actifs.filter(estRoutine);
-    const favorites = toutesRoutines.filter((m) => m.favori === true).map((m) => m.id);
-    const autresRoutines = toutesRoutines.filter((m) => m.favori !== true).map((m) => m.id);
+    //   v6 : plus de tri « favorites d'abord » — le concept de favori a disparu.
+    const routinesUtilisateur = actifs.filter(estRoutine).map((m) => m.id);
     const livres = actifs.filter((m) => !estRoutine(m)).map((m) => m.id);
-    const cles = [CLE_COMPOSER, CLE_LIBRE, CLE_CARDIO].concat(favorites, autresRoutines, livres);
+    const cles = [CLE_COMPOSER, CLE_LIBRE, CLE_CARDIO].concat(routinesUtilisateur, livres);
     reconcilier(grilleLanceurs, cles, noeudsLanceurs, fabriquerLanceur, majLanceur);
     majPlafond();
   }
@@ -477,7 +485,9 @@ export function mount(conteneur) {
         'le maximum. Termine ou abandonne l\'une d\'elles pour en lancer une nouvelle.';
     }
     blocLanceurs.setAttribute('data-plafond', atteint ? 'atteint' : 'libre');
-    for (const bouton of grilleLanceurs.children) {
+    // ⚠ querySelectorAll et non children : une seance type est ENVELOPPEE (.tuile-hote) et
+    //   poser disabled sur un <div> ne desactiverait rien du tout.
+    for (const bouton of grilleLanceurs.querySelectorAll('.tuile-lanceur')) {
       bouton.disabled = atteint;
     }
   }
@@ -728,11 +738,10 @@ export function mount(conteneur) {
       if (quoi === 'cloturer') {
         await store.commit('seance:terminer', { seance, retroactif: true });
         if (etat.detruit) return;
-        toast.afficher('Séance clôturée à l\'heure de ta dernière série.');
+        /* v6 : pas de popup de succes — la carte disparait, c'est le feedback */
       } else if (quoi === 'abandonner') {
         await store.commit('seance:abandonner', { id: seance.id });
         if (etat.detruit) return;
-        toast.afficher('Séance abandonnée. Elle reste dans l\'historique.');
       } else {
         await store.commit('seance:supprimer', { id: seance.id });
         if (etat.detruit) return;
@@ -827,6 +836,98 @@ export function mount(conteneur) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Seances types : gestion depuis l'accueil (v6 — renommer, modifier, supprimer)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Menu d'une seance type : lancer, modifier (composeur), renommer, supprimer. */
+  function ouvrirMenuRoutine(id) {
+    const modele = store.modele(id);
+    if (!modele) { majLanceurs(); return; }
+    etat.feuille = sheet.ouvrir({
+      titre: modele.nom || 'Séance type',
+      classe: 'menu-seance',
+      contenu: h('p', { class: 'note-discrete' },
+        (resumeModele(modele) || 'Aucun exercice') + ' · Séance type'),
+      actions: [
+        { libelle: 'Lancer la séance', variante: 'primaire', action: () => { demarrerSeance(modele, null); } },
+        {
+          libelle: 'Modifier les exercices',
+          action: () => { router.aller('#/composer/routine?id=' + encodeURIComponent(id)); }
+        },
+        { libelle: 'Renommer', action: () => { ouvrirRenommageRoutine(id); return false; } },
+        { libelle: 'Supprimer', variante: 'danger', action: () => { confirmerSuppressionRoutine(id); return false; } }
+      ],
+      onFermer: () => { etat.feuille = null; }
+    });
+  }
+
+  /** Feuille « Renommer » : champ texte natif, comme le renommage d'une seance du detail. */
+  function ouvrirRenommageRoutine(id) {
+    const modele = store.modele(id);
+    if (!modele) return;
+    const champ = h('input', {
+      type: 'text',
+      class: 'champ-nom-seance',
+      value: modele.nom || '',
+      maxlength: '60',
+      'aria-label': 'Nom de la séance type'
+    });
+    etat.feuille = sheet.ouvrir({
+      titre: 'Renommer la séance type',
+      contenu: h('div', { class: 'editeur-date' }, champ),
+      actions: [
+        { libelle: 'Annuler', variante: 'fantome' },
+        {
+          libelle: 'Enregistrer',
+          variante: 'primaire',
+          action: () => {
+            const nom = String(champ.value || '').trim();
+            if (!nom) { toast.afficher('Donne un nom à la séance type.'); return false; }
+            store.commit('routine:modifier', { routine: Object.assign({}, modele, { nom }) })
+              .catch((err) => {
+                console.error('[accueil] renommage de la séance type en échec', err);
+                toast.afficher('Le nom n\'a pas pu être modifié.');
+              });
+          }
+        }
+      ],
+      onFermer: () => { etat.feuille = null; }
+    });
+    champ.focus();
+    champ.select();
+  }
+
+  /** La suppression d'une seance type est definitive — mais l'historique ne bouge jamais. */
+  function confirmerSuppressionRoutine(id) {
+    const modele = store.modele(id);
+    if (!modele) return;
+    etat.feuille = sheet.ouvrir({
+      titre: 'Supprimer « ' + (modele.nom || 'Séance type') + ' » ?',
+      classe: 'feuille-confirmation',
+      contenu: h('div', { class: 'confirmation' },
+        h('p', { class: 'confirmation-texte' }, 'La séance type disparaîtra de l\'accueil.'),
+        h('p', { class: 'confirmation-consequence' },
+          'Tes séances déjà enregistrées dans l\'historique ne bougent pas.')
+      ),
+      actions: [
+        { libelle: 'Annuler', variante: 'fantome' },
+        {
+          libelle: 'Supprimer',
+          variante: 'danger',
+          action: () => {
+            store.commit('routine:supprimer', { id })
+              .catch((err) => {
+                console.error('[accueil] suppression de la séance type en échec', err);
+                toast.afficher(err && err.message ? err.message : 'La suppression a échoué.');
+              });
+          }
+        }
+      ],
+      onFermer: () => { etat.feuille = null; }
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Delegation : UN seul ecouteur click pour toute la vue
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -836,6 +937,7 @@ export function mount(conteneur) {
 
     if (action === 'ouvrir-seance') { ouvrirSeance(id); return; }
     if (action === 'menu-seance') { ouvrirMenuSeance(id); return; }
+    if (action === 'gerer-routine') { ouvrirMenuRoutine(id); return; }
     if (action === 'composer') { router.aller('#/composer'); return; }
     if (action === 'libre') { demarrerSeance(null, null); return; }
     if (action === 'cardio') { choisirCardio(); return; }

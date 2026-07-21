@@ -25,13 +25,15 @@ export const MODES = {
     saisie: ['reps'],
     // v4 : 'tonnage' retire des metriques PROPOSEES (retour utilisateur — l'option n'apparait
     // plus nulle part). Le reducteur et les calculs du domaine restent : donnees intactes.
-    metriques: ['charge-effective-max', 'reps-max'],
+    // v6 : 'tonnage' revient sous le nom « Volume » (retour utilisateur — il veut une courbe de
+    // volume par seance ; c'est le tonnage du domaine, seul le libelle change).
+    metriques: ['charge-effective-max', 'reps-max', 'tonnage'],
     pas: { reps: 1, lestKg: 'incrementKg' },
     lestSiLestable: true
   },
   'charge': {
     saisie: ['reps', 'chargeKg'],
-    metriques: ['e1rm-max', 'charge-max', 'reps-max'],
+    metriques: ['e1rm-max', 'charge-max', 'reps-max', 'tonnage'],
     pas: { reps: 1, chargeKg: 'incrementKg' },
     lestSiLestable: false
   },
@@ -152,7 +154,7 @@ export const LIBELLES_METRIQUES = {
   'charge-max': 'Charge max',
   'charge-effective-max': 'Charge effective max',
   'reps-max': 'Répétitions max',
-  'tonnage': 'Tonnage',
+  'tonnage': 'Volume',   // v6 : somme charge x reps par seance — le mot « tonnage » rebutait
   'duree-max': 'Durée max',
   'duree-totale': 'Durée totale',
   'duree': 'Durée',
@@ -517,7 +519,8 @@ export function routineDepuisSeance(seance, p = {}) {
     nom: p.nom || (snap && snap.nom) || ('Séance du ' + (s.date || '')),
     description: '',
     items,
-    favori: true,
+    // v6 : plus de flag favori — le concept est remplace par les « seances types », des routines
+    // ordinaires creees depuis l'historique (bouton « + ») et gerees depuis l'accueil.
     origine: 'utilisateur'
   };
 }

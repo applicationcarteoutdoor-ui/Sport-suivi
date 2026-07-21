@@ -96,11 +96,11 @@ function nomSeance(seance) {
 }
 
 /**
- * Nom sous lequel une seance est enregistree en FAVORI. Distinct de nomSeance : une seance libre
- * s'appelle « Séance libre » a l'ecran mais sa favorite est nommee par sa date, sinon deux
- * seances libres differentes se disputeraient la meme routine.
+ * Nom sous lequel une seance devient une SEANCE TYPE (v6 — ex-favoris). Distinct de nomSeance :
+ * une seance libre s'appelle « Séance libre » a l'ecran mais sa seance type est nommee par sa
+ * date, sinon deux seances libres differentes se disputeraient la meme routine.
  */
-function nomFavori(seance) {
+function nomSeanceType(seance) {
   if (seance.nom) return seance.nom;
   const snap = seance.modeleSnapshot;
   if (snap && snap.nom) return snap.nom;
@@ -314,17 +314,16 @@ export function mount(conteneur) {
       'aria-label': 'Supprimer la séance du ' + formatLong(seance.date)
     }, icone('poubelle', { taille: 20 }));
 
-    // Coeur : « refaire cette seance » — cree une routine FAVORITE a partir des series faites.
-    // Bouton FRERE, comme la poubelle : jamais de bouton dans un bouton.
-    // v5 : bouton A BASCULE (aria-pressed) — le coeur se remplit quand la favorite existe deja,
-    // sinon rien ne disait que l'ajout avait eu lieu.
+    // « + » : cree une SEANCE TYPE (routine reutilisable, geree depuis l'accueil) a partir des
+    // series faites. Bouton FRERE, comme la poubelle : jamais de bouton dans un bouton.
+    // A BASCULE (aria-pressed) : l'etat « deja creee » se voit sans toast.
     const favori = h('button', {
       class: 'historique-favori',
       type: 'button',
       dataset: { action: 'favori', id: seance.id },
       'aria-pressed': 'false',
-      'aria-label': 'Ajouter aux favoris la séance du ' + formatLong(seance.date) + ' pour la refaire'
-    }, icone('coeur', { taille: 20 }));
+      'aria-label': 'Créer une séance type à partir de la séance du ' + formatLong(seance.date)
+    }, icone('plus', { taille: 20 }));
 
     const rangee = h('div', { class: 'historique-rangee' }, bouton, favori, supprimer);
 
@@ -336,14 +335,14 @@ export function mount(conteneur) {
     return ref;
   }
 
-  /** Coeur plein si une routine favorite du meme nom existe deja — l'etat se lit d'un coup d'oeil. */
+  /** « + » allume si une seance type du meme nom existe deja — l'etat se lit d'un coup d'oeil. */
   function peindreFavori(ref, seance) {
-    const nom = nomFavori(seance);
-    const deja = store.routines().some((r) => r && r.favori === true && (r.nom || '') === nom);
+    const nom = nomSeanceType(seance);
+    const deja = store.routines().some((r) => r && (r.nom || '') === nom);
     ref.favori.setAttribute('aria-pressed', deja ? 'true' : 'false');
     ref.favori.setAttribute('aria-label', deja
-      ? 'Séance du ' + formatLong(seance.date) + ' déjà dans les favoris'
-      : 'Ajouter aux favoris la séance du ' + formatLong(seance.date) + ' pour la refaire');
+      ? 'Séance type déjà créée pour la séance du ' + formatLong(seance.date)
+      : 'Créer une séance type à partir de la séance du ' + formatLong(seance.date));
   }
 
   /** Met a jour une ligne existante : des textContent et des sous-arbres qu'elle POSSEDE. */
@@ -455,35 +454,31 @@ export function mount(conteneur) {
       });
   }
 
-  // ── Favoris : « refaire cette seance » ──────────────────────────────────────
+  // ── Seances types : « + » sur une ligne d'historique (v6, ex-favoris) ───────
 
   /**
-   * Cree une routine FAVORITE a partir d'une seance close (commit 'routine:creer').
-   * Les cibles decrivent ce qui a ete reellement fait ; la charge reste { type:'derniere' } —
-   * jamais un kilo en dur. Une favorite du MEME nom deja presente : pas de doublon, on le dit.
+   * Cree une SEANCE TYPE (commit 'routine:creer') a partir d'une seance close. Les cibles
+   * decrivent ce qui a ete reellement fait ; la charge reste { type:'derniere' } — jamais un
+   * kilo en dur. Pas de toast de succes : le « + » s'allume, c'est le feedback. Un doublon du
+   * meme nom : le « + » est deja allume, le tap ne fait rien.
    */
   function ajouterFavori(id) {
     const seance = store.seance(id);
     if (!seance || !estSeanceClose(seance)) return;
 
-    const nom = nomFavori(seance);
+    const nom = nomSeanceType(seance);
     const brute = routineDepuisSeance(seance, { nom });
 
     if (!brute.items.length) {
-      toast.afficher('Aucune série comptabilisée dans cette séance : rien à refaire.');
+      toast.afficher('Aucune série comptabilisée dans cette séance : rien à réutiliser.');
       return;
     }
-    const doublon = store.routines().find((r) => r && r.favori === true && (r.nom || '') === nom);
-    if (doublon) {
-      toast.afficher('« ' + nom + ' » est déjà dans tes favoris : relance-la depuis l\'accueil.', { duree: 6000 });
-      return;
-    }
+    if (store.routines().some((r) => r && (r.nom || '') === nom)) return;
 
     store.commit('routine:creer', { routine: brute })
-      .then(() => toast.afficher('« ' + nom + ' » ajoutée aux favoris. Relance-la depuis l\'accueil.', { duree: 6000 }))
       .catch((err) => {
-        console.error('[historique] ajout aux favoris en échec', err);
-        toast.afficher('La séance n\'a pas pu être ajoutée aux favoris.');
+        console.error('[historique] création de la séance type en échec', err);
+        toast.afficher('La séance type n\'a pas pu être créée.');
       });
   }
 

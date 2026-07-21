@@ -19,7 +19,10 @@
 
 import { h, on } from '../lib/dom.js';
 
-const DUREE_DEFAUT = 10000;
+// v6 : 3,5 s (retour utilisateur : « elles durent trop longtemps, c'est horrible »). Le
+// raisonnement « salle de sport » des 10 s d'origine reste valable pour un toast qui porte
+// « Annuler » : ces appelants passent une duree explicite plus longue.
+const DUREE_DEFAUT = 3500;
 
 let racine = null;      // le <div class="toast">, cree une fois
 let texteEl = null;

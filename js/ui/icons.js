@@ -104,29 +104,32 @@ export const ICONES = {
     R(16.4, 7.8, 3, 8.4, 1.5)
   ],
 
-  'barre': () => barreChargee(12, 1.8, 22.2, 3.3).concat([
-    L(9.8, 10.6, 9.8, 13.4),
-    L(14.2, 10.6, 14.2, 13.4)
-  ]),
+  // Le fut TRAVERSE le cadre (manchons qui depassent des disques) : c'est ce debord qui
+  // distingue la barre de l'haltere a 20 px, avec les grands disques ronds.
+  'barre': () => [
+    L(2.2, 12, 21.8, 12),
+    C(6.6, 12, 3.5),
+    C(17.4, 12, 3.5)
+  ],
 
   // La grammaire de la poulie : petite roue en haut, cable OBLIQUE, poignee perpendiculaire.
   'poulie': () => [
-    L(5, 3, 17, 3),
-    C(11, 5.5, 2.3),
-    L(12.6, 7.2, 16.6, 15.2),
-    L(14.4, 17.6, 20, 14.8)
+    L(4.5, 3.2, 19.5, 3.2),
+    C(12, 6, 2.6),
+    L(13.2, 8.4, 16.8, 15.8),
+    L(14.3, 17, 19.3, 14.6)
   ],
 
   // Colonne de plaques entre deux rails, et le cable qui y plonge : sans le cable, le rectangle
   // raye se lit comme une liste de texte et non comme une machine.
   'machine': () => [
-    L(5, 2.8, 5, 21.2),
-    L(19, 2.8, 19, 21.2),
-    L(5, 2.8, 19, 2.8),
-    L(12, 2.8, 12, 8.4),
-    R(8.2, 8.4, 7.6, 9.8, 1.2),
-    L(8.2, 11.7, 15.8, 11.7),
-    L(8.2, 15, 15.8, 15)
+    L(5.5, 3, 5.5, 21),
+    L(18.5, 3, 18.5, 21),
+    L(5.5, 3, 18.5, 3),
+    L(12, 3, 12, 8),
+    R(8.5, 8, 7, 10, 1.5),
+    L(8.5, 11.3, 15.5, 11.3),
+    L(8.5, 14.7, 15.5, 14.7)
   ],
 
   // v4 : le cardio, c'est quelqu'un qui TRANSPIRE (demande utilisateur) — coureur en foulee,
@@ -152,9 +155,9 @@ export const ICONES = {
   ],
 
   'elastique': () => [
-    P('M5.2 12 C 8.5 5.5, 15.5 18.5, 18.8 12'),
-    C(3.4, 12, 1.7),
-    C(20.6, 12, 1.7)
+    P('M5.4 12 C 8.7 6, 15.3 18, 18.6 12'),
+    C(3.6, 12, 1.9),
+    C(20.4, 12, 1.9)
   ],
 
   // Pack « gainage » : la planche, MIROIR de l'icone de l'exercice « planche » (tete a gauche
@@ -296,7 +299,7 @@ export const ICONES = {
   ],
 
   // Le dossier INCLINE (trait epais en diagonale) est le discriminant.
-  'developpe-incline-barre': () => barreChargee(4.8, 8, 22, 2).concat([
+  'developpe-incline-barre': () => barreChargee(4.8, 8, 21.6, 2).concat([
     T(4, 19.6, 14.4, 9.6),
     tete(16, 8.6),
     L(14.8, 9.6, 15.6, 5)
@@ -722,7 +725,7 @@ export const ICONES = {
   'elliptique': () => [
     E(9, 15.6, 6, 3.1),
     L(18.8, 4.2, 18.8, 19.4),
-    L(14.6, 19.7, 22, 19.7),
+    L(14.6, 19.7, 21.5, 19.7),
     L(18.8, 6.4, 10.6, 13.6),
     L(4.6, 16, 8.2, 14.2)
   ],
@@ -739,78 +742,85 @@ export const ICONES = {
   // ───────────────────────────────────────────────────────────────────────────
 
   'exercice': () => [
-    PL('2.5,12 7,12 10,5 14,19 17,12 21.5,12')
+    PL('3,12 7.4,12 10.4,5.6 13.6,18.4 16.6,12 21,12')
   ],
 
   // ───────────────────────────────────────────────────────────────────────────
   // Interface (16) — geometrie simple, propre, centree. Pas de silhouettes ici.
   // ───────────────────────────────────────────────────────────────────────────
 
-  'plus': () => [L(12, 5, 12, 19), L(5, 12, 19, 12)],
+  'plus': () => [L(12, 5.5, 12, 18.5), L(5.5, 12, 18.5, 12)],
 
-  'moins': () => [L(5, 12, 19, 12)],
+  'moins': () => [L(5.5, 12, 18.5, 12)],
 
-  'croix': () => [L(6, 6, 18, 18), L(18, 6, 6, 18)],
+  'croix': () => [L(6.5, 6.5, 17.5, 17.5), L(17.5, 6.5, 6.5, 17.5)],
 
-  'chevron-droit': () => [PL('9,4.5 16.5,12 9,19.5')],
+  'chevron-droit': () => [PL('9.5,5.5 16,12 9.5,18.5')],
 
-  'chevron-bas': () => [PL('4.5,9 12,16.5 19.5,9')],
+  'chevron-bas': () => [PL('5.5,9.5 12,16 18.5,9.5')],
 
+  // Boitier rond, bouton-poussoir au sommet, UNE aiguille oblique : la course est lancee.
   'chronometre': () => [
-    C(12, 13.2, 7.6),
-    L(12, 13.2, 12, 8.8),
-    L(12, 13.2, 15.2, 13.2),
-    L(9.6, 2.6, 14.4, 2.6),
-    L(12, 2.6, 12, 5.6)
+    C(12, 14, 7),
+    L(12, 14, 15.1, 10.9),
+    L(9.6, 3, 14.4, 3),
+    L(12, 3, 12, 5.2)
   ],
 
+  // Sablier a taille COURBE : les deux ampoules se rejoignent en douceur au centre.
   'minuteur': () => [
-    L(6, 3, 18, 3),
-    L(6, 21, 18, 21),
-    P('M8 3 V6.6 L12 12 L16 6.6 V3'),
-    P('M8 21 V17.4 L12 12 L16 17.4 V21')
+    L(6.8, 3.2, 17.2, 3.2),
+    L(6.8, 20.8, 17.2, 20.8),
+    P('M8.6 3.2 V5.8 C8.6 8.3 10.7 9.9 12 12 C13.3 9.9 15.4 8.3 15.4 5.8 V3.2'),
+    P('M8.6 20.8 V18.2 C8.6 15.7 10.7 14.1 12 12 C13.3 14.1 15.4 15.7 15.4 18.2 V20.8')
   ],
 
-  'lecture': () => [P('M8 4.8 L19 12 L8 19.2 Z')],
+  'lecture': () => [P('M8.6 5.4 L19 12 L8.6 18.6 Z')],
 
-  'pause': () => [L(9, 4.8, 9, 19.2), L(15, 4.8, 15, 19.2)],
+  'pause': () => [L(9, 5.8, 9, 18.2), L(15, 5.8, 15, 18.2)],
 
+  // Couvercle, anse arrondie, cuve aux coins bas ARRONDIS, deux rainures.
   'poubelle': () => [
-    L(3.8, 6, 20.2, 6),
-    P('M6.4 6 L7.4 20.6 H16.6 L17.6 6'),
-    P('M9.4 6 V3.4 H14.6 V6'),
-    L(10.2, 9.6, 10.2, 17.2),
-    L(13.8, 9.6, 13.8, 17.2)
+    L(4.5, 6.4, 19.5, 6.4),
+    P('M9.6 6.4 V4.4 C9.6 3.8 10 3.4 10.6 3.4 H13.4 C14 3.4 14.4 3.8 14.4 4.4 V6.4'),
+    P('M6.6 6.4 L7.3 18.9 C7.4 19.9 8.2 20.6 9.2 20.6 H14.8 C15.8 20.6 16.6 19.9 16.7 18.9 L17.4 6.4'),
+    L(10.3, 10.2, 10.3, 16.8),
+    L(13.7, 10.2, 13.7, 16.8)
   ],
 
+  // Crayon a bout ARRONDI (deux quarts de courbe), pointe en bas a gauche, bague de mine.
   'crayon': () => [
-    P('M3.6 20.4 L4.7 15.8 L15.9 4.6 L19.4 8.1 L8.2 19.3 Z'),
-    L(14.1, 6.4, 17.6, 9.9)
+    P('M4.2 19.8 L5 16.2 L15.7 5.5 C16.6 4.6 18 4.6 18.9 5.5 '
+      + 'C19.8 6.4 19.8 7.8 18.9 8.7 L8.2 19.4 Z'),
+    L(14.1, 7.1, 17.3, 10.3)
   ],
 
+  // Fleche + plateau a coins arrondis, partages avec 'televerser' (meme famille).
   'telecharger': () => [
-    L(12, 3, 12, 15.6),
-    PL('7.4,11 12,15.6 16.6,11'),
-    PL('4,17 4,20.6 20,20.6 20,17')
+    L(12, 3.5, 12, 14.5),
+    PL('7.5,10 12,14.5 16.5,10'),
+    P('M4 15.8 V18.4 C4 19.6 4.9 20.5 6.1 20.5 H17.9 C19.1 20.5 20 19.6 20 18.4 V15.8')
   ],
 
   'televerser': () => [
-    L(12, 16, 12, 3.4),
-    PL('7.4,8 12,3.4 16.6,8'),
-    PL('4,17 4,20.6 20,20.6 20,17')
+    L(12, 14.5, 12, 3.5),
+    PL('7.5,8 12,3.5 16.5,8'),
+    P('M4 15.8 V18.4 C4 19.6 4.9 20.5 6.1 20.5 H17.9 C19.1 20.5 20 19.6 20 18.4 V15.8')
   ],
 
   'recherche': () => [
-    C(10.8, 10.8, 6.6),
-    L(15.6, 15.6, 20.4, 20.4)
+    C(11, 11, 6.5),
+    L(15.8, 15.8, 20.5, 20.5)
   ],
 
-  'coche': () => [PL('4.6,12.6 9.6,17.6 19.4,6.8')],
+  'coche': () => [PL('5,12.6 9.9,17.5 19,7.5')],
 
+  // Triangle aux trois sommets ARRONDIS (courbes), point d'exclamation centre.
   'avertissement': () => [
-    P('M12 3.4 L21.6 20.2 H2.4 Z'),
-    L(12, 9.4, 12, 14.4),
-    C(12, 17.3, 0.4)
+    P('M10.4 5 L3.6 16.9 C2.9 18.2 3.8 19.8 5.2 19.8 H18.8 '
+      + 'C20.2 19.8 21.1 18.2 20.4 16.9 L13.6 5 C12.9 3.8 11.1 3.8 10.4 5 Z'),
+    L(12, 9.4, 12, 13.8),
+    C(12, 16.6, 0.4)
   ]
 };
 

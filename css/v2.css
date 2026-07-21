@@ -1168,8 +1168,11 @@
    toutes les tuiles de lancement, quelle que soit leur variante.
    ───────────────────────────────────────────────────────────────────────────── */
 
-.grille-lanceurs > .tuile-lanceur {
+/* v6 : selecteur DESCENDANT et non enfant direct — une seance type est enveloppee dans
+   .tuile-hote (pour poser son bouton crayon en frere, jamais de bouton dans un bouton). */
+.grille-lanceurs .tuile-lanceur {
   position: relative;                 /* ancre de la pastille, qui ne decale plus rien */
+  width: 100%;
   min-height: 156px;
   display: flex;
   flex-direction: column;
@@ -1497,3 +1500,91 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
 /* Le rapport d'import collait aux bords de la carte : respiration locale, sans toucher a la
    regle d'origine de rapport-import (il sert aussi dans la feuille de confirmation). */
 .pli-reglages-corps .rapport-import { margin: 0 var(--esp-4) var(--esp-3); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   12. v6 — seances types, composeur sur une ligne
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Enveloppe d'une tuile de seance type : la tuile + son bouton crayon, freres.
+   display:flex pour que la tuile epouse la cellule de grille entiere. */
+.tuile-hote {
+  position: relative;
+  display: flex;
+}
+
+/* Crayon de gestion en coin de tuile (renommer, modifier, supprimer). Discret : la tuile reste
+   le geste principal (lancer), le crayon est un satellite. */
+.tuile-gerer {
+  position: absolute;
+  top: var(--esp-1);
+  right: var(--esp-1);
+  min-width: 36px;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--rayon-plein);
+  background: transparent;
+  color: var(--texte-attenue);
+  cursor: pointer;
+}
+
+/* Composeur v6 : UNE seule ligne par exercice — icone, nom (ellipse en premier), puces-valeurs,
+   commandes. Ecrase la mise en page en colonne de .ligne-exercice. */
+.ligne-exercice-compacte {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--esp-2);
+  min-height: var(--cible-tactile);
+}
+.ligne-exercice-compacte .ligne-exercice-dessin {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+.ligne-exercice-compacte .ligne-exercice-nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.ligne-exercice-compacte .ligne-exercice-commandes {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 2px;
+}
+
+.ligne-exercice-puces {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--esp-1);
+}
+
+/* Puce-valeur : le meme geste que les cases du tableau de seance — un tap ouvre le pave.
+   data-vide='oui' = valeur encore libre (« Lesté », « Distance ») : rendue en attenue. */
+.puce-valeur {
+  min-height: var(--cible-mini);
+  padding: 0 var(--esp-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-plein);
+  background: var(--surface);
+  color: var(--texte);
+  font-size: var(--txt-s);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.puce-valeur[data-vide='oui'] {
+  color: var(--texte-attenue);
+  font-weight: 600;
+}
+.puce-valeur-texte { pointer-events: none; }

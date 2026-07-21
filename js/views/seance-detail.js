@@ -454,10 +454,9 @@ export function mount(conteneur, params = {}) {
       const s = store.seance(idCourant);
       if (!s || s.date === date) return;
       s.date = date;
-      const resultat = await store.commit('seance:modifier', { seance: s });
-      const fraiche = (resultat && resultat.seance) || s;
+      await store.commit('seance:modifier', { seance: s });
       construire(idCourant);
-      toast.afficher('Séance déplacée au ' + formatLong(fraiche.date) + '.');
+      /* v6 : pas de popup de succes — la date change a l'ecran, c'est le feedback */
     }).catch((err) => {
       console.error('[seance-detail] changement de date en échec', err);
       toast.afficher('La date n\'a pas pu être modifiée.');
@@ -620,7 +619,7 @@ export function mount(conteneur, params = {}) {
       // La reconstruction du contenu n'est PAS faite ici : l'abonnement a 'seance:abandonner'
       // s'en charge deja, et le declencher deux fois demonterait puis remonterait toutes les
       // rangees pour rien.
-      .then(() => toast.afficher('Séance abandonnée. Elle reste ici, hors des statistiques.', { duree: 8000 }))
+      /* v6 : pas de popup de succes — la pastille de statut change, c'est le feedback */
       .catch((err) => {
         console.error('[seance-detail] abandon en échec', err);
         toast.afficher('La séance n\'a pas pu être abandonnée.');
@@ -637,7 +636,7 @@ export function mount(conteneur, params = {}) {
       peindreResume(fraiche);
       majRangee(entreeId, fraiche);
       majEntete(fraiche);
-      toast.afficher('Série supprimée.');
+      /* v6 : pas de popup de succes — la case disparait, c'est le feedback */
     }).catch((err) => {
       console.error('[seance-detail] suppression de série en échec', err);
       toast.afficher('La série n\'a pas pu être supprimée.');
@@ -647,35 +646,32 @@ export function mount(conteneur, params = {}) {
   // ── Favoris : « refaire cette seance » ──────────────────────────────────────
 
   /**
-   * Cree une routine FAVORITE a partir de la seance affichee (commit 'routine:creer').
+   * Cree une SEANCE TYPE (v6, ex-favoris) a partir de la seance affichee ('routine:creer').
    * chargeCible reste { type:'derniere', delta:0 } : jamais un kilo en dur dans un modele.
-   * Une favorite du meme nom existe deja : pas de doublon, on le signale.
+   * Meme regle de nommage que l'historique — nom personnalise d'abord ; c'est la cle par
+   * laquelle le « + » de l'historique detecte « deja creee ». Doublon : on ne fait rien.
    */
   function ajouterFavori() {
     const seance = store.seance(idCourant);
     if (!seance || !estSeanceClose(seance)) return;
 
     const snap = seance.modeleSnapshot;
-    // v5 : meme regle de nommage que l'historique — nom personnalise d'abord. C'est aussi la cle
-    // par laquelle le coeur de l'historique detecte « deja en favori ».
     const nom = seance.nom || (snap && snap.nom) || ('Séance du ' + formatLong(seance.date));
     const brute = routineDepuisSeance(seance, { nom });
 
     if (!brute.items.length) {
-      toast.afficher('Aucune série comptabilisée dans cette séance : rien à refaire.');
+      toast.afficher('Aucune série comptabilisée dans cette séance : rien à réutiliser.');
       return;
     }
-    const doublon = store.routines().find((r) => r && r.favori === true && (r.nom || '') === nom);
-    if (doublon) {
-      toast.afficher('« ' + nom + ' » est déjà dans tes favoris : relance-la depuis l\'accueil.', { duree: 6000 });
+    if (store.routines().some((r) => r && (r.nom || '') === nom)) {
+      toast.afficher('« ' + nom + ' » existe déjà sur l\'accueil.');
       return;
     }
 
     store.commit('routine:creer', { routine: brute })
-      .then(() => toast.afficher('« ' + nom + ' » ajoutée aux favoris. Relance-la depuis l\'accueil.', { duree: 6000 }))
       .catch((err) => {
-        console.error('[seance-detail] ajout aux favoris en échec', err);
-        toast.afficher('La séance n\'a pas pu être ajoutée aux favoris.');
+        console.error('[seance-detail] création de la séance type en échec', err);
+        toast.afficher('La séance type n\'a pas pu être créée.');
       });
   }
 
@@ -897,11 +893,11 @@ export function mount(conteneur, params = {}) {
           type: 'button',
           dataset: { action: 'refaire' }
         },
-          icone('coeur', { taille: 20 }),
-          h('span', null, 'Refaire cette séance')),
+          icone('plus', { taille: 20 }),
+          h('span', null, 'Créer une séance type')),
         h('p', { class: 'zone-refaire-note' },
-          'Ajoute cette séance aux favoris : une routine à relancer à vide depuis l\'accueil, ' +
-          'avec les mêmes exercices et les mêmes objectifs.')
+          'Une séance à relancer à vide depuis l\'accueil, avec les mêmes exercices. ' +
+          'Renommable, modifiable et supprimable depuis l\'accueil.')
       ));
     }
 

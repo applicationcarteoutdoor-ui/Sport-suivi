@@ -36,14 +36,13 @@
 
 import { h, on, delegate, vider } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
-import { formatDuree } from '../lib/num.js';
+import { formatDuree, formatFr } from '../lib/num.js';
 import { dayKey } from '../lib/dates.js';
 import { champsSaisie, pasChamp, nouvelItemModele, nouvelExercice, estComptable, estSeanceComptable } from '../data/schema.js';
 import { PACKS, PACKS_PAR_ID, exercicesDuPack, compterParPack, packDeLExercice } from '../data/packs.js';
 import * as store from '../data/store.js';
 import * as session from '../domain/session.js';
 import { icone, iconePourExercice } from '../ui/icons.js';
-import * as stepper from '../ui/stepper.js';
 import * as keypad from '../ui/keypad.js';
 import * as sheet from '../ui/sheet.js';
 import * as toast from '../ui/toast.js';
@@ -446,128 +445,57 @@ export function mount(conteneur, params) {
   // ───────────────────────────────────────────────────────────────────────────
 
   /**
-   * Monte un stepper dans `hote` et l'enregistre pour destruction avec sa ligne.
-   * Le tap sur la valeur ouvre le pave numerique : au-dela d'une dizaine de crans, taper le
-   * nombre est plus rapide que le maintenir — c'est exactement ce que stepper.js signale de
-   * lui-meme avec sa pastille « Ouvrir le pavé ».
+   * Puce COMPACTE (v6 — « tout sur la meme ligne », retour utilisateur) : un bouton-valeur qui
+   * ouvre le pave numerique au tap, exactement le geste des cases du tableau de seance. Plus de
+   * stepper inline : trois steppers ne tiendront jamais sur la ligne unique demandee.
+   * L'ecouteur vit et meurt avec le noeud : la ligne est retiree du DOM d'un bloc.
    */
-  function monterStepper(ligne, hote, opts) {
-    const poignee = stepper.monter(hote, {
-      valeur: opts.valeur,
-      pas: opts.pas,
-      min: opts.min,
-      max: opts.max,
-      unite: opts.unite,
-      libelle: opts.libelle,
-      format: opts.format,
-      onChange: opts.onChange,
-      onTapValeur() {
-        keypad.ouvrir({
-          champs: [{
-            cle: 'v',
-            label: opts.libelle,
-            valeur: poignee.valeur(),
-            unite: opts.unite,
-            pas: opts.pas,
-            min: opts.min,
-            max: opts.max,
-            entier: opts.entier === true,
-            signe: opts.signe === true,
-            format: opts.format
-          }],
-          onValider(valeurs) {
-            const v = valeurs && valeurs.v;
-            if (!estNombre(v)) return;
-            // ⚠ setValeur n'appelle PAS onChange (c'est le contrat de stepper.js : la valeur est
-            //   imposee par le parent). Le modele doit donc etre mis a jour explicitement, sinon
-            //   la valeur tapee au pave s'afficherait sans jamais etre enregistree.
-            poignee.setValeur(v);
-            if (typeof opts.onChange === 'function') opts.onChange(poignee.valeur());
-          }
-        });
-      }
-    });
-    ligne.steppers.push(poignee);
-    return poignee;
-  }
-
-  /** Puce complete : un libelle et son stepper. */
-  function puceReglage(ligne, opts) {
-    const hote = h('div', { class: 'reglage-controle' });
-    const puce = h('div', { class: 'reglage' },
-      h('span', { class: 'reglage-libelle' }, opts.libelle),
-      hote
-    );
-    const poignee = monterStepper(ligne, hote, opts);
-    return { puce, poignee };
-  }
-
-  /**
-   * Puce de charge. Deux etats dans le MEME noeud :
-   *   · libre : un bouton « Dernière » / « Lesté » — aucun kilo n'est ecrit dans la routine ;
-   *   · figee : un stepper, plus un avertissement la premiere fois qu'on fige une charge dans une
-   *             routine, parce qu'une charge en dur ment apres trois mois de progression.
-   * Le passage de l'un a l'autre ne construit QUE le stepper de cette puce : rien d'autre dans la
-   * ligne n'est touche.
-   */
-  function puceCharge(ligne, champ) {
-    const hote = h('div', { class: 'reglage-controle' });
+  function puceCompacte(opts) {
+    const affichage = h('span', { class: 'puce-valeur-texte' }, '');
     const bouton = h('button', {
       type: 'button',
-      class: 'reglage-libre',
-      'data-action': 'figer-charge',
-      'data-ligne': ligne.id
-    }, LIBELLES_CHARGE_LIBRE[champ] || 'Dernière');
-    hote.appendChild(bouton);
+      class: 'puce-valeur',
+      'aria-label': opts.libelle
+    }, affichage);
 
-    const puce = h('div', { class: 'reglage reglage-charge', 'data-figee': 'non' },
-      h('span', { class: 'reglage-libelle' }, LIBELLES_CHARGE[champ] || 'Charge'),
-      hote
-    );
-
-    let monte = false;
-
-    function figer() {
-      if (monte) return;
-      monte = true;
-      bouton.hidden = true;
-      puce.setAttribute('data-figee', 'oui');
-      ligne.cibles.chargeFigee = true;
-
-      monterStepper(ligne, hote, {
-        libelle: LIBELLES_CHARGE[champ] || 'Charge',
-        valeur: ligne.cibles.chargeKg,
-        // ⚠ pasChamp resout la chaine 'incrementKg' de MODES contre l'exercice : les boutons
-        //   avancent du vrai increment de la salle (1,25 kg), jamais d'un kilo arbitraire.
-        pas: pasChamp(ligne.exercice, champ),
-        // Pas de borne basse sur le lest : il est SIGNE (+10 lest, −20 assistance elastique).
-        min: champ === 'lestKg' ? undefined : 0,
-        unite: UNITES_CHARGE[champ],
-        signe: champ === 'lestKg',
-        entier: champ === 'valeur' ? false : false,
-        onChange(v) {
-          ligne.cibles.chargeKg = v;
-          ligne.cibles.chargeFigee = true;
-        }
-      });
-
-      if (modeRoutine && !etat.avertiCharge) {
-        etat.avertiCharge = true;
-        toast.afficher(
-          'Charge figée : cette routine annoncera ce poids même après des mois de progression.',
-          { duree: 8000 }
-        );
-      }
+    function peindre() {
+      affichage.textContent = opts.texte();
+      // data-vide : une valeur encore « libre » (charge non figee) s'affiche en attenue.
+      bouton.setAttribute('data-vide', opts.estVide && opts.estVide() ? 'oui' : 'non');
     }
 
-    return { puce, figer };
+    on(bouton, 'click', () => {
+      keypad.ouvrir({
+        champs: [{
+          cle: 'v',
+          label: opts.libelle,
+          valeur: opts.valeur(),
+          unite: opts.unite || '',
+          pas: opts.pas,
+          min: opts.min,
+          max: opts.max,
+          entier: opts.entier === true,
+          signe: opts.signe === true,
+          format: opts.format
+        }],
+        onValider(valeurs) {
+          const v = valeurs && valeurs.v;
+          if (!estNombre(v)) return;
+          opts.onChange(v);
+          peindre();
+        }
+      });
+    });
+
+    peindre();
+    return { bouton, peindre };
   }
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Construction d'une ligne d'exercice
+  // Construction d'une ligne d'exercice — UNE seule ligne (v6, retour utilisateur)
   // ───────────────────────────────────────────────────────────────────────────
-  // L'ordre des puces EST l'ordre de lecture demande : icone, series, repetitions, charge ou
-  // « lesté », repos.
+  // Ordre de lecture : icone, nom, puis les puces-valeurs (series, duree/distance, charge ou
+  // « Lesté »), puis les commandes. Tout tient sur la ligne ; le nom s'ellipse en premier.
 
   function creerLigne(exercice, cibles, itemIdSource) {
     const ligne = {
@@ -579,64 +507,88 @@ export function mount(conteneur, params) {
       steppers: [],
       noeud: null,
       boutonMonter: null,
-      boutonDescendre: null,
-      figerCharge: null
+      boutonDescendre: null
     };
 
     const champs = cibles.champs;
-    const reglages = h('div', { class: 'ligne-exercice-reglages defilement-horizontal' });
+    const puces = h('div', { class: 'ligne-exercice-puces' });
 
-    // ── Series : toujours presentes, quel que soit le mode ────────────────────
-    reglages.appendChild(puceReglage(ligne, {
+    // ── Series : toujours presentes. « 4 × » se lit sans libelle. ─────────────
+    puces.appendChild(puceCompacte({
       libelle: 'Séries',
-      valeur: cibles.series,
+      valeur: () => cibles.series,
+      texte: () => cibles.series + ' ×',
       pas: 1, min: 1, max: 20, entier: true,
       onChange(v) { cibles.series = v; }
-    }).puce);
+    }).bouton);
 
-    // v5 : plus de reglage « Reps min / Reps max » (retour utilisateur). Les repetitions se
-    // saisissent PENDANT l'entrainement ; le pre-remplissage vient de la derniere seance, jamais
-    // d'une cible de routine. ciblesDepuisItem sait toujours LIRE repsCibles des routines
-    // anciennes, mais on n'en ecrit plus.
+    // v5 : plus de reglage « Reps min / Reps max » — les repetitions se saisissent PENDANT
+    // l'entrainement. ciblesDepuisItem sait toujours LIRE repsCibles des routines anciennes.
 
-    // ── Duree ─────────────────────────────────────────────────────────────────
+    // ── Duree (modes temps et cardio) ─────────────────────────────────────────
     if (champs.indexOf('dureeSec') !== -1) {
-      reglages.appendChild(puceReglage(ligne, {
+      puces.appendChild(puceCompacte({
         libelle: 'Durée',
-        valeur: cibles.dureeSec,
+        valeur: () => cibles.dureeSec,
+        texte: () => formatDuree(cibles.dureeSec),
         pas: pasChamp(exercice, 'dureeSec'),
         min: 0, entier: true,
-        // ⚠ Une duree s'affiche « 10:00 », jamais « 600 » : c'est tout l'interet de l'option
-        //   `format` de stepper.js.
         format: (v) => formatDuree(v),
         onChange(v) { cibles.dureeSec = v; }
-      }).puce);
+      }).bouton);
     }
 
     // ── Distance (optionnelle : 0 signifie « non mesurée ») ────────────────────
     if (champs.indexOf('distanceM') !== -1) {
-      reglages.appendChild(puceReglage(ligne, {
+      puces.appendChild(puceCompacte({
         libelle: 'Distance',
-        valeur: cibles.distanceM,
+        valeur: () => cibles.distanceM,
+        texte: () => (cibles.distanceM > 0 ? formatFr(cibles.distanceM) + ' m' : 'Distance'),
+        estVide: () => !(cibles.distanceM > 0),
         pas: pasChamp(exercice, 'distanceM'),
         min: 0, unite: 'm', entier: true,
         onChange(v) { cibles.distanceM = v; }
-      }).puce);
+      }).bouton);
     }
 
     // ── Charge, cran ou lest ──────────────────────────────────────────────────
+    // Libre : la puce dit « Lesté » / « Dernière » — aucun kilo ecrit dans la routine.
+    // Figee : elle affiche le kilo (« +10 kg »), avec l'avertissement la premiere fois.
     const champCharge = champDeCharge(champs);
     if (champCharge) {
-      const charge = puceCharge(ligne, champCharge);
-      ligne.figerCharge = charge.figer;
-      reglages.appendChild(charge.puce);
-      // Routine rouverte avec une charge deja figee : on remonte le stepper directement, sans
-      // faire repasser l'utilisateur par le bouton.
-      if (cibles.chargeFigee) charge.figer();
+      puces.appendChild(puceCompacte({
+        libelle: LIBELLES_CHARGE[champCharge] || 'Charge',
+        valeur: () => (estNombre(cibles.chargeKg) ? cibles.chargeKg : 0),
+        texte: () => {
+          if (!cibles.chargeFigee || !estNombre(cibles.chargeKg)) {
+            return LIBELLES_CHARGE_LIBRE[champCharge] || 'Dernière';
+          }
+          const prefixe = champCharge === 'lestKg' && cibles.chargeKg > 0 ? '+' : '';
+          const unite = UNITES_CHARGE[champCharge];
+          return prefixe + formatFr(cibles.chargeKg) + (unite ? ' ' + unite : '');
+        },
+        estVide: () => cibles.chargeFigee !== true,
+        // ⚠ pasChamp resout la chaine 'incrementKg' de MODES contre l'exercice.
+        pas: pasChamp(exercice, champCharge),
+        // Pas de borne basse sur le lest : il est SIGNE (+10 lest, −20 assistance elastique).
+        min: champCharge === 'lestKg' ? undefined : 0,
+        unite: UNITES_CHARGE[champCharge],
+        signe: champCharge === 'lestKg',
+        onChange(v) {
+          cibles.chargeKg = v;
+          cibles.chargeFigee = true;
+          if (modeRoutine && !etat.avertiCharge) {
+            etat.avertiCharge = true;
+            toast.afficher(
+              'Charge figée : cette routine annoncera ce poids même après des mois de progression.',
+              { duree: 6000 }
+            );
+          }
+        }
+      }).bouton);
     }
 
-    // v4 : plus de reglage de repos (retour utilisateur). La valeur par defaut reste dans les
-    // donnees (ciblesParDefaut) : rien n'est perdu si le reglage revient un jour.
+    // v4 : plus de reglage de repos (retour utilisateur).
 
     // ── Commandes de ligne ────────────────────────────────────────────────────
     ligne.boutonMonter = h('button', {
@@ -655,19 +607,12 @@ export function mount(conteneur, params) {
       'aria-label': 'Retirer ' + exercice.nom
     }, icone('croix', { taille: 20 }));
 
-    const pack = PACKS_PAR_ID.get(packDeLExercice(exercice));
-
-    ligne.noeud = h('div', { class: 'ligne-exercice', 'data-ligne': ligne.id },
-      h('div', { class: 'ligne-exercice-entete' },
-        h('span', { class: 'ligne-exercice-dessin' }, icone(iconePourExercice(exercice), { taille: 28 })),
-        h('div', { class: 'ligne-exercice-titre' },
-          h('span', { class: 'ligne-exercice-nom' }, exercice.nom),
-          h('span', { class: 'ligne-exercice-pack' }, (pack && pack.nom) || '')
-        ),
-        h('div', { class: 'ligne-exercice-commandes' },
-          ligne.boutonMonter, ligne.boutonDescendre, boutonRetirer)
-      ),
-      reglages
+    ligne.noeud = h('div', { class: 'ligne-exercice ligne-exercice-compacte', 'data-ligne': ligne.id },
+      h('span', { class: 'ligne-exercice-dessin' }, icone(iconePourExercice(exercice), { taille: 24 })),
+      h('span', { class: 'ligne-exercice-nom' }, exercice.nom),
+      puces,
+      h('div', { class: 'ligne-exercice-commandes' },
+        ligne.boutonMonter, ligne.boutonDescendre, boutonRetirer)
     );
 
     return ligne;
@@ -854,7 +799,7 @@ export function mount(conteneur, params) {
         ajouterExercice(cree);
         peindrePacks();
         peindreGrille();
-        toast.afficher('« ' + cree.nom + ' » créé et ajouté.', { duree: 6000 });
+        /* v6 : pas de popup de succes — l'exercice apparait dans la selection */
       } catch (err) {
         console.error('[composeur] création éclair en échec', err);
         message.textContent = 'Création impossible : ' + (err && err.message ? err.message : 'erreur inconnue');
@@ -951,8 +896,9 @@ export function mount(conteneur, params) {
           await store.commit('routine:creer', { nom, items });
         }
         if (etat.detruit) return;
-        toast.afficher('Routine « ' + nom + ' » enregistrée.', { duree: 6000 });
-        router.aller('#/modeles');
+        /* v6 : pas de popup de succes, et retour a l'ACCUEIL — c'est la que vivent les seances
+           types desormais (tuile + bouton crayon), pas sur l'ecran #/modeles. */
+        router.aller('#/');
         return;
       }
 
@@ -1013,11 +959,7 @@ export function mount(conteneur, params) {
     if (action === 'descendre') { deplacerLigne(cible.getAttribute('data-ligne'), 1); return; }
     if (action === 'retirer') { retirerLigne(cible.getAttribute('data-ligne')); return; }
 
-    if (action === 'figer-charge') {
-      const ligne = lignes.get(cible.getAttribute('data-ligne'));
-      if (ligne && typeof ligne.figerCharge === 'function') ligne.figerCharge();
-      return;
-    }
+    /* v6 : plus d'action 'figer-charge' — la puce-valeur ouvre directement le pave. */
 
     if (action === 'ajouter') {
       // Le bouton « + » ne fait qu'une chose : ramener a la grille. Ce n'est pas une navigation,

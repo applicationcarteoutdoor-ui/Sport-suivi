@@ -22,9 +22,11 @@
 
 import { h, on, delegate, vider } from '../lib/dom.js';
 import { formatFr, formatDuree } from '../lib/num.js';
+import { dayKey } from '../lib/dates.js';
 import * as store from '../data/store.js';
 import * as hot from '../data/hot.js';
-import { champsSaisieEntree, champsSaisie, pasChamp } from '../data/schema.js';
+import * as prefs from '../data/prefs.js';
+import { champsSaisieEntree, champsSaisie, pasChamp, nouveauPoids } from '../data/schema.js';
 import * as session from '../domain/session.js';
 import * as prefill from '../domain/prefill.js';
 import * as router from '../ui/router.js';
@@ -487,8 +489,26 @@ export function mount(conteneur, params) {
   // Poids de corps, menu, terminer, abandonner
   // ─────────────────────────────────────────────────────────────────────────
 
+  /** Dernier poids connu : seances en memoire + trace des prefs (pesees des reglages). */
+  function dernierPoidsConnu() {
+    let meilleur = null;
+    for (const s of store.seances()) {
+      if (!estNombre(s.poidsDeCorpsKg) || !s.date) continue;
+      if (!meilleur || s.date > meilleur.date) meilleur = { kg: s.poidsDeCorpsKg, date: s.date };
+    }
+    const trace = prefs.lire().dernierPoids;
+    if (trace && estNombre(trace.kg) && trace.date && (!meilleur || trace.date > meilleur.date)) {
+      meilleur = { kg: trace.kg, date: trace.date };
+    }
+    return meilleur;
+  }
+
   function ouvrirPoids() {
-    let valeur = estNombre(seance.poidsDeCorpsKg) ? seance.poidsDeCorpsKg : 75;
+    // v6 : pre-rempli avec le DERNIER poids connu, jamais un defaut arbitraire — la feuille ne
+    // s'ouvre d'elle-meme que lorsque le dernier poids date de plus de 14 jours (accueil).
+    const connu = dernierPoidsConnu();
+    let valeur = estNombre(seance.poidsDeCorpsKg) ? seance.poidsDeCorpsKg
+      : (connu ? connu.kg : 75);
     const hote = h('div', { class: 'editeur-stepper' });
     const contenu = h('div', { class: 'editeur-serie' },
       h('p', { class: 'texte-attenue' },
@@ -501,6 +521,12 @@ export function mount(conteneur, params) {
     desabonnements.push(on(btnOk, 'click', () => {
       seance.poidsDeCorpsKg = valeur;
       persister(); majSituation();
+      // v6 : le poids saisi ici devient une PESEE (magasin poids, source 'seance') et laisse une
+      // trace dans les prefs — c'est elle qui permet de ne plus redemander pendant 14 jours.
+      const jour = dayKey();
+      prefs.ecrire({ dernierPoids: { kg: valeur, date: jour } });
+      store.commit('poids:enregistrer', { poids: nouveauPoids({ date: jour, kg: valeur, source: 'seance' }) })
+        .catch((err) => { console.warn('[seance] pesée non archivée', err); });
       poignee.fermer();
     }));
   }

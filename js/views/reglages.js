@@ -842,13 +842,16 @@ function monterReglages(conteneur, paramsInitiaux) {
       try {
         await store.commit('poids:enregistrer', { poids: pesee });
         if (detruit) return;
+        // v6 : trace dans les prefs — c'est elle que lisent l'accueil et l'ecran de seance pour
+        // ne plus redemander le poids pendant 14 jours (le magasin IDB n'est pas en memoire).
+        prefs.ecrire({ dernierPoids: { kg: pesee.kg, date: pesee.date } });
         // Etat local tenu a jour a la main : la date etant la cle primaire, une re-saisie du jour
         // ecrase, elle n'empile pas.
         poidsConnus = poidsConnus.filter((p) => p.date !== pesee.date);
         poidsConnus.unshift(pesee);
         insererPoids(pesee);
         majPoidsJour();
-        toast.afficher('Poids enregistré : ' + formatFr(kg) + ' kg', { duree: 5000 });
+        /* v6 : pas de popup de succes — la ligne de pesee apparait, c'est le feedback */
       } catch (err) {
         if (detruit) return;
         toast.afficher('Enregistrement impossible : ' + (err && err.message ? err.message : 'erreur'), { duree: 8000 });
