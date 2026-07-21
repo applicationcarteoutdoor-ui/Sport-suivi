@@ -23,6 +23,7 @@ import { nouveauLieu, nouveauPoids } from '../data/schema.js';
 import * as sheet from '../ui/sheet.js';
 import * as toast from '../ui/toast.js';
 import * as keypad from '../ui/keypad.js';
+import { icone } from '../ui/icons.js';
 import { estIOS, estStandalone, estInstallable, proposer } from '../ui/install.js';
 import { verifier } from '../ui/update.js';
 import { ouvrirFeuille, fermerFeuille, aller } from '../ui/router.js';
@@ -56,12 +57,25 @@ function formatOctets(n) {
   return formatFr(n / (1024 * 1024 * 1024), 2) + ' Go';
 }
 
-/** Titre de groupe + conteneur. Le groupe possede son sous-arbre, la vue garde le conteneur. */
-function groupe(titre, ...enfants) {
-  return h('section', { class: 'groupe-reglages' },
-    titre ? h('h2', { class: 'groupe-reglages-titre' }, titre) : null,
-    ...enfants
+/**
+ * Groupe repliable — <details>/<summary> natifs : aucun JS d'accordeon a ecrire, et l'etat
+ * ouvert/ferme survit a toutes les mutations ciblees puisque la vue ne re-rend jamais son DOM.
+ * Le summary ne porte que l'icone, le titre et le chevron (qui pivote en CSS via details[open]).
+ */
+function groupePliant({ nomIcone, titre, ouvert }, ...enfants) {
+  return h('details', { class: 'pli-reglages', open: ouvert === true },
+    h('summary', { class: 'pli-reglages-titre' },
+      icone(nomIcone, { classe: 'pli-reglages-icone' }),
+      h('span', { class: 'pli-reglages-libelle' }, titre),
+      icone('chevron-bas', { classe: 'pli-reglages-chevron' })
+    ),
+    h('div', { class: 'pli-reglages-corps' }, ...enfants)
   );
+}
+
+/** Sous-titre INTERNE a un groupe : separe deux blocs sans fabriquer un groupe de plus. */
+function sousTitre(texte) {
+  return h('h3', { class: 'pli-sous-titre' }, texte);
 }
 
 /** Ligne d'information non tapable : libelle a gauche, valeur a droite. */
@@ -169,15 +183,13 @@ function monterReglages(conteneur, paramsInitiaux) {
   // backup.monterRecoursTexte y construit son propre sous-arbre et le possede.
   const zoneRecours = h('div', {});
 
-  const groupeExport = groupe('Sauvegarde',
-    h('div', { class: 'carte', style: { margin: 'var(--esp-3)' } },
-      h('p', {},
-        'L\'export est la seule copie de tes données que tu contrôles. Fais-le régulièrement et ' +
-        'range le fichier ailleurs que sur ce téléphone.'),
-      btnExport,
-      etatExport,
-      zoneRecours
-    )
+  const blocExport = h('div', { class: 'carte', style: { margin: 'var(--esp-3)' } },
+    h('p', {},
+      'L\'export est la seule copie de tes données que tu contrôles. Fais-le régulièrement et ' +
+      'range le fichier ailleurs que sur ce téléphone.'),
+    btnExport,
+    etatExport,
+    zoneRecours
   );
 
   // ── 2. Import ────────────────────────────────────────────────────────────
@@ -214,7 +226,8 @@ function monterReglages(conteneur, paramsInitiaux) {
 
   const bilanImport = h('div', { hidden: true, style: { padding: 'var(--esp-3) var(--esp-4)' } });
 
-  const groupeImport = groupe('Importer une sauvegarde',
+  const blocImport = [
+    sousTitre('Importer une sauvegarde'),
     h('div', { style: { padding: 'var(--esp-3) var(--esp-4)' } },
       h('p', { class: 'ligne-reglage-aide' },
         'Rien n\'est écrit avant que tu aies lu le rapport et choisi.'),
@@ -227,17 +240,18 @@ function monterReglages(conteneur, paramsInitiaux) {
     rapportImport,
     choixImport,
     bilanImport
-  );
+  ];
 
   // ── 3. Maintenance ───────────────────────────────────────────────────────
 
   const etatDerives = h('span', { class: 'ligne-liste-secondaire', role: 'status' }, '');
-  const groupeMaintenance = groupe('Maintenance',
+  const blocMaintenance = [
+    sousTitre('Maintenance'),
     ligneAction('Recalculer les données dérivées',
       'Reconstruit les rappels « Dernière fois » à partir de tout l\'historique. Sans effet sur ' +
       'tes séances.',
       'recalculer', etatDerives)
-  );
+  ];
 
   // ── 4. Poids de corps ────────────────────────────────────────────────────
 
@@ -247,13 +261,13 @@ function monterReglages(conteneur, paramsInitiaux) {
   const videPoids = h('p', { class: 'ligne-reglage-aide', style: { padding: 'var(--esp-3) var(--esp-4)' } },
     'Chargement des pesées…');
 
-  const groupePoids = groupe('Poids de corps',
+  const blocPoids = [
     ligneAction('Mon poids aujourd\'hui',
       'Sert à calculer la charge effective des tractions, pompes et dips.',
       'saisir-poids', valeurPoidsJour),
     videPoids,
     listePoids
-  );
+  ];
 
   // ── 5. Lieux ─────────────────────────────────────────────────────────────
 
@@ -262,13 +276,14 @@ function monterReglages(conteneur, paramsInitiaux) {
   const videLieux = h('p', { class: 'ligne-reglage-aide', style: { padding: 'var(--esp-3) var(--esp-4)' } },
     'Aucun lieu enregistré. Un lieu sert à mémoriser les réglages de machines propres à ta salle.');
 
-  const groupeLieux = groupe('Lieux d\'entraînement',
+  const blocLieux = [
+    sousTitre('Lieux d\'entraînement'),
     videLieux,
     listeLieux,
     h('div', { style: { padding: 'var(--esp-3) var(--esp-4)' } },
       h('button', { class: 'bouton bouton-large', type: 'button', dataset: { action: 'lieu-creer' } },
         'Ajouter un lieu'))
-  );
+  ];
 
   // ── 6. Apparence ─────────────────────────────────────────────────────────
 
@@ -282,7 +297,7 @@ function monterReglages(conteneur, paramsInitiaux) {
     dataset: { action: 'theme', theme: t.cle }
   }, t.libelle));
 
-  const groupeApparence = groupe('Apparence',
+  const groupeApparence = groupePliant({ nomIcone: 'crayon', titre: 'Apparence' },
     h('div', { class: 'ligne-reglage' },
       h('div', {},
         h('div', { class: 'ligne-liste-principal' }, 'Thème'),
@@ -328,7 +343,7 @@ function monterReglages(conteneur, paramsInitiaux) {
 
   const valeurRepos = h('span', { class: 'ligne-liste-secondaire' }, '');
 
-  const groupeSeance = groupe('Pendant la séance',
+  const groupeSeance = groupePliant({ nomIcone: 'chronometre', titre: 'Séance' },
     ligneAction('Repos par défaut', 'Utilisé quand l\'exercice n\'en impose pas.',
       'repos-defaut', valeurRepos),
     ...interrupteurs.map((i) => i.racine)
@@ -342,7 +357,8 @@ function monterReglages(conteneur, paramsInitiaux) {
     class: 'bouton bouton-large', type: 'button', hidden: true, dataset: { action: 'persister' }
   }, 'Demander la persistance du stockage');
 
-  const groupeStockage = groupe('Stockage',
+  const blocStockage = [
+    sousTitre('Stockage'),
     ligneInfo('Espace utilisé', valeurUsage),
     ligneInfo('Stockage persistant', valeurPersistance),
     h('div', { style: { padding: '0 var(--esp-4) var(--esp-3)' } }, btnPersister),
@@ -361,7 +377,7 @@ function monterReglages(conteneur, paramsInitiaux) {
         '3. La persistance du stockage. Elle n\'existe pas sur Safari : sur iPhone et iPad, ' +
         'cette protection-là est inexistante, quoi qu\'affiche cette page.')
     )
-  );
+  ];
 
   // ── 9. À propos ──────────────────────────────────────────────────────────
 
@@ -370,7 +386,7 @@ function monterReglages(conteneur, paramsInitiaux) {
   const etatMaj = h('span', { class: 'ligne-liste-secondaire', role: 'status' }, '');
   let verificationMajEnCours = false;
 
-  const groupeApropos = groupe('À propos',
+  const groupeApplication = groupePliant({ nomIcone: 'recherche', titre: 'Application' },
     ligneInfo('Version de l\'application',
       h('span', { class: 'ligne-liste-secondaire' }, APP_VERSION)),
     ligneInfo('Version du schéma de données',
@@ -397,15 +413,20 @@ function monterReglages(conteneur, paramsInitiaux) {
       h('span', { class: 'ligne-liste-secondaire', 'aria-hidden': 'true' }, '↗'))
   );
 
-  racine.appendChild(groupeExport);
-  racine.appendChild(groupeImport);
-  racine.appendChild(groupeMaintenance);
-  racine.appendChild(groupePoids);
-  racine.appendChild(groupeLieux);
-  racine.appendChild(groupeApparence);
+  // ── Assemblage : 5 groupes repliables ────────────────────────────────────
+  // « Données » reste EN TETE et est le seul groupe ouvert par defaut : un export enterre sous
+  // les interrupteurs est un export qui n'est jamais fait. « Tout remplacer » (import) garde sa
+  // zone-danger a l'interieur du parcours d'import : il n'existe pas hors d'une analyse reussie.
+  const groupeDonnees = groupePliant({ nomIcone: 'telecharger', titre: 'Données', ouvert: true },
+    blocExport, blocImport, blocMaintenance, blocStockage);
+  const groupeCorps = groupePliant({ nomIcone: 'poids-du-corps', titre: 'Poids et lieux' },
+    blocPoids, blocLieux);
+
+  racine.appendChild(groupeDonnees);
   racine.appendChild(groupeSeance);
-  racine.appendChild(groupeStockage);
-  racine.appendChild(groupeApropos);
+  racine.appendChild(groupeCorps);
+  racine.appendChild(groupeApparence);
+  racine.appendChild(groupeApplication);
   conteneur.appendChild(racine);
 
   // ═══════════════════════════════════════════════════════════════════════

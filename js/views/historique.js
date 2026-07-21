@@ -82,8 +82,10 @@ function nombreSeries(seance) {
   return n;
 }
 
-/** Nom du modele TEL QU'IL ETAIT ce jour-la (snapshot), jamais le modele actuel. */
+/** Nom du modele TEL QU'IL ETAIT ce jour-la (snapshot), jamais le modele actuel.
+    v5 : un nom PERSONNALISE (seance.nom, pose par « Renommer » dans le detail) prime sur tout. */
 function nomSeance(seance) {
+  if (seance.nom) return seance.nom;
   const snap = seance.modeleSnapshot;
   if (snap && snap.nom) return snap.nom;
   if (estCardioPure(seance)) {
@@ -91,6 +93,18 @@ function nomSeance(seance) {
     return entree.nomAffiche || 'Sortie cardio';
   }
   return 'Séance libre';
+}
+
+/**
+ * Nom sous lequel une seance est enregistree en FAVORI. Distinct de nomSeance : une seance libre
+ * s'appelle « Séance libre » a l'ecran mais sa favorite est nommee par sa date, sinon deux
+ * seances libres differentes se disputeraient la meme routine.
+ */
+function nomFavori(seance) {
+  if (seance.nom) return seance.nom;
+  const snap = seance.modeleSnapshot;
+  if (snap && snap.nom) return snap.nom;
+  return 'Séance du ' + formatLong(seance.date);
 }
 
 /** L'exercice courant s'il existe encore ; sinon rien — l'id suffit a resoudre un pictogramme. */
@@ -302,20 +316,34 @@ export function mount(conteneur) {
 
     // Coeur : « refaire cette seance » — cree une routine FAVORITE a partir des series faites.
     // Bouton FRERE, comme la poubelle : jamais de bouton dans un bouton.
+    // v5 : bouton A BASCULE (aria-pressed) — le coeur se remplit quand la favorite existe deja,
+    // sinon rien ne disait que l'ajout avait eu lieu.
     const favori = h('button', {
       class: 'historique-favori',
       type: 'button',
       dataset: { action: 'favori', id: seance.id },
+      'aria-pressed': 'false',
       'aria-label': 'Ajouter aux favoris la séance du ' + formatLong(seance.date) + ' pour la refaire'
     }, icone('coeur', { taille: 20 }));
 
     const rangee = h('div', { class: 'historique-rangee' }, bouton, favori, supprimer);
 
-    const ref = { rangee, bouton, supprimer, nom, resume, marque, vignette, icones };
+    const ref = { rangee, bouton, supprimer, favori, nom, resume, marque, vignette, icones };
     peindreVignette(ref, seance);
     peindreIcones(ref, seance);
     peindreMarque(ref, seance);
+    peindreFavori(ref, seance);
     return ref;
+  }
+
+  /** Coeur plein si une routine favorite du meme nom existe deja — l'etat se lit d'un coup d'oeil. */
+  function peindreFavori(ref, seance) {
+    const nom = nomFavori(seance);
+    const deja = store.routines().some((r) => r && r.favori === true && (r.nom || '') === nom);
+    ref.favori.setAttribute('aria-pressed', deja ? 'true' : 'false');
+    ref.favori.setAttribute('aria-label', deja
+      ? 'Séance du ' + formatLong(seance.date) + ' déjà dans les favoris'
+      : 'Ajouter aux favoris la séance du ' + formatLong(seance.date) + ' pour la refaire');
   }
 
   /** Met a jour une ligne existante : des textContent et des sous-arbres qu'elle POSSEDE. */
@@ -328,6 +356,7 @@ export function mount(conteneur) {
     peindreVignette(ref, seance);
     peindreIcones(ref, seance);
     peindreMarque(ref, seance);
+    peindreFavori(ref, seance);
   }
 
   /**
@@ -437,8 +466,7 @@ export function mount(conteneur) {
     const seance = store.seance(id);
     if (!seance || !estSeanceClose(seance)) return;
 
-    const snap = seance.modeleSnapshot;
-    const nom = (snap && snap.nom) || ('Séance du ' + formatLong(seance.date));
+    const nom = nomFavori(seance);
     const brute = routineDepuisSeance(seance, { nom });
 
     if (!brute.items.length) {
@@ -501,7 +529,16 @@ export function mount(conteneur) {
     bus.on('seance:terminer', rafraichir),
     bus.on('seance:abandonner', rafraichir),
     bus.on('seance:modifier', ({ seance }) => { if (seance) majLigne(seance); }),
-    bus.on('seance:supprimer', ({ id }) => retirerLigne(id))
+    bus.on('seance:supprimer', ({ id }) => retirerLigne(id)),
+    // v5 : une favorite creee ou supprimee (ici, depuis le detail, depuis #/modeles) change
+    // l'etat des coeurs — on repeint cet etat seul, jamais les lignes entieres.
+    bus.on('store:commit', ({ type }) => {
+      if (typeof type !== 'string' || type.indexOf('routine:') !== 0) return;
+      for (const [id, ref] of lignes) {
+        const seance = store.seance(id);
+        if (seance) peindreFavori(ref, seance);
+      }
+    })
   ];
 
   // Un seul ecouteur click pour toute la vue, dispatche par data-action.

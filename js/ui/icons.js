@@ -99,9 +99,9 @@ export const ICONES = {
   //   LONGUEUR du fut (l'haltere tient au centre, la barre traverse le cadre) et la NATURE des
   //   masses (rectangles arrondis contre grands disques ronds).
   'halteres': () => [
-    L(7, 12, 17, 12),
-    R(4.3, 8.2, 2.7, 7.6, 1.1),
-    R(17, 8.2, 2.7, 7.6, 1.1)
+    L(7.6, 12, 16.4, 12),
+    R(4.6, 7.8, 3, 8.4, 1.5),
+    R(16.4, 7.8, 3, 8.4, 1.5)
   ],
 
   'barre': () => barreChargee(12, 1.8, 22.2, 3.3).concat([
@@ -143,9 +143,12 @@ export const ICONES = {
   ],
 
   // Le coeur — reserve aux seances FAVORITES (jamais au cardio, voir ci-dessus).
+  // ⚠ UN SEUL trace ferme, obligatoirement : la regle CSS du favori remplit ce chemin
+  //   (fill: currentColor) — deux sous-chemins ou un trace ouvert rempliraient de travers.
   'coeur': () => [
-    P('M12 20.2 C 5.2 15.4, 3 11, 5.6 7.6 C 7.8 4.8, 10.8 5.6, 12 8.2 '
-      + 'C 13.2 5.6, 16.2 4.8, 18.4 7.6 C 21 11, 18.8 15.4, 12 20.2 Z')
+    P('M12 20.1 C 6.3 16.4, 3.3 13, 3.3 9.7 C 3.3 7, 5.4 5, 8 5 '
+      + 'C 9.6 5, 11.1 5.8, 12 7.2 C 12.9 5.8, 14.4 5, 16 5 '
+      + 'C 18.6 5, 20.7 7, 20.7 9.7 C 20.7 13, 17.7 16.4, 12 20.1 Z')
   ],
 
   'elastique': () => [
@@ -393,11 +396,11 @@ export const ICONES = {
   // Composer : trois tuiles et un « + » a la place de la quatrieme — litteralement la grille de
   // packs du composeur. C'est le logo de l'entree « Composer » sur l'accueil.
   'composer': () => [
-    R(3.4, 3.4, 7.4, 7.4, 1.6),
-    R(13.2, 3.4, 7.4, 7.4, 1.6),
-    R(3.4, 13.2, 7.4, 7.4, 1.6),
-    L(16.9, 14.1, 16.9, 19.7),
-    L(14.1, 16.9, 19.7, 16.9)
+    R(3.5, 3.5, 7, 7, 2),
+    R(13.5, 3.5, 7, 7, 2),
+    R(3.5, 13.5, 7, 7, 2),
+    L(17, 14.2, 17, 19.8),
+    L(14.2, 17, 19.8, 17)
   ],
 
   // Squat SANS charge : la meme flexion franche que 'squat', bras tendus DEVANT (l'equilibre du

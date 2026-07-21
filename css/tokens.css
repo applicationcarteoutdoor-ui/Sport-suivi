@@ -14,17 +14,19 @@
   --texte: #14171c;
   --texte-attenue: #5b6472;
 
-  --accent: #1f5fd6;
+  /* v5 : theme VERT (retour utilisateur — le bleu est abandonne). Vert profond pour le
+     contraste du texte blanc, aplats tres doux : l'ensemble doit rester calme. */
+  --accent: #15803d;
   --accent-contraste: #ffffff; /* texte pose SUR l'accent */
-  --accent-doux: #e3ecfd; /* aplat teinte, pour les etats selectionnes */
+  --accent-doux: #e3f3e9; /* aplat teinte, pour les etats selectionnes */
 
   --succes: #0e7a52;
   --succes-doux: #dcf3e9;
   --alerte: #c62828;
   --alerte-doux: #fbe3e3;
 
-  --bordure: #d9dee6;
-  --bordure-forte: #b7c0cd;
+  --bordure: #e3e7ec;
+  --bordure-forte: #c9d1da;
 
   /* Voile d'assombrissement derriere une feuille basse. */
   --voile: rgba(12, 16, 24, 0.45);
@@ -47,9 +49,9 @@
     --texte: #eef1f6;
     --texte-attenue: #98a1b0;
 
-    --accent: #4f8cff;
-    --accent-contraste: #08101d; /* texte SOMBRE sur bleu clair : lisible bras tendu en salle */
-    --accent-doux: #1b2740;
+    --accent: #4ade80;
+    --accent-contraste: #06130b; /* texte SOMBRE sur vert clair : lisible bras tendu en salle */
+    --accent-doux: #14301f;
 
     --succes: #3ddc97;
     --succes-doux: #16302a;
@@ -77,9 +79,9 @@
   --texte: #eef1f6;
   --texte-attenue: #98a1b0;
 
-  --accent: #4f8cff;
-  --accent-contraste: #08101d;
-  --accent-doux: #1b2740;
+  --accent: #4ade80;
+  --accent-contraste: #06130b;
+  --accent-doux: #14301f;
 
   --succes: #3ddc97;
   --succes-doux: #16302a;
@@ -108,17 +110,17 @@
   --texte: #14171c;
   --texte-attenue: #5b6472;
 
-  --accent: #1f5fd6;
+  --accent: #15803d;
   --accent-contraste: #ffffff;
-  --accent-doux: #e3ecfd;
+  --accent-doux: #e3f3e9;
 
   --succes: #0e7a52;
   --succes-doux: #dcf3e9;
   --alerte: #c62828;
   --alerte-doux: #fbe3e3;
 
-  --bordure: #d9dee6;
-  --bordure-forte: #b7c0cd;
+  --bordure: #e3e7ec;
+  --bordure-forte: #c9d1da;
 
   --voile: rgba(12, 16, 24, 0.45);
 

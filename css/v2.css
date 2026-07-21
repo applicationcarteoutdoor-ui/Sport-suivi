@@ -1351,3 +1351,149 @@
   font-size: max(16px, 1rem);
   font-variant-numeric: tabular-nums;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   10. v5 — epure visuelle (theme vert) et corrections de mise en page
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Etat vide DANS une grille (« Mes exercices » de la progression) : il occupait UNE colonne de
+   la grille et s'ecrasait a gauche, texte casse mot a mot — il s'etale sur toute la largeur. */
+.grille-exercices > .etat-vide { grid-column: 1 / -1; }
+
+/* Titre de section : icone, libelle et compteur alignes et ESPACES — le compteur etait colle au
+   libelle (« EN COURS3 »). Il devient une petite pastille chiffree. */
+.section-titre {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+.compteur-section {
+  padding: 1px 8px;
+  border-radius: var(--rayon-plein);
+  background: var(--surface-haute);
+}
+
+/* Carte de seance en cours : le bouton de menu, frere du corps dans une colonne flex, s'etirait
+   en PLEINE LARGEUR (grand rectangle gris vide au milieu de la carte). Il devient un petit
+   bouton discret en coin ; le corps se reserve la place pour ne jamais passer dessous. */
+.carte-seance { position: relative; border-color: transparent; box-shadow: var(--ombre-1); }
+.carte-seance-corps { padding-right: 40px; }
+.carte-seance-menu {
+  position: absolute;
+  top: var(--esp-2);
+  right: var(--esp-2);
+  min-width: 40px;
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--rayon-plein);
+  background: transparent;
+  color: var(--texte-attenue);
+}
+
+/* Menu d'une seance en cours (accueil) : quatre actions se partageaient une seule rangee et les
+   libelles debordaient (« Clôturer à la derni… ») — elles s'empilent en pleine largeur. */
+.menu-seance .feuille-actions { flex-direction: column; }
+.menu-seance .feuille-actions .bouton { flex: none; width: 100%; }
+
+/* Coeur de l'historique : l'etat « deja en favori » doit se VOIR — coeur plein sur fond teinte.
+   L'etat passe par aria-pressed (bouton a bascule), le CSS ne fait que le peindre. */
+.historique-favori[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-doux);
+}
+.historique-favori[aria-pressed='true'] svg { fill: currentColor; }
+
+/* Champ « Renommer la séance » : meme regles que le champ de date (16px minimum, iOS). */
+.champ-nom-seance {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m, 12px);
+  background: var(--surface);
+  color: var(--texte);
+  font-size: max(16px, 1rem);
+}
+
+/* Cellule du tableau avec lest : « +12,5 » doit tenir dans une colonne de ~30 px — chiffre
+   condense, jamais coupe en plein milieu. */
+.tab-cellule-petit { font-size: 8px; letter-spacing: -0.02em; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   11. v5 — reglages regroupes
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* L'ecran de reglages devient une pile de cartes repliables (<details> natifs, zero JS
+   d'accordeon). Une seule est ouverte par defaut : « Donnees », celle qui porte l'export.
+   Aucune couleur en dur : tout vient des variables de tokens.css, le theme vert et le mode
+   sombre s'appliquent donc sans regle supplementaire. */
+.pli-reglages {
+  margin: 0 var(--esp-3);
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-l);
+  /* Les lignes internes pleine largeur (ligne-reglage, rapport d'import) respectent le rayon. */
+  overflow: hidden;
+}
+
+/* Le summary est LA cible tactile du groupe : icone accent, titre, chevron — rien d'autre. */
+.pli-reglages-titre {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: var(--cible-mini);
+  padding: var(--esp-3) var(--esp-4);
+  font-weight: 600;
+  cursor: pointer;
+  /* Marqueur natif retire : le chevron dedie est la seule fleche du summary. */
+  list-style: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.pli-reglages-titre::-webkit-details-marker { display: none; }
+
+.pli-reglages-icone {
+  flex: none;
+  color: var(--accent);
+}
+
+/* Le libelle pousse le chevron contre le bord droit de la carte. */
+.pli-reglages-libelle {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Chevron : pointe vers le bas ferme (« il y a plus »), pivote vers le haut quand le groupe
+   est ouvert. La rotation est purement decorative, l'etat reste porte par <details>. */
+.pli-reglages-chevron {
+  flex: none;
+  color: var(--texte-attenue);
+  transition: transform var(--duree-courte) var(--courbe-sortie);
+}
+details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(180deg); }
+
+/* Corps du groupe : separe du titre par un filet, empile ses lignes comme l'ancien
+   groupe-reglages (les ligne-reglage / ligne-liste gardent leurs regles de components.css). */
+.pli-reglages-corps {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--bordure);
+  padding-bottom: var(--esp-2);
+}
+
+/* Sous-titre INTERNE a un groupe (« Maintenance », « Stockage », « Lieux d'entrainement ») :
+   meme voix discrete que groupe-reglages-titre, avec un filet qui separe les blocs. */
+.pli-sous-titre {
+  margin: var(--esp-3) 0 0;
+  padding: var(--esp-3) var(--esp-4) var(--esp-1);
+  border-top: 1px solid var(--bordure);
+  font-size: var(--txt-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+}
+
+/* Le rapport d'import collait aux bords de la carte : respiration locale, sans toucher a la
+   regle d'origine de rapport-import (il sert aussi dans la feuille de confirmation). */
+.pli-reglages-corps .rapport-import { margin: 0 var(--esp-4) var(--esp-3); }

@@ -507,6 +507,70 @@ export function mount(conteneur, params = {}) {
     }));
   }
 
+  // ── Nom de la seance : renommable (v5, retour utilisateur) ──────────────────
+
+  /**
+   * Renomme la seance. Le nom personnalise vit dans `seance.nom` : le modeleSnapshot n'est
+   * JAMAIS reecrit (il decrit ce qui etait prevu ce jour-la, pas ce qu'on veut afficher).
+   * Toutes les vues (historique, accueil, ce detail) lisent `nom` en premier.
+   */
+  function modifierNom(nom) {
+    chaine = chaine.then(async () => {
+      const s = store.seance(idCourant);
+      if (!s || (s.nom || '') === nom) return;
+      s.nom = nom;
+      await store.commit('seance:modifier', { seance: s });
+      construire(idCourant);
+    }).catch((err) => {
+      console.error('[seance-detail] renommage en échec', err);
+      toast.afficher('La séance n\'a pas pu être renommée.');
+    });
+    return chaine;
+  }
+
+  /** Feuille « Renommer » : un champ texte natif — autorise ici, comme le champ de date. */
+  function ouvrirEditeurNom() {
+    const seance = store.seance(idCourant);
+    if (!seance) return;
+
+    const snapshot = seance.modeleSnapshot;
+    const actuel = seance.nom || (snapshot && snapshot.nom) ||
+      (session.estCardioPure(seance) ? 'Sortie cardio' : 'Séance libre');
+
+    const champ = h('input', {
+      type: 'text',
+      class: 'champ-nom-seance',
+      value: actuel,
+      maxlength: '60',
+      'aria-label': 'Nom de la séance'
+    });
+    const btnEnregistrer = h('button', {
+      class: 'bouton bouton-primaire bouton-large', type: 'button'
+    }, 'Enregistrer le nom');
+
+    fermerEditeur();
+    const poignee = sheet.ouvrir({
+      titre: 'Renommer la séance',
+      contenu: h('div', { class: 'editeur-date' },
+        champ,
+        h('div', { class: 'editeur-actions' }, btnEnregistrer)),
+      onFermer: () => { if (editeurHandle === poignee) editeurHandle = null; }
+    });
+    editeurHandle = poignee;
+    champ.focus();
+    champ.select();
+
+    desabonnements.push(on(btnEnregistrer, 'click', () => {
+      const valeur = String(champ.value || '').trim();
+      if (!valeur) {
+        toast.afficher('Donne un nom à la séance.');
+        return;
+      }
+      poignee.fermer();
+      modifierNom(valeur);
+    }));
+  }
+
   /** Tap sur la colonne exercice : l'objectif GELE du jour, en lecture seule. */
   function ouvrirFicheExercice(entreeId) {
     const seance = store.seance(idCourant);
@@ -592,7 +656,9 @@ export function mount(conteneur, params = {}) {
     if (!seance || !estSeanceClose(seance)) return;
 
     const snap = seance.modeleSnapshot;
-    const nom = (snap && snap.nom) || ('Séance du ' + formatLong(seance.date));
+    // v5 : meme regle de nommage que l'historique — nom personnalise d'abord. C'est aussi la cle
+    // par laquelle le coeur de l'historique detecte « deja en favori ».
+    const nom = seance.nom || (snap && snap.nom) || ('Séance du ' + formatLong(seance.date));
     const brute = routineDepuisSeance(seance, { nom });
 
     if (!brute.items.length) {
@@ -649,7 +715,7 @@ export function mount(conteneur, params = {}) {
       // v4 : forme UNIQUE de la confirmation de suppression, partagee avec l'historique et
       // l'accueil — titre, date et nom en clair, consequence en rouge, boutons pleine largeur.
       const s = store.seance(idCourant);
-      const nom = (s && s.modeleSnapshot && s.modeleSnapshot.nom) ||
+      const nom = (s && s.nom) || (s && s.modeleSnapshot && s.modeleSnapshot.nom) ||
         (s && session.estCardioPure(s) ? 'Sortie cardio' : 'Séance libre');
       ouvrirConfirmation('suppr-seance', {
         titre: 'Supprimer cette séance ?',
@@ -756,9 +822,9 @@ export function mount(conteneur, params = {}) {
     chiffres = { duree: cDuree.val, series: cSeries.val };
 
     const snapshot = seance.modeleSnapshot;
-    const titre = snapshot && snapshot.nom
-      ? snapshot.nom
-      : (session.estCardioPure(seance) ? 'Sortie cardio' : 'Séance libre');
+    // v5 : le nom personnalise (« Renommer ») prime sur le snapshot.
+    const titre = seance.nom || (snapshot && snapshot.nom) ||
+      (session.estCardioPure(seance) ? 'Sortie cardio' : 'Séance libre');
 
     const lieu = seance.lieuId ? store.lieu(seance.lieuId) : null;
     const complements = [];
@@ -781,6 +847,12 @@ export function mount(conteneur, params = {}) {
       ),
       h('div', { class: 'detail-titre-rangee' },
         h('h2', { class: 'entete-titre detail-titre' }, titre),
+        h('button', {
+          class: 'bouton bouton-fantome bouton-date',
+          type: 'button',
+          dataset: { action: 'renommer' },
+          'aria-label': 'Renommer la séance'
+        }, icone('crayon', { taille: 16 }), h('span', null, 'Renommer')),
         pastilleStatut(seance)
       ),
       mentionStatut ? h('p', { class: 'mention-statut' }, mentionStatut) : null,
@@ -866,6 +938,7 @@ export function mount(conteneur, params = {}) {
     const action = cible.getAttribute('data-action');
     if (action === 'suppr-seance') { ev.preventDefault(); router.ouvrirFeuille('suppr-seance'); return; }
     if (action === 'modifier-date') { ev.preventDefault(); ouvrirEditeurDate(); return; }
+    if (action === 'renommer') { ev.preventDefault(); ouvrirEditeurNom(); return; }
     if (action === 'refaire') { ev.preventDefault(); ajouterFavori(); return; }
     if (action === 'abandon-seance') { ev.preventDefault(); router.ouvrirFeuille('abandon-seance'); return; }
     if (action === 'cellule') {

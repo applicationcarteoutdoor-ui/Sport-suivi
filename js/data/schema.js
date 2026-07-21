@@ -385,6 +385,9 @@ export function nouvelleSeance(modele = null, ctx = {}) {
     dureeSec: null,
     statut: 'en-cours',
     modeleId: modele ? modele.id : null,     // conserve a titre STATISTIQUE uniquement
+    // v5 : nom PERSONNALISE (« Renommer » dans le detail d'historique). null = les vues
+    // retombent sur modeleSnapshot.nom puis « Séance libre ». Le snapshot n'est jamais reecrit.
+    nom: ctx.nom || null,
     // COPIE INTEGRALE du modele au lancement : modifier le modele demain ne doit rien changer
     // a ce qui a ete reellement fait aujourd'hui.
     modeleSnapshot: modele ? copie(modele) : null,

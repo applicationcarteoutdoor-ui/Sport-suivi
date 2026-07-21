@@ -85,6 +85,8 @@ function lieuParDefaut() {
 }
 
 function nomDeSeance(s) {
+  // v5 : un nom personnalise (« Renommer » dans le detail) prime sur le snapshot.
+  if (s && s.nom) return s.nom;
   return (s && s.modeleSnapshot && s.modeleSnapshot.nom) || 'Séance libre';
 }
 

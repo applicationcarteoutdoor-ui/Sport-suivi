@@ -594,39 +594,10 @@ export function mount(conteneur, params) {
       onChange(v) { cibles.series = v; }
     }).puce);
 
-    // ── Repetitions : une FOURCHETTE, jamais un entier seul ────────────────────
-    // « 8 » se lit comme un ordre rate des qu'on en fait 7. Les deux steppers sont lies : relever
-    // le minimum au-dessus du maximum pousse le maximum, et inversement.
-    if (champs.indexOf('reps') !== -1) {
-      let poigneeMax = null;
-      const min = puceReglage(ligne, {
-        libelle: 'Reps min',
-        valeur: cibles.repsMin,
-        pas: 1, min: 1, max: 100, entier: true,
-        onChange(v) {
-          cibles.repsMin = v;
-          if (cibles.repsMax < v) {
-            cibles.repsMax = v;
-            if (poigneeMax) poigneeMax.setValeur(v);
-          }
-        }
-      });
-      const max = puceReglage(ligne, {
-        libelle: 'Reps max',
-        valeur: cibles.repsMax,
-        pas: 1, min: 1, max: 100, entier: true,
-        onChange(v) {
-          cibles.repsMax = v;
-          if (v < cibles.repsMin) {
-            cibles.repsMin = v;
-            min.poignee.setValeur(v);
-          }
-        }
-      });
-      poigneeMax = max.poignee;
-      reglages.appendChild(min.puce);
-      reglages.appendChild(max.puce);
-    }
+    // v5 : plus de reglage « Reps min / Reps max » (retour utilisateur). Les repetitions se
+    // saisissent PENDANT l'entrainement ; le pre-remplissage vient de la derniere seance, jamais
+    // d'une cible de routine. ciblesDepuisItem sait toujours LIRE repsCibles des routines
+    // anciennes, mais on n'en ecrit plus.
 
     // ── Duree ─────────────────────────────────────────────────────────────────
     if (champs.indexOf('dureeSec') !== -1) {
@@ -923,10 +894,9 @@ export function mount(conteneur, params) {
 
   /**
    * Traduit les lignes en items de Modele.
-   * ⚠ repsCibles est une FOURCHETTE, et n'est ecrite que si l'exercice se compte en repetitions ;
-   *   dureeCibleSec et distanceCibleM ne le sont que si le mode les saisit. Ecrire des champs
+   * ⚠ dureeCibleSec et distanceCibleM ne sont ecrits que si le mode les saisit. Ecrire des champs
    *   etrangers au mode les ferait relire par domain/prefill.js, qui pre-remplirait alors des
-   *   valeurs sans aucun sens pour cet exercice.
+   *   valeurs sans aucun sens pour cet exercice. repsCibles n'est PLUS ecrit du tout (v5).
    */
   function itemsComposes() {
     return etat.ordre.map((id) => {
@@ -940,7 +910,9 @@ export function mount(conteneur, params) {
         exerciceId: ligne.exerciceId,
         seriesCibles: c.series,
         seriesEchauffement: 0,
-        repsCibles: champs.indexOf('reps') !== -1 ? { min: c.repsMin, max: c.repsMax } : null,
+        // v5 : plus aucune fourchette de reps ecrite — les reps se decident en salle, et une
+        // cible par defaut pre-remplirait des chiffres que personne n'a choisis.
+        repsCibles: null,
         dureeCibleSec: champs.indexOf('dureeSec') !== -1 ? c.dureeSec : null,
         // Distance a 0 = « non mesurée » : on ecrit null plutot qu'un zero, qui serait relu comme
         // une distance reellement visee et donnerait une allure absurde.

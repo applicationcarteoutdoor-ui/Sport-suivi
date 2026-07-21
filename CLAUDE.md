@@ -139,13 +139,22 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-20, v4 livrée)
+## État et risques connus (2026-07-21, v5 livrée)
 
-- v4 en ligne : favoris, double courbe poids+reps, date modifiable, tri par usage, confirmations
+- v5 en ligne : **thème VERT** (tokens.css seul, bleu abandonné — ne pas le réintroduire),
+  réglages regroupés en 5 `<details>` pliants (`pli-reglages`), renommage de séance
+  (`seance.nom`, prime sur `modeleSnapshot.nom` dans TOUTES les vues — le snapshot n'est jamais
+  réécrit), cœur d'historique à état (`aria-pressed`, détection par nom de routine favorite),
+  composeur sans réglage de répétitions (`repsCibles: null` — les reps se saisissent en salle),
+  menu de séance en actions empilées, bouton menu de carte en coin (40 px).
+- v4 : favoris, double courbe poids+reps, date modifiable, tri par usage, confirmations
   de suppression harmonisées, bouton « Rechercher une mise à jour » (réglages).
-- `tests.html` : dernière exécution navigateur complète en v3 (189/189) ; depuis, seuls les
-  équivalents statiques (syntaxe, classes↔CSS, couture icônes) ont tourné — relancer la page au
-  prochain serveur local est la première chose à faire.
+- `tests.html` : 214/214 en navigateur au 2026-07-21 (v5 comprise). ⚠ En dev local, purger
+  SW + caches AVANT de conclure à un bug : le précache sert d'anciens modules et un simple
+  reload ne suffit pas (il se ré-enregistre à chaque boot).
+- Icônes : retouches ponctuelles v5 (haltères, cœur — un SEUL tracé fermé, requis par le
+  remplissage CSS du favori —, composer). La refonte complète souhaitée par l'utilisateur
+  reste À FAIRE si redemandée.
 - Les écrans v2/v3/v4 n'ont PAS tous subi de revue adversariale complète (budget) : les défauts
   de cette base sont typiquement SILENCIEUX (écran vide, bouton inerte, courbe plate — jamais
   d'erreur console). En cas de bug rapporté, chercher d'abord une couture entre modules
