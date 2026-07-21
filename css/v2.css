@@ -1141,6 +1141,66 @@
 .zone-comparaison-aide { font-size: var(--txt-s); color: var(--texte-attenue); }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   8 quater. Harmonisation de l'accueil (retour v4 : « icones pas la meme taille,
+   rien n'est identique »). Ce bloc vient en DERNIER et impose LA meme boite a
+   toutes les tuiles de lancement, quelle que soit leur variante.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.grille-lanceurs > .tuile-lanceur {
+  position: relative;                 /* ancre de la pastille, qui ne decale plus rien */
+  min-height: 156px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--esp-1);
+  padding: var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-l);
+  background: var(--surface);
+  box-shadow: var(--ombre-1);
+  color: var(--texte);
+  text-align: center;
+  cursor: pointer;
+}
+
+/* L'icone vit dans une BOITE de hauteur fixe : deux dessins d'encre differente (un simple « + »
+   contre une silhouette dense) occupent ainsi exactement le meme volume percu. */
+.grille-lanceurs .tuile-lanceur-icone {
+  height: 56px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.grille-lanceurs .tuile-lanceur-nom {
+  font-weight: 700;
+  font-size: var(--txt-m);
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Toujours UNE ligne de detail, meme visuellement vide : c'est elle qui egalise les hauteurs. */
+.grille-lanceurs .tuile-lanceur-detail {
+  min-height: 1.25em;
+  font-size: var(--txt-xs);
+  color: var(--texte-attenue);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.grille-lanceurs .pastille-origine {
+  position: absolute;
+  top: var(--esp-2);
+  right: var(--esp-2);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    9. Accessibilite et mouvement
    ───────────────────────────────────────────────────────────────────────────── */
 

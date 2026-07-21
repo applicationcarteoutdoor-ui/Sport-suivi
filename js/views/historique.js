@@ -29,7 +29,7 @@ import { formatFr } from '../lib/num.js';
 import { estComptable, estSeanceClose, estSeanceAbandonnee, LIBELLES_STATUTS_SEANCE } from '../data/schema.js';
 import { packDeLExercice } from '../data/packs.js';
 import * as store from '../data/store.js';
-import { tonnageSeance, resumeSerie } from '../domain/metrics.js';
+import { resumeSerie } from '../domain/metrics.js';
 import { estCardioPure } from '../domain/session.js';
 import { icone, iconePourExercice } from '../ui/icons.js';
 import * as sheet from '../ui/sheet.js';
@@ -97,8 +97,8 @@ function exerciceDe(entree) {
 }
 
 /**
- * Ligne de resume : duree · tonnage · series. Pour une sortie cardio autonome, le tonnage n'a
- * aucun sens (aucune charge) : on affiche le resume de la sortie a la place.
+ * Ligne de resume : duree · series. Pour une sortie cardio autonome, on affiche le resume de la
+ * sortie a la place. (v4 : le tonnage est retire de toute l'application — retour utilisateur.)
  */
 function texteResume(seance) {
   const morceaux = [];
@@ -113,12 +113,6 @@ function texteResume(seance) {
     return morceaux.join(' · ');
   }
 
-  const tonnage = tonnageSeance(seance);
-  if (tonnage.kg > 0) {
-    // Le tilde n'est pas decoratif : une seule serie non convertible en kilos (machine sans
-    // profil, poids de corps inconnu) fait du total un MINORANT. L'afficher net serait faux.
-    morceaux.push((tonnage.fiable ? '' : '≈ ') + formatFr(Math.round(tonnage.kg)) + ' kg');
-  }
   const n = nombreSeries(seance);
   if (n > 0) morceaux.push(n + (n > 1 ? ' séries' : ' série'));
   return morceaux.join(' · ');

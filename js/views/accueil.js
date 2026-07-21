@@ -371,7 +371,9 @@ export function mount(conteneur) {
       role: 'listitem',
       'data-cle': cle
     },
-      h('span', { class: 'tuile-lanceur-icone' }, icone(nomIcone, { taille: 48 })),
+      // ⚠ Taille par CLASSE et non en dur : un style inline battrait le CSS et c'est prouve
+      //   etre la source des icones « pas toutes de la meme taille » sur cet ecran.
+      h('span', { class: 'tuile-lanceur-icone' }, icone(nomIcone, { classe: 'icone-xl' })),
       h('span', { class: 'tuile-lanceur-nom' }, titre),
       detail ? h('span', { class: 'tuile-lanceur-detail' }, detail) : null,
       pastille ? h('span', { class: 'pastille-origine' }, pastille) : null
@@ -381,7 +383,7 @@ export function mount(conteneur) {
   function fabriquerLanceur(cle) {
     if (cle === CLE_COMPOSER) {
       return tuile({
-        cle, nomIcone: 'plus', titre: 'Composer', detail: 'Exercice par exercice',
+        cle, nomIcone: 'composer', titre: 'Composer', detail: 'Exercice par exercice',
         action: 'composer', classe: 'tuile-composer'
       });
     }
@@ -474,8 +476,9 @@ export function mount(conteneur) {
     return { noeud, valeur };
   }
 
+  // v4 : plus de tuile Tonnage (retour utilisateur — l'option de kilotonnage est retiree de
+  // toute l'application ; le domaine continue de le calculer, rien n'est perdu en donnees).
   const tSeances = tuileChiffree('coche', 'Séances');
-  const tTonnage = tuileChiffree('barre', 'Tonnage');
   const tSeries = tuileChiffree('halteres', 'Séries');
   const tCardio = tuileChiffree('cardio', 'Cardio');
 
@@ -485,14 +488,13 @@ export function mount(conteneur) {
       h('span', {}, 'Cette semaine')
     ),
     h('div', { class: 'grille-tuiles-chiffrees' },
-      tSeances.noeud, tTonnage.noeud, tSeries.noeud, tCardio.noeud
+      tSeances.noeud, tSeries.noeud, tCardio.noeud
     )
   );
 
   function majSemaine() {
     const r = resumeSemaine(seancesTerminees(), new Date());
     tSeances.valeur.textContent = String(r.seances);
-    tTonnage.valeur.textContent = r.tonnage > 0 ? formatFr(Math.round(r.tonnage), 0) + ' kg' : '0 kg';
     tSeries.valeur.textContent = String(r.series);
     tCardio.valeur.textContent = r.minutesCardio > 0 ? r.minutesCardio + ' min' : '0 min';
   }

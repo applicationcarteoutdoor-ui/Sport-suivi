@@ -231,7 +231,6 @@ export function mount(conteneur, params = {}) {
       h('tr', {},
         h('th', { scope: 'col' }, 'Date'),
         h('th', { scope: 'col' }, 'Meilleure série'),
-        h('th', { scope: 'col' }, 'Tonnage'),
         h('th', { scope: 'col' }, 'Séries')
       )
     ),
@@ -550,14 +549,13 @@ export function mount(conteneur, params = {}) {
     const lignes = tableauChronologique(store.seances(), id, N_TABLEAU);
     if (!lignes.length) {
       corpsTableau.appendChild(h('tr', {},
-        h('td', { colspan: '4' }, store.historiquePret()
+        h('td', { colspan: '3' }, store.historiquePret()
           ? 'Aucune séance enregistrée avec cet exercice.'
           : 'Chargement de l’historique…')));
       return;
     }
 
     for (const l of lignes) {
-      const tonnageFiable = l.tonnage != null && l.tonnageFiable !== false;
       corpsTableau.appendChild(h('tr', {},
         h('td', {},
           // Un bouton et non une ligne cliquable : cible tactile, focus clavier et role natifs.
@@ -575,8 +573,6 @@ export function mount(conteneur, params = {}) {
           ? (l.meilleure.libelle || formatFr(l.meilleure.valeur))
             + (l.meilleure.fiable === false ? ' ~' : '')
           : '—'),
-        h('td', { 'data-fiable': tonnageFiable ? 'oui' : 'non' },
-          l.tonnage == null ? '—' : `${formatFr(l.tonnage, 0)} kg${tonnageFiable ? '' : ' ~'}`),
         h('td', {}, String(l.nbSeries))
       ));
     }

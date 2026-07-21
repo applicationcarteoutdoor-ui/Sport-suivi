@@ -377,6 +377,16 @@ export const ICONES = {
     sol()
   ]),
 
+  // Composer : trois tuiles et un « + » a la place de la quatrieme — litteralement la grille de
+  // packs du composeur. C'est le logo de l'entree « Composer » sur l'accueil.
+  'composer': () => [
+    R(3.4, 3.4, 7.4, 7.4, 1.6),
+    R(13.2, 3.4, 7.4, 7.4, 1.6),
+    R(3.4, 13.2, 7.4, 7.4, 1.6),
+    L(16.9, 14.1, 16.9, 19.7),
+    L(14.1, 16.9, 19.7, 16.9)
+  ],
+
   // Squat SANS charge : la meme flexion franche que 'squat', bras tendus DEVANT (l'equilibre du
   // squat au poids du corps) a la place de la barre. C'est l'absence de materiel qui se lit.
   'squat-poids-du-corps': () => [

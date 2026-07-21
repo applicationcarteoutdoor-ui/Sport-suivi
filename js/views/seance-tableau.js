@@ -68,10 +68,10 @@ function totalCible(entree) {
   return c.series + (estNombre(c.seriesEchauffement) ? c.seriesEchauffement : 0);
 }
 
-// Demande utilisateur (v3) : « fait en sorte que 10 series rentrent dans le tableau de base ».
-// Chaque rangee affiche donc AU MOINS 10 cases, comme les colonnes pre-tracees d'un carnet
-// papier — celles au-dela de la cible restent des cases futures en fantome, tapables.
-const COLONNES_MIN = 10;
+// Retour utilisateur (v4) : 8 series affichees dans le tableau de base — comme les colonnes
+// pre-tracees d'un carnet papier. Celles au-dela de la cible restent des cases futures en
+// fantome, tapables ; « + » en ajoute au-dela.
+const COLONNES_MIN = 8;
 
 function nbColonnes(entree) {
   return Math.max(entree.series.length, totalCible(entree), COLONNES_MIN);

@@ -23,13 +23,15 @@ import { dayKey } from '../lib/dates.js';
 export const MODES = {
   'poids-du-corps': {
     saisie: ['reps'],
-    metriques: ['charge-effective-max', 'reps-max', 'tonnage'],
+    // v4 : 'tonnage' retire des metriques PROPOSEES (retour utilisateur — l'option n'apparait
+    // plus nulle part). Le reducteur et les calculs du domaine restent : donnees intactes.
+    metriques: ['charge-effective-max', 'reps-max'],
     pas: { reps: 1, lestKg: 'incrementKg' },
     lestSiLestable: true
   },
   'charge': {
     saisie: ['reps', 'chargeKg'],
-    metriques: ['e1rm-max', 'charge-max', 'reps-max', 'tonnage'],
+    metriques: ['e1rm-max', 'charge-max', 'reps-max'],
     pas: { reps: 1, chargeKg: 'incrementKg' },
     lestSiLestable: false
   },
