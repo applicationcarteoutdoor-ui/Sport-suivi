@@ -68,6 +68,15 @@ function totalCible(entree) {
   return c.series + (estNombre(c.seriesEchauffement) ? c.seriesEchauffement : 0);
 }
 
+// Demande utilisateur (v3) : « fait en sorte que 10 series rentrent dans le tableau de base ».
+// Chaque rangee affiche donc AU MOINS 10 cases, comme les colonnes pre-tracees d'un carnet
+// papier — celles au-dela de la cible restent des cases futures en fantome, tapables.
+const COLONNES_MIN = 10;
+
+function nbColonnes(entree) {
+  return Math.max(entree.series.length, totalCible(entree), COLONNES_MIN);
+}
+
 // Valeur principale (grande) et suffixes (petits) d'une cellule, derives des champs du mode.
 function texteCellule(entree, serie) {
   const champs = champsSaisieEntree(entree);
@@ -186,7 +195,7 @@ export function mount(conteneur, params) {
     if (sous) sous.textContent = sousTexteSport(entree);
 
     vider(r.zoneCellules);
-    const nb = Math.max(entree.series.length, totalCible(entree));
+    const nb = nbColonnes(entree);
 
     for (let i = 0; i < nb; i++) {
       const serie = entree.series[i] || null;
@@ -245,7 +254,7 @@ export function mount(conteneur, params) {
     vider(enteteRangee);
     let max = 0;
     for (const r of rangees.values()) {
-      max = Math.max(max, Math.max(r.entree.series.length, totalCible(r.entree)));
+      max = Math.max(max, nbColonnes(r.entree));
     }
     enteteRangee.appendChild(h('span', { class: 'tab-coin' }, 'Exercice'));
     for (let i = 1; i <= max; i++) enteteRangee.appendChild(h('span', { class: 'tab-col' }, 'S' + i));
