@@ -163,6 +163,11 @@ export function mount(conteneur, params = {}) {
   let nomPlage = prefs.lire().plageCourbe || '3m';
   if (PLAGES.indexOf(nomPlage) === -1) nomPlage = '3m';
 
+  // Superposition « Poids + reps » : la courbe de charge ET celle des repetitions du MEME
+  // exercice, sur un seul graphe (deux echelles Y, ui/chart.js). Un simple drapeau : il ne
+  // survit ni a un changement d'exercice, ni a l'ajout d'une comparaison.
+  let modeDouble = false;
+
   // ── Ossature, construite UNE fois ─────────────────────────────────────────
   // L'ordre du DOM est l'ordre de LECTURE voulu par la refonte : grille d'abord, puis pour
   // l'exercice choisi : record -> metriques -> plage -> courbe -> comparaison -> tableau.
@@ -213,6 +218,17 @@ export function mount(conteneur, params = {}) {
     }, plageDe(nom).libelle))
   );
 
+  // Bascule « Poids + reps » : visible SEULEMENT quand le mode de l'exercice propose a la fois
+  // une metrique de charge (unite kg) et les repetitions max. Elle superpose les deux courbes
+  // de CE MEME exercice — chart.js leur donne alors une echelle Y chacune.
+  const boutonDouble = h('button', {
+    type: 'button',
+    class: 'bouton-double-courbe',
+    'data-action': 'double',
+    'aria-pressed': 'false',
+    hidden: true
+  }, h('span', null, 'Poids + reps'));
+
   // Message de repli du 1RM estime, et message d'absence de metrique commune. Une courbe qui
   // change de metrique sans le dire est incomprehensible : le message est rendu MOT POUR MOT tel
   // que le domaine le retourne.
@@ -244,6 +260,7 @@ export function mount(conteneur, params = {}) {
     carteRecord,
     barreMetriques,
     segmentsPlage,
+    boutonDouble,
     avisMetrique,
     hoteCourbe,
     zoneComparaison,
@@ -289,6 +306,32 @@ export function mount(conteneur, params = {}) {
       liste = liste.filter((m) => cles.indexOf(m.cle) !== -1);
     }
     return liste;
+  }
+
+  /**
+   * Cle de la metrique de CHARGE du mode « Poids + reps » : la metrique affichee quand elle se
+   * mesure en kilogrammes, sinon la premiere metrique en kg du mode. null s'il n'y en a aucune.
+   * Aucun test sur le mode : tout vient de metriquesDisponibles (donc de MODES) et d'UNITES.
+   */
+  function cleChargeDouble() {
+    const ex = exerciceDe(principal());
+    if (!ex) return null;
+    const dispo = metriquesDisponibles(ex);
+    if (metrique && UNITES[metrique] === 'kg' && dispo.some((m) => m.cle === metrique)) return metrique;
+    const trouvee = dispo.find((m) => (m.unite || UNITES[m.cle]) === 'kg');
+    return trouvee ? trouvee.cle : null;
+  }
+
+  /**
+   * Le mode double n'existe que pour UN exercice seul, dont le mode propose a la fois une
+   * metrique de charge (kg) et les repetitions max. En comparaison multi-exercices, les deux
+   * echelles du graphe sont deja une denree rare : on ne les melange pas.
+   */
+  function doublePossible() {
+    if (selection.length !== 1) return false;
+    const ex = exerciceDe(principal());
+    if (!ex) return false;
+    return metriquesDisponibles(ex).some((m) => m.cle === 'reps-max') && cleChargeDouble() != null;
   }
 
   // ── Peinture ciblee ───────────────────────────────────────────────────────
@@ -440,6 +483,14 @@ export function mount(conteneur, params = {}) {
     }
   }
 
+  /** Bascule « Poids + reps » : visibilite et etat. Un drapeau devenu impossible est eteint. */
+  function peindreDouble() {
+    const possible = doublePossible();
+    if (!possible) modeDouble = false;
+    boutonDouble.hidden = !possible;
+    boutonDouble.setAttribute('aria-pressed', modeDouble ? 'true' : 'false');
+  }
+
   function afficherAvis(texte) {
     if (!texte) { avisMetrique.hidden = true; avisMetrique.textContent = ''; return; }
     avisMetrique.textContent = texte;
@@ -468,6 +519,26 @@ export function mount(conteneur, params = {}) {
 
     const bornes = plageDe(nomPlage);
     const seances = store.seances();
+
+    // ── Mode « Poids + reps » : charge et repetitions du MEME exercice ───────
+    // Deux unites distinctes : ui/chart.js leur donne une echelle Y chacune (kg a gauche,
+    // repetitions a droite). Les seances abandonnees restent exclues par le domaine.
+    if (modeDouble && doublePossible()) {
+      const id = principal();
+      const cle = cleChargeDouble();
+      const stCharge = serieTemporelle(seances, id, cle, bornes);
+      const stReps = serieTemporelle(seances, id, 'reps-max', bornes);
+      afficherAvis(stCharge.message || null);
+      courbe = renderLineChart(hoteCourbe, {
+        series: [
+          { id: id + ':charge', libelle: LIBELLES_METRIQUES[cle] || 'Charge', points: stCharge.points, unite: stCharge.unite },
+          { id: id + ':reps', libelle: LIBELLES_METRIQUES['reps-max'] || 'Répétitions max', points: stReps.points, unite: stReps.unite }
+        ],
+        sens: 'haut'
+      });
+      return;
+    }
+
     const series = [];
     let message = null;
     let sens = 'haut';
@@ -499,6 +570,10 @@ export function mount(conteneur, params = {}) {
   function peindreComparaison() {
     vider(zoneComparaison);
     if (!principal()) return;
+
+    // Le mode « Poids + reps » occupe deja les deux echelles du graphe : superposer en plus
+    // d'autres exercices depasserait les deux unites que ui/chart.js accepte.
+    if (modeDouble) return;
 
     // Puces des courbes SUPERPOSEES uniquement (rang >= 1) : la principale a deja son en-tete.
     // data-serie porte le MEME rang que dans la legende de la courbe : puce et trace partagent
@@ -585,6 +660,7 @@ export function mount(conteneur, params = {}) {
     peindreEnteteDetail();
     peindreMetriques();     // resout `metrique` : DOIT preceder record et courbe
     peindreRecord();
+    peindreDouble();        // eteint le drapeau si le mode double n'est plus possible
     peindreCourbe();
     peindreComparaison();
     peindreTableau();
@@ -611,6 +687,8 @@ export function mount(conteneur, params = {}) {
   function ajouterComparaison(id) {
     if (!id || selection.indexOf(id) !== -1) return;
     if (selection.length >= MAX_COMPARAISON) return;
+    // Une comparaison remplace le mode « Poids + reps » : jamais les deux a la fois.
+    modeDouble = false;
     selection = selection.concat([id]);
     // La metrique reste valide si elle appartient a l'intersection : peindreMetriques tranche.
     peindreSelection();
@@ -678,6 +756,15 @@ export function mount(conteneur, params = {}) {
       return;
     }
 
+    if (action === 'double') {
+      if (!doublePossible()) return;
+      modeDouble = !modeDouble;
+      boutonDouble.setAttribute('aria-pressed', modeDouble ? 'true' : 'false');
+      peindreCourbe();
+      peindreComparaison();  // le lien « Comparer » disparait pendant le mode double
+      return;
+    }
+
     if (action === 'metrique') {
       const cle = cible.getAttribute('data-metrique');
       if (!cle || cle === metrique) return;
@@ -725,6 +812,8 @@ export function mount(conteneur, params = {}) {
       selection = [suivant];
       // Metrique remise a zero : celle du mode precedent n'existe peut-etre pas dans le nouveau.
       metrique = null;
+      // Le mode double appartient a l'exercice qu'on quitte : il ne suit pas la navigation.
+      modeDouble = false;
       peindreSelection();
     },
 

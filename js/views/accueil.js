@@ -30,7 +30,7 @@
 import { MAX_SEANCES_EN_COURS, JOURS_AVANT_RAPPEL_EXPORT } from '../config.js';
 import { h, delegate } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
-import { dayKey, joursEntre } from '../lib/dates.js';
+import { dayKey, joursEntre, formatLong } from '../lib/dates.js';
 import { formatFr } from '../lib/num.js';
 import { estSeanceComptable, estRoutine, LIBELLES_STATUTS_SEANCE } from '../data/schema.js';
 import * as store from '../data/store.js';
@@ -401,7 +401,7 @@ export function mount(conteneur) {
     }
     const modele = store.modele(cle);
     if (!modele) return null;
-    return tuile({
+    const noeud = tuile({
       cle,
       nomIcone: iconeDuModele(modele),
       titre: modele.nom || 'Séance',
@@ -414,6 +414,23 @@ export function mount(conteneur) {
       id: modele.id,
       classe: estRoutine(modele) ? 'tuile-routine' : 'tuile-modele-livre'
     });
+    majPastilleFavori(noeud, modele);
+    return noeud;
+  }
+
+  /**
+   * Petit coeur en coin de tuile pour une routine FAVORITE — pastille absolue, comme
+   * pastille-origine. Ajoute ou retire, jamais reconstruit : la tuile reste sous le doigt.
+   */
+  function majPastilleFavori(noeud, modele) {
+    const existante = noeud.querySelector('.pastille-favori');
+    const voulu = estRoutine(modele) && modele.favori === true;
+    if (voulu && !existante) {
+      noeud.appendChild(h('span', { class: 'pastille-favori', 'aria-hidden': 'true' },
+        icone('coeur', { taille: 14 })));
+    } else if (!voulu && existante) {
+      noeud.removeChild(existante);
+    }
   }
 
   function majLanceur(cle, noeud) {
@@ -424,6 +441,7 @@ export function mount(conteneur) {
     const detail = noeud.querySelector('.tuile-lanceur-detail');
     if (nom) nom.textContent = modele.nom || 'Séance';
     if (detail) detail.textContent = resumeModele(modele);
+    majPastilleFavori(noeud, modele);
   }
 
   function majLanceurs() {
@@ -431,9 +449,13 @@ export function mount(conteneur) {
     // ⚠ ORDRE IMPOSE par le retour utilisateur v3 : les trois gestes de creation d'abord —
     //   Composer en tete de grille — puis les ROUTINES de l'utilisateur (ce qu'on a ecrit
     //   soi-meme se lance plus souvent que ce qui est livre), et les modeles livres en dernier.
-    const routines = actifs.filter(estRoutine).map((m) => m.id);
+    //   v4 : parmi les routines, les FAVORITES passent devant (retour utilisateur : refaire une
+    //   seance enregistree doit etre le geste le plus court de l'accueil).
+    const toutesRoutines = actifs.filter(estRoutine);
+    const favorites = toutesRoutines.filter((m) => m.favori === true).map((m) => m.id);
+    const autresRoutines = toutesRoutines.filter((m) => m.favori !== true).map((m) => m.id);
     const livres = actifs.filter((m) => !estRoutine(m)).map((m) => m.id);
-    const cles = [CLE_COMPOSER, CLE_LIBRE, CLE_CARDIO].concat(routines, livres);
+    const cles = [CLE_COMPOSER, CLE_LIBRE, CLE_CARDIO].concat(favorites, autresRoutines, livres);
     reconcilier(grilleLanceurs, cles, noeudsLanceurs, fabriquerLanceur, majLanceur);
     majPlafond();
   }
@@ -712,7 +734,7 @@ export function mount(conteneur) {
       } else {
         await store.commit('seance:supprimer', { id: seance.id });
         if (etat.detruit) return;
-        toast.afficher('Séance supprimée.');
+        /* v4 : pas de popup de succes */
       }
       majTout();
     } catch (err) {
@@ -723,25 +745,24 @@ export function mount(conteneur) {
     }
   }
 
-  /** Second palier : supprimer detruit des series reellement faites, on la fait confirmer. */
+  /**
+   * Second palier : supprimer detruit des series reellement faites, on la fait confirmer.
+   * v4 : forme UNIQUE de la confirmation de suppression, partagee avec l'historique et le
+   * detail — titre, date et nom en clair, consequence en rouge, deux boutons pleine largeur.
+   */
   function confirmerSuppression(seance) {
-    const series = nbSeriesValidees(seance);
     etat.feuille = sheet.ouvrir({
       titre: 'Supprimer cette séance ?',
+      classe: 'feuille-confirmation',
       fermable: false,
-      contenu: [
-        h('p', {}, series > 0
-          ? 'Les ' + series + ' série(s) déjà enregistrées seront définitivement perdues. ' +
-            'Cette action ne peut pas être annulée.'
-          : 'Cette séance ne contient aucune série. Sa suppression ne perd rien.'),
-        series > 0
-          ? h('p', { class: 'note-discrete' },
-              'Si tu l\'as réellement faite, préfère « Abandonner » : elle reste dans ' +
-              'l\'historique sans entrer dans les statistiques.')
-          : null
-      ],
+      contenu: h('div', { class: 'confirmation' },
+        h('p', { class: 'confirmation-texte' },
+          'Séance du ' + formatLong(seance.date) + ' — ' + nomDeSeance(seance) + '.'),
+        h('p', { class: 'confirmation-consequence' },
+          'Définitif. Elle disparaîtra des courbes et des records.')
+      ),
       actions: [
-        { libelle: 'Annuler', action: () => { ouvrirMenuSeance(seance.id); return false; } },
+        { libelle: 'Annuler', variante: 'fantome', action: () => { ouvrirMenuSeance(seance.id); return false; } },
         { libelle: 'Supprimer', variante: 'danger', action: () => { resoudreSeance('supprimer', seance); } }
       ],
       onFermer: () => { etat.feuille = null; }

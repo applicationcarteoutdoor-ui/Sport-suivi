@@ -38,7 +38,7 @@ import { h, on, delegate, vider } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import { formatDuree } from '../lib/num.js';
 import { dayKey } from '../lib/dates.js';
-import { champsSaisie, pasChamp, nouvelItemModele, nouvelExercice } from '../data/schema.js';
+import { champsSaisie, pasChamp, nouvelItemModele, nouvelExercice, estComptable, estSeanceComptable } from '../data/schema.js';
 import { PACKS, PACKS_PAR_ID, exercicesDuPack, compterParPack, packDeLExercice } from '../data/packs.js';
 import * as store from '../data/store.js';
 import * as session from '../domain/session.js';
@@ -223,6 +223,25 @@ export function mount(conteneur, params) {
   const desabos = [];
   let compteurLignes = 0;
 
+  // v4 : nombre de seances COMPTABLES contenant chaque exercice (avec au moins une serie
+  // comptable). Compte UNE FOIS au montage, recompte sur 'historique:pret' — jamais a chaque
+  // rendu de grille : store.seances() peut porter trois ans de seances.
+  const usageParExercice = new Map(); // exerciceId -> nombre de seances comptables
+
+  function recompterUsages() {
+    usageParExercice.clear();
+    for (const s of store.seances()) {
+      if (!estSeanceComptable(s)) continue;
+      const vus = new Set(); // un exercice compte UNE fois par seance
+      for (const entree of s.entrees || []) {
+        if (!entree || !entree.exerciceId || vus.has(entree.exerciceId)) continue;
+        if (!(entree.series || []).some(estComptable)) continue;
+        vus.add(entree.exerciceId);
+        usageParExercice.set(entree.exerciceId, (usageParExercice.get(entree.exerciceId) || 0) + 1);
+      }
+    }
+  }
+
   // ───────────────────────────────────────────────────────────────────────────
   // Sous-arbre, construit UNE SEULE FOIS
   // ───────────────────────────────────────────────────────────────────────────
@@ -340,7 +359,12 @@ export function mount(conteneur, params) {
   function exercicesAffiches() {
     const actifs = exercicesActifs();
     const mots = etat.requete ? normaliser(etat.requete).split(' ').filter(Boolean) : [];
-    if (!mots.length) return exercicesDuPack(etat.packActif, actifs);
+    if (!mots.length) {
+      // v4 : les exercices les plus UTILISES d'abord (demande utilisateur). Le tri est STABLE
+      // (garanti par la spec ES2019) : a egalite d'usage, l'ordre du pack est conserve.
+      return exercicesDuPack(etat.packActif, actifs).slice().sort((a, b) =>
+        (usageParExercice.get(b.id) || 0) - (usageParExercice.get(a.id) || 0));
+    }
     return actifs.filter((ex) => correspond(indexer(ex), mots)).sort(comparerNoms);
   }
 
@@ -640,14 +664,8 @@ export function mount(conteneur, params) {
       if (cibles.chargeFigee) charge.figer();
     }
 
-    // ── Repos ─────────────────────────────────────────────────────────────────
-    reglages.appendChild(puceReglage(ligne, {
-      libelle: 'Repos',
-      valeur: cibles.reposSec,
-      pas: 15, min: 0, max: 900, entier: true,
-      format: (v) => (v > 0 ? formatDuree(v) : '—'),
-      onChange(v) { cibles.reposSec = v; }
-    }).puce);
+    // v4 : plus de reglage de repos (retour utilisateur). La valeur par defaut reste dans les
+    // donnees (ciblesParDefaut) : rien n'est perdu si le reglage revient un jour.
 
     // ── Commandes de ligne ────────────────────────────────────────────────────
     ligne.boutonMonter = h('button', {
@@ -1069,6 +1087,14 @@ export function mount(conteneur, params) {
   desabos.push(bus.on('exercice:enregistrer', rafraichirCatalogue));
   desabos.push(bus.on('exercice:archiver', rafraichirCatalogue));
 
+  // L'historique arrive en tache de fond : quand il est pret, les compteurs d'usage deviennent
+  // exacts et la grille se reordonne. Un seul recomptage, pas un par rendu.
+  desabos.push(bus.on('historique:pret', () => {
+    if (etat.detruit) return;
+    recompterUsages();
+    peindreGrille();
+  }));
+
   // ───────────────────────────────────────────────────────────────────────────
   // Amorcage
   // ───────────────────────────────────────────────────────────────────────────
@@ -1076,6 +1102,10 @@ export function mount(conteneur, params) {
   // L'historique n'est pas necessaire ICI, mais il l'est a l'ecran de seance juste apres : le
   // demander maintenant le rend pret avant le premier rappel « Dernière fois ». Idempotent.
   store.chargerHistorique();
+
+  // Comptage initial des usages : store.seances() peut deja etre rempli (autre ecran visite
+  // avant). S'il est vide, l'abonnement 'historique:pret' ci-dessus completera.
+  recompterUsages();
 
   // Edition d'une routine existante : on rejoue ses items, dans l'ordre.
   if (routineSource && Array.isArray(routineSource.items)) {

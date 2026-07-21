@@ -259,6 +259,15 @@ function monterListe(conteneur) {
     );
 
     const actions = h('div', { class: 'carte-routine-actions' },
+      // ⚠ Le coeur BASCULE favori (commit 'routine:modifier') : il n'existe que sur les routines
+      //   utilisateur. L'etat allume/eteint passe par data-favori, mute par majCarte — jamais
+      //   par une reconstruction de la barre d'actions.
+      routine
+        ? h('button', {
+            type: 'button', class: 'bouton-icone bouton-favori',
+            dataset: { action: 'favori', id }
+          }, icone('coeur', { taille: 20, titre: 'Favori' }))
+        : null,
       routine
         ? h('button', {
             type: 'button', class: 'bouton-icone',
@@ -298,6 +307,7 @@ function monterListe(conteneur) {
     noeud._pastilles = pastilles;
     noeud._archiver = actions.querySelector('[data-action="archiver"]');
     noeud._restaurer = actions.querySelector('[data-action="restaurer"]');
+    noeud._favori = actions.querySelector('[data-action="favori"]');
     majCarte(id, noeud);
     return noeud;
   }
@@ -319,6 +329,11 @@ function monterListe(conteneur) {
     noeud.setAttribute('data-archive', archive ? 'oui' : 'non');
     if (noeud._archiver) noeud._archiver.hidden = archive;
     if (noeud._restaurer) noeud._restaurer.hidden = !archive;
+    if (noeud._favori) {
+      const fav = modele.favori === true;
+      noeud._favori.setAttribute('data-favori', fav ? 'oui' : 'non');
+      noeud._favori.setAttribute('aria-pressed', fav ? 'true' : 'false');
+    }
   }
 
   function remplir() {
@@ -387,6 +402,18 @@ function monterListe(conteneur) {
       // On n'ouvre l'edition qu'apres une ecriture REUSSIE : ouvrir une routine absente de la base
       // afficherait un ecran vide au premier rechargement.
       if (creee) aller(routeEdition(creee.id));
+      return;
+    }
+
+    if (action === 'favori') {
+      // Bascule favori sur une ROUTINE utilisateur. 'routine:modifier' preserve l'origine et
+      // laisse passer le champ favori tel quel.
+      const modele = store.modele(id);
+      if (!modele || !estRoutine(modele)) return;
+      const vers = modele.favori !== true;
+      await commettre('routine:modifier',
+        { routine: Object.assign({}, modele, { favori: vers }) },
+        vers ? 'Ajoutée aux favoris' : 'Retirée des favoris');
       return;
     }
 

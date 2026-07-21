@@ -443,6 +443,9 @@ export function nouveauModele(p = {}) {
     // ⚠ Champ explicite plutot qu'un test de prefixe dissemine : une routine importee depuis un
     //   autre appareil garde son origine meme si l'id ne suit plus la convention du jour.
     origine,
+    // v4 : seance FAVORITE — mise en avant sur l'accueil. Un champ absent vaut false, aucune
+    // migration necessaire.
+    favori: p.favori === true,
     archived: p.archived === true,
     createdAt: p.createdAt || maintenant,
     updatedAt: p.updatedAt || maintenant
@@ -464,6 +467,56 @@ export function dupliquerModele(modele, p = {}) {
     items: (src.items || []).map((it) => Object.assign(copie(it), { id: null })),
     origine: 'utilisateur'
   });
+}
+
+/**
+ * Construit (SANS l'ecrire) une routine FAVORITE a partir d'une seance close : « refaire cette
+ * seance a vide ». L'appelant la persiste via commit('routine:creer', { routine }).
+ *
+ * Un item par entree ayant AU MOINS une serie comptable (estComptable) ; les cibles decrivent ce
+ * qui a ete REELLEMENT fait :
+ *   · seriesCibles  = nombre de series comptables ;
+ *   · repsCibles    = fourchette min/max des reps effectivement faites ;
+ *   · dureeCibleSec / distanceCibleM = meilleures series (modes temps / cardio) ;
+ *   · chargeCible   = { type:'derniere', delta:0 } — JAMAIS un kilo en dur (invariant du modele).
+ */
+export function routineDepuisSeance(seance, p = {}) {
+  const s = seance || {};
+  const snap = s.modeleSnapshot || null;
+  const items = [];
+  for (const entree of s.entrees || []) {
+    if (!entree || !entree.exerciceId) continue;
+    const comptables = (entree.series || []).filter(estComptable);
+    if (!comptables.length) continue;
+
+    const item = {
+      exerciceId: entree.exerciceId,
+      seriesCibles: comptables.length,
+      seriesEchauffement: (entree.series || [])
+        .filter((x) => x && x.done === true && x.kind === 'echauffement').length,
+      chargeCible: { type: 'derniere', delta: 0 }
+    };
+    const cibles = entree.cibles || {};
+    if (estNombre(cibles.reposSec)) item.reposSec = cibles.reposSec;
+
+    const reps = comptables.map((x) => x.reps).filter(estNombre);
+    if (reps.length) item.repsCibles = { min: Math.min.apply(null, reps), max: Math.max.apply(null, reps) };
+
+    const durees = comptables.map((x) => x.dureeSec).filter(estNombre);
+    if (durees.length) item.dureeCibleSec = Math.max.apply(null, durees);
+
+    const distances = comptables.map((x) => x.distanceM).filter(estNombre);
+    if (distances.length) item.distanceCibleM = Math.max.apply(null, distances);
+
+    items.push(item);
+  }
+  return {
+    nom: p.nom || (snap && snap.nom) || ('Séance du ' + (s.date || '')),
+    description: '',
+    items,
+    favori: true,
+    origine: 'utilisateur'
+  };
 }
 
 export function nouveauPoids(p = {}) {

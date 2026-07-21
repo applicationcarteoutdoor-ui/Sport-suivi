@@ -325,7 +325,10 @@
   cursor: pointer;
   transition: border-color var(--duree-courte), background var(--duree-courte);
 }
+/* ⚠ Le composeur pose aria-SELECTED (role=tablist), pas aria-pressed : sans ce selecteur, le
+   pack choisi ne se distinguait pas du tout — defaut releve par l'utilisateur. */
 .pack-tuile[aria-pressed='true'],
+.pack-tuile[aria-selected='true'],
 .pack-tuile[data-actif='oui'] {
   border-color: var(--accent);
   background: var(--accent-doux);
@@ -846,6 +849,12 @@
 .confirmation-texte { font-size: var(--txt-m); }
 .confirmation-consequence { font-size: var(--txt-s); color: var(--alerte); font-weight: 600; }
 
+/* v4 : confirmation de suppression harmonisee (historique, detail, accueil). Les deux boutons
+   du pied — « Annuler » et « Supprimer » — s'empilent en pleine largeur au lieu de se partager
+   la rangee : la cible dangereuse ne peut plus etre touchee par accident en visant l'autre. */
+.feuille-confirmation .feuille-actions { flex-direction: column; }
+.feuille-confirmation .feuille-actions .bouton { flex: none; width: 100%; }
+
 /* ─────────────────────────────────────────────────────────────────────────────
    8. Seance et detail
    ───────────────────────────────────────────────────────────────────────────── */
@@ -927,26 +936,26 @@
   background: var(--surface);
 }
 
+/* v4 : GRILLE partagee, plus de defilement lateral. L'utilisateur voyait « 4 series » : les 8
+   etaient rendues mais 64 px chacune partaient hors champ. Desormais les colonnes se partagent
+   la largeur de l'ecran (minmax(0,1fr)) et TOUT est visible d'un coup, comme sur un carnet.
+   La variable --tab-cols est posee par la vue (majEntete) sur .tableau-defile. */
 .tab-entete,
 .tab-rangee {
-  display: flex;
-  width: max-content;
-  min-width: 100%;
+  display: grid;
+  grid-template-columns: 92px repeat(var(--tab-cols, 8), minmax(0, 1fr)) 30px;
+  width: 100%;
   align-items: stretch;
 }
 .tab-corps { display: flex; flex-direction: column; }
 .tab-rangee { border-top: 1px solid var(--bordure); }
 
-/* Colonne de gauche : l'exercice. STICKY pour rester lisible quand les series defilent. */
+/* Colonne de gauche : l'exercice (1re colonne de la grille, plus de sticky : rien ne defile). */
 .tab-coin,
 .tab-sport {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  flex: 0 0 132px;
-  width: 132px;
   background: var(--surface);
   border-right: 1px solid var(--bordure-forte);
+  min-width: 0;
 }
 .tab-coin {
   padding: var(--esp-2);
@@ -960,21 +969,23 @@
 }
 .tab-sport {
   display: flex;
+  flex-direction: column;          /* 92 px de large : icone AU-DESSUS du nom, pas a cote */
   align-items: center;
-  gap: var(--esp-2);
-  padding: var(--esp-2);
+  justify-content: center;
+  gap: 2px;
+  padding: var(--esp-1);
   border-top: 0;
   border-bottom: 0;
   border-left: 0;
   color: var(--texte);
-  text-align: left;
+  text-align: center;
   cursor: pointer;
   min-height: var(--cible-tactile);
 }
 .tab-sport-dessin { flex: 0 0 auto; color: var(--accent); display: grid; place-items: center; }
 .tab-sport-textes { display: flex; flex-direction: column; min-width: 0; }
 .tab-sport-nom {
-  font-size: var(--txt-s);
+  font-size: var(--txt-xs);
   font-weight: 600;
   line-height: 1.15;
   display: -webkit-box;
@@ -985,9 +996,8 @@
 .tab-sport-sous { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
 
 .tab-col {
-  flex: 0 0 64px;
-  width: 64px;
-  padding: var(--esp-1);
+  min-width: 0;
+  padding: 2px 0;
   display: grid;
   place-items: center;
   font-size: var(--txt-xs);
@@ -996,32 +1006,44 @@
   font-variant-numeric: tabular-nums;
 }
 
-.tab-cellules { display: flex; align-items: stretch; }
+/* display:contents : les cellules deviennent des items DIRECTS de la grille de la rangee,
+   tout en laissant la vue reconstruire cette seule zone (contrat de rendu inchange). */
+.tab-cellules { display: contents; }
 
 /* Une case de serie : LA cible tactile du tableau. Les etats passent par data-etat, pas par des
    classes (voir l'assertion d'integrite de tests.html). */
 .tab-cellule {
-  flex: 0 0 64px;
-  width: 64px;
-  min-height: 64px;
+  min-width: 0;
+  min-height: 56px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 0;
+  padding: 2px 0;
   border: 0;
   border-left: 1px solid var(--bordure);
   background: none;
   color: var(--texte);
   cursor: pointer;
+  overflow: hidden;
 }
 .tab-cellule-grand {
-  font-size: var(--txt-l);
+  font-size: var(--txt-m);
   font-weight: 700;
   font-variant-numeric: tabular-nums;   /* les chiffres ne sautent pas d'une case a l'autre */
   line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
 }
-.tab-cellule-petit { font-size: var(--txt-xs); color: var(--texte-attenue); font-variant-numeric: tabular-nums; }
+.tab-cellule-petit {
+  font-size: 9px;
+  color: var(--texte-attenue);
+  font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
 
 .tab-cellule[data-etat='faite'] { background: var(--succes-doux); }
 .tab-cellule[data-etat='faite'] .tab-cellule-grand { color: var(--succes); }
@@ -1201,6 +1223,62 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   8 quinquies. Seances FAVORITES (v4) — coeur pour « refaire cette seance »
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Coeur d'une ligne d'historique : meme boite que la poubelle voisine, mais en accent —
+   deux boutons rouges cote a cote se liraient comme deux dangers. */
+.historique-favori {
+  min-width: var(--cible-mini);
+  min-height: var(--cible-mini);
+  display: grid;
+  place-items: center;
+  border-radius: var(--rayon-s);
+  border: 1px solid var(--bordure);
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+/* Pastille coeur, posee en coin de tuile sur l'accueil (absolue, comme pastille-origine). */
+.pastille-favori {
+  display: inline-grid;
+  place-items: center;
+  padding: 3px;
+  border-radius: var(--rayon-plein);
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+.grille-lanceurs .pastille-favori {
+  position: absolute;
+  top: var(--esp-2);
+  right: var(--esp-2);
+}
+
+/* Detail d'une seance close : le bouton « Refaire cette séance » et sa note. */
+.zone-refaire { display: flex; flex-direction: column; gap: var(--esp-2); }
+.detail-refaire {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--esp-2);
+  border: 1px solid var(--accent);
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+.zone-refaire-note { font-size: var(--txt-xs); color: var(--texte-attenue); }
+
+/* Bascule favori sur une carte de routine : eteint = attenue, allume = accent plein.
+   L'etat passe par data-favori, jamais par une classe conditionnelle. */
+.bouton-favori { color: var(--texte-attenue); }
+.bouton-favori[data-favori='oui'] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-doux);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    9. Accessibilite et mouvement
    ───────────────────────────────────────────────────────────────────────────── */
 
@@ -1212,4 +1290,64 @@
   .exercice-tuile {
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ── Double courbe « Poids + reps » (ui/chart.js a deux echelles Y) ──────────
+   Les etiquettes Y de chaque echelle prennent la couleur de LEUR serie via data-serie,
+   memes teintes que .courbe-serie : le lien echelle <-> trace se lit d'un coup d'oeil. */
+.courbe-etiquette-y[data-serie='1'] { fill: var(--serie-couleur, var(--accent)); }
+.courbe-etiquette-y[data-serie='2'] { fill: var(--serie-couleur, var(--succes)); }
+.courbe-etiquette-y[data-serie='3'] { fill: var(--serie-couleur, var(--alerte)); }
+.courbe-etiquette-y[data-serie='4'] { fill: var(--serie-couleur, var(--texte)); }
+
+/* Bascule « Poids + reps » de la vue progression. */
+.bouton-double-courbe {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  padding: var(--esp-1) var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--texte-attenue);
+  font-size: var(--txt-s);
+  font-weight: 600;
+}
+.bouton-double-courbe[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* ── Date de seance modifiable (detail d'historique) ───────────────────────── */
+.detail-date-rangee {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  flex-wrap: wrap;
+}
+.bouton-date {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  font-size: var(--txt-s);
+}
+.editeur-date {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+/* ⚠ 16px minimum : en dessous, iOS zoome sur le champ au focus. */
+.champ-date-seance {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m, 12px);
+  background: var(--surface);
+  color: var(--texte);
+  font-size: max(16px, 1rem);
+  font-variant-numeric: tabular-nums;
 }

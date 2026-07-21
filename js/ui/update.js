@@ -72,8 +72,13 @@ function noeuds() {
 /** true si une seance est en cours. Enveloppe : store peut ne pas etre initialise (amorcage
  *  partiel, ecran de secours) et cette fonction ne doit jamais faire echouer l'appelant. */
 function seanceEnCours() {
+  // v4 : le bandeau n'est differe que si l'utilisateur est SUR l'ecran de seance. L'ancienne
+  // regle (« une seance active, n'importe ou ») pouvait differer la mise a jour INDEFINIMENT :
+  // avec les seances multiples, il traine presque toujours une seance « en cours » — c'est
+  // exactement ce qui a empeche la propagation d'une version chez l'utilisateur, au point
+  // qu'il a du ouvrir un autre navigateur.
   try {
-    return !!store.seanceActive();
+    return location.hash.indexOf('#/seance') === 0 && !!store.seanceActive();
   } catch (_) {
     return false;
   }

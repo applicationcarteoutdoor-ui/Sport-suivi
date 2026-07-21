@@ -22,7 +22,9 @@
 //     qu'une palette seule exclut les daltoniens de la moitie de l'ecran ;
 //   - l'axe X est l'UNION des dates : chaque serie ne trace que ses propres points, jamais une
 //     valeur interpolee qui n'a jamais ete mesuree ;
-//   - comparer des kilos a des minutes est REFUSE avec un message, pas trace au hasard.
+//   - EXACTEMENT DEUX unites distinctes sont admises, chacune sur SA propre echelle Y
+//     (graduations de la premiere a gauche, de la seconde a droite, colorees par serie) ;
+//     au-dela de deux unites, la comparaison est REFUSEE avec un message, pas tracee au hasard.
 
 // ⚠ `vider` n'est volontairement PAS importe : le fragment ne vide JAMAIS le conteneur de
 // l'appelant (qui porte aussi le tableau des 20 dernieres seances), il n'en retire que sa racine.
@@ -346,10 +348,12 @@ export function renderLineChart(conteneur, options = {}) {
 
   // ── Refus explicite : des unites incompatibles ────────────────────────────
   // ⚠ Superposer des kilos et des minutes sur un meme axe produit un graphe qui a l'air juste et
-  //    qui ne veut rien dire. On refuse EN LE DISANT, plutot que de tracer n'importe quoi.
+  //    qui ne veut rien dire. EXACTEMENT DEUX unites distinctes sont toutefois admises : chacune
+  //    recoit alors SA propre echelle Y (graduations de la premiere a gauche, de la seconde a
+  //    droite, dans la couleur de leur serie). Au-dela de deux, on refuse EN LE DISANT.
   const unites = [];
   for (const s of pleines) if (unites.indexOf(s.unite) === -1) unites.push(s.unite);
-  if (unites.length > 1) {
+  if (unites.length > 2) {
     racine.appendChild(h('div', { class: 'courbe-refus', role: 'status' },
       h('p', { class: 'courbe-refus-titre' }, 'Comparaison impossible'),
       h('p', { class: 'courbe-refus-texte' },
@@ -601,16 +605,28 @@ export function renderLineChart(conteneur, options = {}) {
     //    quel que soit ce qu'on lui donne.
     const series = pleines.slice(0, MAX_SERIES);
     const tronquees = pleines.length > MAX_SERIES;
-    const uniteCommune = series[0].unite == null ? unite : series[0].unite;
+    const uniteDe = (s) => (s.unite == null ? unite : s.unite);
 
+    // ── Echelles : UNE par unite (une ou deux, la garde d'unites a deja tranche) ──
     // Domaine calcule sur TOUTES les series visibles au montage. Masquer une serie depuis la
     // legende ne remet PAS l'echelle a jour : une echelle qui saute a chaque tap rend toute
     // comparaison visuelle impossible, et cela reconstruirait le sous-arbre du fragment.
-    const toutesValeurs = [];
-    for (const s of series) for (const p of s.points) toutesValeurs.push(p.y);
-    const [minY, maxY] = domaineY(toutesValeurs);
-    const { valeurs: ticks, pas } = graduationsY(minY, maxY);
-    const dec = decimalesDe(pas);
+    // A DEUX unites, chaque serie est projetee sur l'echelle de SON unite : les kilos et les
+    // repetitions gardent chacun toute la hauteur du graphe.
+    const unitesVisibles = [];
+    for (const s of series) {
+      const u = uniteDe(s);
+      if (unitesVisibles.indexOf(u) === -1) unitesVisibles.push(u);
+    }
+    const echelles = new Map();
+    for (const u of unitesVisibles) {
+      const vals = [];
+      for (const s of series) if (uniteDe(s) === u) for (const p of s.points) vals.push(p.y);
+      const [minY, maxY] = domaineY(vals);
+      const { valeurs: ticks, pas } = graduationsY(minY, maxY);
+      echelles.set(u, { unite: u, minY, maxY, ticks, dec: decimalesDe(pas) });
+    }
+    const echelleDe = (s) => echelles.get(uniteDe(s));
 
     // ── Axe X : UNION des dates ──────────────────────────────────────────────
     // Chaque serie ne trace que ses propres points. Une date ou une serie n'a rien mesure reste
@@ -624,14 +640,15 @@ export function renderLineChart(conteneur, options = {}) {
     const droitePlot = LARGEUR - MARGE_DROITE;
     const largeurPlot = droitePlot - gauchePlot;
     const hauteurPlot = basPlot - hautPlot;
-    const etendueY = maxY - minY;
 
     const xDe = (i) => gauchePlot + (dates.length === 1 ? largeurPlot / 2 : (i * largeurPlot) / (dates.length - 1));
-    const yDe = (v) => basPlot - ((v - minY) / etendueY) * hauteurPlot;
+    const yDe = (ech, v) => basPlot - ((v - ech.minY) / (ech.maxY - ech.minY)) * hauteurPlot;
 
     const description = 'Comparaison de ' + series.length + ' courbes. '
-      + series.map((s) => `${s.libelle || 'Courbe'} : ${descriptionTendance(s.points, uniteCommune, sens, dec)}`)
-        .join(' ');
+      + series.map((s) => {
+        const ech = echelleDe(s);
+        return `${s.libelle || 'Courbe'} : ${descriptionTendance(s.points, ech.unite, sens, ech.dec)}`;
+      }).join(' ');
 
     const graphe = svg('svg', {
       class: 'courbe-svg',
@@ -641,20 +658,44 @@ export function renderLineChart(conteneur, options = {}) {
     });
     graphe.appendChild(svg('title', null, description));
 
-    // Grille et etiquettes Y : identiques au rendu simple, une seule echelle pour tout le monde.
+    // Grille : celle de l'echelle de GAUCHE uniquement. A deux unites, deux grilles entrelacees
+    // ne seraient que du bruit — les etiquettes de droite suffisent a lire la seconde echelle.
+    const echelleGauche = echelles.get(unitesVisibles[0]);
     const grille = svg('g', { class: 'courbe-grille' });
-    const etiquettesY = svg('g', { class: 'courbe-etiquette-y' });
-    for (const t of ticks) {
-      const y = yDe(t);
+    for (const t of echelleGauche.ticks) {
+      const y = yDe(echelleGauche, t);
       grille.appendChild(svg('line', { x1: gauchePlot, y1: y, x2: droitePlot, y2: y }));
-      etiquettesY.appendChild(svg('text', {
-        x: gauchePlot + 2,
-        y: y - 4,
-        'text-anchor': 'start'
-      }, formatValeur(t, uniteCommune, dec)));
     }
     graphe.appendChild(grille);
-    graphe.appendChild(etiquettesY);
+
+    // Etiquettes Y : premiere unite a GAUCHE, seconde a DROITE. A deux unites, chaque groupe
+    // prend via data-serie la couleur de la PREMIERE serie qui porte son unite (regle css/v2.css) :
+    // le lien echelle↔courbe se lit d'un coup d'oeil. A une seule unite, rendu inchange.
+    const rangDe = (u) => {
+      for (let i = 0; i < series.length; i++) if (uniteDe(series[i]) === u) return i + 1;
+      return 1;
+    };
+    const couleurDe = (u) => {
+      for (const s of series) if (uniteDe(s) === u) return s.couleur || null;
+      return null;
+    };
+    unitesVisibles.forEach((u, cote) => {
+      const ech = echelles.get(u);
+      const attrs = { class: 'courbe-etiquette-y' };
+      if (unitesVisibles.length === 2) attrs['data-serie'] = String(rangDe(u));
+      const groupeEtiquettes = svg('g', attrs);
+      const couleur = unitesVisibles.length === 2 ? couleurDe(u) : null;
+      if (couleur) groupeEtiquettes.style.setProperty('--serie-couleur', couleur);
+      for (const t of ech.ticks) {
+        const y = yDe(ech, t);
+        groupeEtiquettes.appendChild(svg('text', {
+          x: cote === 0 ? gauchePlot + 2 : droitePlot - 2,
+          y: y - 4,
+          'text-anchor': cote === 0 ? 'start' : 'end'
+        }, formatValeur(t, ech.unite, ech.dec)));
+      }
+      graphe.appendChild(groupeEtiquettes);
+    });
 
     // Etiquettes X : 4 au maximum, jamais inclinees, prises sur l'axe COMMUN.
     const etiquettesX = svg('g', { class: 'courbe-etiquette' });
@@ -681,10 +722,11 @@ export function renderLineChart(conteneur, options = {}) {
       // personnalisee : le CSS reste maitre du reste (epaisseur, opacite, contour creux).
       if (serie.couleur) groupe.style.setProperty('--serie-couleur', serie.couleur);
 
+      const echelleSerie = echelleDe(serie);
       const positions = serie.points.map((p) => ({
         p,
         x: xDe(parDate.get(p.x)),
-        y: yDe(p.y)
+        y: yDe(echelleSerie, p.y)
       }));
 
       const d = positions
@@ -800,7 +842,8 @@ export function renderLineChart(conteneur, options = {}) {
 
       const p = trouve.position.p;
       const nom = trouve.rendu.serie.libelle;
-      const detail = p.libelle || formatValeur(p.y, uniteCommune, dec);
+      const ech = echelleDe(trouve.rendu.serie);
+      const detail = p.libelle || formatValeur(p.y, ech.unite, ech.dec);
       poserBulle(
         graphe,
         `${nom ? nom + ' — ' : ''}${formatLong(p.x)} : ${detail}`,

@@ -108,6 +108,17 @@ export function mount(conteneur, params) {
   /** entryId -> { entree, rangee, zoneCellules } */
   const rangees = new Map();
 
+  // Nombre de colonnes PARTAGE par toutes les rangees : le tableau est une grille CSS unique
+  // (variable --tab-cols), les 8 colonnes de base tiennent TOUTES a l'ecran sans defilement
+  // (retour utilisateur v4 : « il n'y a toujours que 4 series affichees » — elles y etaient,
+  // mais hors champ, derriere un defilement lateral que rien ne signalait).
+  let colsAffichees = 0;
+  function maxColonnes() {
+    let m = COLONNES_MIN;
+    for (const r of rangees.values()) m = Math.max(m, nbColonnes(r.entree));
+    return m;
+  }
+
   // ── Coquille : noeuds empruntes, jamais remplaces ──────────────────────────
   // v3 : cette vue n'utilise PLUS la barre d'action basse. « Terminer la séance » vit DANS la
   // page (apres « + Ajouter un exercice ») et dans le menu ⋮. On ne touche donc ni a
@@ -195,7 +206,9 @@ export function mount(conteneur, params) {
     if (sous) sous.textContent = sousTexteSport(entree);
 
     vider(r.zoneCellules);
-    const nb = nbColonnes(entree);
+    // ⚠ Le nombre GLOBAL, pas celui de l'entree : toutes les rangees partagent la meme grille,
+    //   une rangee plus courte decalerait sa colonne « + » dans une case de serie.
+    const nb = maxColonnes();
 
     for (let i = 0; i < nb; i++) {
       const serie = entree.series[i] || null;
@@ -249,16 +262,20 @@ export function mount(conteneur, params) {
     }, '+'));
   }
 
-  /** L'entete « Exercice | S1 S2 … » suit la rangee la plus longue. */
+  /** L'entete « Exercice | S1 S2 … » et la variable de grille partagee par toutes les rangees. */
   function majEntete() {
+    const max = maxColonnes();
+    defile.style.setProperty('--tab-cols', String(max));
     vider(enteteRangee);
-    let max = 0;
-    for (const r of rangees.values()) {
-      max = Math.max(max, nbColonnes(r.entree));
-    }
     enteteRangee.appendChild(h('span', { class: 'tab-coin' }, 'Exercice'));
     for (let i = 1; i <= max; i++) enteteRangee.appendChild(h('span', { class: 'tab-col' }, 'S' + i));
     enteteRangee.appendChild(h('span', { class: 'tab-col' }, '+'));
+    // Le nombre de colonnes a change (serie ajoutee au-dela du minimum) : chaque rangee doit
+    // etre repeuplee a la nouvelle largeur, sinon sa colonne « + » glisse dans la grille.
+    if (max !== colsAffichees) {
+      colsAffichees = max;
+      for (const r of rangees.values()) majRangee(r);
+    }
   }
 
   function majSituation() {

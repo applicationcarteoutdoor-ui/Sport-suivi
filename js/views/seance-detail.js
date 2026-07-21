@@ -37,8 +37,8 @@ import * as bus from '../lib/bus.js';
 import { formatLong } from '../lib/dates.js';
 import { formatFr, formatDuree } from '../lib/num.js';
 import {
-  estComptable, estSeanceEnCours, estSeanceAbandonnee, LIBELLES_STATUTS_SEANCE,
-  champsSaisieEntree, pasChamp
+  estComptable, estSeanceEnCours, estSeanceAbandonnee, estSeanceClose,
+  LIBELLES_STATUTS_SEANCE, champsSaisieEntree, pasChamp, routineDepuisSeance
 } from '../data/schema.js';
 import * as store from '../data/store.js';
 import * as session from '../domain/session.js';
@@ -440,6 +440,73 @@ export function mount(conteneur, params = {}) {
     }));
   }
 
+  // ── Date de la seance : modifiable, passee OU future ────────────────────────
+
+  /**
+   * Deplace la seance a une autre date. `date` est deja au format dayKey 'YYYY-MM-DD' LOCAL —
+   * c'est la valeur brute d'un <input type=date>, on ne passe JAMAIS par new Date/toISOString
+   * (invariant n°10 : une seance a 23 h basculerait au lendemain). L'historique se regroupe
+   * tout seul via le bus, et le contenu de CETTE vue est reconstruit : la date est dans
+   * l'en-tete et la mention du snapshot.
+   */
+  function modifierDate(date) {
+    chaine = chaine.then(async () => {
+      const s = store.seance(idCourant);
+      if (!s || s.date === date) return;
+      s.date = date;
+      const resultat = await store.commit('seance:modifier', { seance: s });
+      const fraiche = (resultat && resultat.seance) || s;
+      construire(idCourant);
+      toast.afficher('Séance déplacée au ' + formatLong(fraiche.date) + '.');
+    }).catch((err) => {
+      console.error('[seance-detail] changement de date en échec', err);
+      toast.afficher('La date n\'a pas pu être modifiée.');
+    });
+    return chaine;
+  }
+
+  /**
+   * Feuille « Modifier la date » : un champ natif <input type=date> — autorise ICI, l'interdit
+   * du projet ne vise que l'ecran de saisie de seance. Police >= 16px (css) pour eviter le zoom
+   * iOS. N'importe quelle date est acceptee, passee ou future.
+   */
+  function ouvrirEditeurDate() {
+    const seance = store.seance(idCourant);
+    if (!seance) return;
+
+    const champ = h('input', {
+      type: 'date',
+      class: 'champ-date-seance',
+      value: seance.date,
+      'aria-label': 'Date de la séance'
+    });
+    const btnEnregistrer = h('button', {
+      class: 'bouton bouton-primaire bouton-large', type: 'button'
+    }, 'Enregistrer la date');
+
+    fermerEditeur();
+    const poignee = sheet.ouvrir({
+      titre: 'Modifier la date',
+      contenu: h('div', { class: 'editeur-date' },
+        h('p', { class: 'texte-attenue' },
+          'Passée ou future : la séance se rangera à cette date dans l\'historique.'),
+        champ,
+        h('div', { class: 'editeur-actions' }, btnEnregistrer)),
+      onFermer: () => { if (editeurHandle === poignee) editeurHandle = null; }
+    });
+    editeurHandle = poignee;
+
+    desabonnements.push(on(btnEnregistrer, 'click', () => {
+      const valeur = champ.value; // deja 'YYYY-MM-DD' local : on la prend TELLE QUELLE
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(valeur)) {
+        toast.afficher('Choisis une date valide.');
+        return;
+      }
+      poignee.fermer();
+      modifierDate(valeur);
+    }));
+  }
+
   /** Tap sur la colonne exercice : l'objectif GELE du jour, en lecture seule. */
   function ouvrirFicheExercice(entreeId) {
     const seance = store.seance(idCourant);
@@ -466,7 +533,7 @@ export function mount(conteneur, params = {}) {
     const libelle = s ? formatLong(s.date) : 'cette séance';
     store.commit('seance:supprimer', { id: idCourant })
       .then(() => {
-        toast.afficher('Séance du ' + libelle + ' supprimée.');
+        /* v4 : pas de popup de succes */
         router.aller('#/historique');
       })
       .catch((err) => {
@@ -513,6 +580,39 @@ export function mount(conteneur, params = {}) {
     });
   }
 
+  // ── Favoris : « refaire cette seance » ──────────────────────────────────────
+
+  /**
+   * Cree une routine FAVORITE a partir de la seance affichee (commit 'routine:creer').
+   * chargeCible reste { type:'derniere', delta:0 } : jamais un kilo en dur dans un modele.
+   * Une favorite du meme nom existe deja : pas de doublon, on le signale.
+   */
+  function ajouterFavori() {
+    const seance = store.seance(idCourant);
+    if (!seance || !estSeanceClose(seance)) return;
+
+    const snap = seance.modeleSnapshot;
+    const nom = (snap && snap.nom) || ('Séance du ' + formatLong(seance.date));
+    const brute = routineDepuisSeance(seance, { nom });
+
+    if (!brute.items.length) {
+      toast.afficher('Aucune série comptabilisée dans cette séance : rien à refaire.');
+      return;
+    }
+    const doublon = store.routines().find((r) => r && r.favori === true && (r.nom || '') === nom);
+    if (doublon) {
+      toast.afficher('« ' + nom + ' » est déjà dans tes favoris : relance-la depuis l\'accueil.', { duree: 6000 });
+      return;
+    }
+
+    store.commit('routine:creer', { routine: brute })
+      .then(() => toast.afficher('« ' + nom + ' » ajoutée aux favoris. Relance-la depuis l\'accueil.', { duree: 6000 }))
+      .catch((err) => {
+        console.error('[seance-detail] ajout aux favoris en échec', err);
+        toast.afficher('La séance n\'a pas pu être ajoutée aux favoris.');
+      });
+  }
+
   // ── Feuilles de confirmation ────────────────────────────────────────────────
 
   function fermerFeuilleLocale() {
@@ -526,6 +626,7 @@ export function mount(conteneur, params = {}) {
     feuilleNom = nom;
     feuilleHandle = sheet.ouvrir({
       titre: config.titre,
+      classe: config.classe || null,
       contenu: config.contenu,
       actions: config.actions,
       onFermer() {
@@ -545,15 +646,19 @@ export function mount(conteneur, params = {}) {
     if (!demandee) return;
 
     if (demandee === 'suppr-seance') {
+      // v4 : forme UNIQUE de la confirmation de suppression, partagee avec l'historique et
+      // l'accueil — titre, date et nom en clair, consequence en rouge, boutons pleine largeur.
       const s = store.seance(idCourant);
+      const nom = (s && s.modeleSnapshot && s.modeleSnapshot.nom) ||
+        (s && session.estCardioPure(s) ? 'Sortie cardio' : 'Séance libre');
       ouvrirConfirmation('suppr-seance', {
-        titre: 'Supprimer la séance ?',
+        titre: 'Supprimer cette séance ?',
+        classe: 'feuille-confirmation',
         contenu: h('div', { class: 'confirmation' },
-          h('p', { class: 'confirmation-texte' }, 'Séance du ' + (s ? formatLong(s.date) : '—') + '.'),
-          h('p', { class: 'confirmation-consequence' },
-            'Elle sera DÉFINITIVEMENT effacée, avec toutes ses séries. Rien ne permet de la rétablir.'),
           h('p', { class: 'confirmation-texte' },
-            'Les exercices, les modèles et les autres séances ne sont pas touchés.')
+            'Séance du ' + (s ? formatLong(s.date) : '—') + ' — ' + nom + '.'),
+          h('p', { class: 'confirmation-consequence' },
+            'Définitif. Elle disparaîtra des courbes et des records.')
         ),
         actions: [
           { libelle: 'Annuler', variante: 'fantome' },
@@ -664,7 +769,16 @@ export function mount(conteneur, params = {}) {
     const mentionStatut = texteStatut(seance);
 
     contenu.appendChild(h('div', { class: 'carte carte-detail-seance' },
-      h('p', { class: 'carte-titre' }, formatLong(seance.date)),
+      // La date est MODIFIABLE, passee ou future : le crayon a cote ouvre la feuille dediee.
+      h('div', { class: 'detail-date-rangee' },
+        h('p', { class: 'carte-titre' }, formatLong(seance.date)),
+        h('button', {
+          class: 'bouton bouton-fantome bouton-date',
+          type: 'button',
+          dataset: { action: 'modifier-date' },
+          'aria-label': 'Modifier la date de la séance'
+        }, icone('crayon', { taille: 16 }), h('span', null, 'Modifier la date'))
+      ),
       h('div', { class: 'detail-titre-rangee' },
         h('h2', { class: 'entete-titre detail-titre' }, titre),
         pastilleStatut(seance)
@@ -702,6 +816,23 @@ export function mount(conteneur, params = {}) {
         'Touche une case pour corriger la série.'));
     }
 
+    // ── Refaire cette seance (favoris) ────────────────────────────────────────
+    // Seulement sur une seance CLOSE : une seance en cours n'a rien de fini a refaire.
+    if (estSeanceClose(seance)) {
+      contenu.appendChild(h('div', { class: 'zone-refaire' },
+        h('button', {
+          class: 'bouton bouton-large detail-refaire',
+          type: 'button',
+          dataset: { action: 'refaire' }
+        },
+          icone('coeur', { taille: 20 }),
+          h('span', null, 'Refaire cette séance')),
+        h('p', { class: 'zone-refaire-note' },
+          'Ajoute cette séance aux favoris : une routine à relancer à vide depuis l\'accueil, ' +
+          'avec les mêmes exercices et les mêmes objectifs.')
+      ));
+    }
+
     // ── Zone dangereuse ───────────────────────────────────────────────────────
     // L'abandon n'a de sens que sur une seance ENCORE OUVERTE : sur une seance close il n'aurait
     // rien a interrompre, et le store le refuserait de toute facon (estSeanceEnCours).
@@ -734,6 +865,8 @@ export function mount(conteneur, params = {}) {
   const off = delegate(racine, 'click', '[data-action]', (ev, cible) => {
     const action = cible.getAttribute('data-action');
     if (action === 'suppr-seance') { ev.preventDefault(); router.ouvrirFeuille('suppr-seance'); return; }
+    if (action === 'modifier-date') { ev.preventDefault(); ouvrirEditeurDate(); return; }
+    if (action === 'refaire') { ev.preventDefault(); ajouterFavori(); return; }
     if (action === 'abandon-seance') { ev.preventDefault(); router.ouvrirFeuille('abandon-seance'); return; }
     if (action === 'cellule') {
       ev.preventDefault();

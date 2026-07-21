@@ -129,8 +129,21 @@ export const ICONES = {
     L(8.2, 15, 15.8, 15)
   ],
 
-  // Le coeur : le seul symbole qui dit « cardio » sans dire QUEL cardio.
+  // v4 : le cardio, c'est quelqu'un qui TRANSPIRE (demande utilisateur) — coureur en foulee,
+  // buste penche, gouttes qui volent derriere la tete. Le coeur est libere pour les favoris.
   'cardio': () => [
+    tete(13.8, 4.6),
+    L(13.3, 6.2, 11.4, 12.2),
+    L(12.7, 7.8, 16.6, 9.8),
+    L(13, 7.5, 9.4, 9),
+    PL('11.4,12.2 14.6,15.2 13.8,20.2'),
+    PL('11.4,12.2 8.2,15.6 5.8,19.4'),
+    L(9.6, 2.8, 9, 4.6),
+    L(7.2, 4.6, 6.6, 6.4)
+  ],
+
+  // Le coeur — reserve aux seances FAVORITES (jamais au cardio, voir ci-dessus).
+  'coeur': () => [
     P('M12 20.2 C 5.2 15.4, 3 11, 5.6 7.6 C 7.8 4.8, 10.8 5.6, 12 8.2 '
       + 'C 13.2 5.6, 16.2 4.8, 18.4 7.6 C 21 11, 18.8 15.4, 12 20.2 Z')
   ],

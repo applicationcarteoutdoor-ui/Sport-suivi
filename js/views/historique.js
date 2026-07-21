@@ -26,7 +26,10 @@ import { h, delegate, vider } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import { moisDe, cleMois, formatLong } from '../lib/dates.js';
 import { formatFr } from '../lib/num.js';
-import { estComptable, estSeanceClose, estSeanceAbandonnee, LIBELLES_STATUTS_SEANCE } from '../data/schema.js';
+import {
+  estComptable, estSeanceClose, estSeanceAbandonnee, LIBELLES_STATUTS_SEANCE,
+  routineDepuisSeance
+} from '../data/schema.js';
 import { packDeLExercice } from '../data/packs.js';
 import * as store from '../data/store.js';
 import { resumeSerie } from '../domain/metrics.js';
@@ -297,7 +300,16 @@ export function mount(conteneur) {
       'aria-label': 'Supprimer la séance du ' + formatLong(seance.date)
     }, icone('poubelle', { taille: 20 }));
 
-    const rangee = h('div', { class: 'historique-rangee' }, bouton, supprimer);
+    // Coeur : « refaire cette seance » — cree une routine FAVORITE a partir des series faites.
+    // Bouton FRERE, comme la poubelle : jamais de bouton dans un bouton.
+    const favori = h('button', {
+      class: 'historique-favori',
+      type: 'button',
+      dataset: { action: 'favori', id: seance.id },
+      'aria-label': 'Ajouter aux favoris la séance du ' + formatLong(seance.date) + ' pour la refaire'
+    }, icone('coeur', { taille: 20 }));
+
+    const rangee = h('div', { class: 'historique-rangee' }, bouton, favori, supprimer);
 
     const ref = { rangee, bouton, supprimer, nom, resume, marque, vignette, icones };
     peindreVignette(ref, seance);
@@ -378,16 +390,17 @@ export function mount(conteneur) {
     if (!seance) return;
     fermerFeuille();
 
+    // v4 : forme UNIQUE de la confirmation de suppression, partagee avec le detail et l'accueil —
+    // titre, date et nom en clair, consequence en rouge, deux boutons pleine largeur.
     const jeton = { fermer: null };
     const poignee = sheet.ouvrir({
       titre: 'Supprimer cette séance ?',
+      classe: 'feuille-confirmation',
       contenu: h('div', { class: 'confirmation' },
         h('p', { class: 'confirmation-texte' },
           'Séance du ' + formatLong(seance.date) + ' — ' + nomSeance(seance) + '.'),
         h('p', { class: 'confirmation-consequence' },
-          'Elle sera DÉFINITIVEMENT effacée, avec toutes ses séries. Rien ne permet de la rétablir.'),
-        h('p', { class: 'confirmation-texte' },
-          'Les exercices, les modèles et les autres séances ne sont pas touchés.')
+          'Définitif. Elle disparaîtra des courbes et des records.')
       ),
       actions: [
         { libelle: 'Annuler', variante: 'fantome' },
@@ -406,10 +419,43 @@ export function mount(conteneur) {
     //   l'evenement 'seance:supprimer' du bus qui la retire, quelle que soit l'origine de la
     //   suppression (cet ecran, le detail, un import). Un seul chemin, donc un seul comportement.
     store.commit('seance:supprimer', { id })
-      .then(() => toast.afficher(quand ? 'Séance du ' + quand + ' supprimée.' : 'Séance supprimée.', { duree: 5000 }))
+      
       .catch((err) => {
         console.error('[historique] suppression en échec', err);
         toast.afficher('La séance n\'a pas pu être supprimée.', { duree: 6000 });
+      });
+  }
+
+  // ── Favoris : « refaire cette seance » ──────────────────────────────────────
+
+  /**
+   * Cree une routine FAVORITE a partir d'une seance close (commit 'routine:creer').
+   * Les cibles decrivent ce qui a ete reellement fait ; la charge reste { type:'derniere' } —
+   * jamais un kilo en dur. Une favorite du MEME nom deja presente : pas de doublon, on le dit.
+   */
+  function ajouterFavori(id) {
+    const seance = store.seance(id);
+    if (!seance || !estSeanceClose(seance)) return;
+
+    const snap = seance.modeleSnapshot;
+    const nom = (snap && snap.nom) || ('Séance du ' + formatLong(seance.date));
+    const brute = routineDepuisSeance(seance, { nom });
+
+    if (!brute.items.length) {
+      toast.afficher('Aucune série comptabilisée dans cette séance : rien à refaire.');
+      return;
+    }
+    const doublon = store.routines().find((r) => r && r.favori === true && (r.nom || '') === nom);
+    if (doublon) {
+      toast.afficher('« ' + nom + ' » est déjà dans tes favoris : relance-la depuis l\'accueil.', { duree: 6000 });
+      return;
+    }
+
+    store.commit('routine:creer', { routine: brute })
+      .then(() => toast.afficher('« ' + nom + ' » ajoutée aux favoris. Relance-la depuis l\'accueil.', { duree: 6000 }))
+      .catch((err) => {
+        console.error('[historique] ajout aux favoris en échec', err);
+        toast.afficher('La séance n\'a pas pu être ajoutée aux favoris.');
       });
   }
 
@@ -464,6 +510,7 @@ export function mount(conteneur) {
     const id = cible.getAttribute('data-id');
     if (!id) return;
     if (action === 'ouvrir') { ev.preventDefault(); router.aller('#/historique/' + encodeURIComponent(id)); return; }
+    if (action === 'favori') { ev.preventDefault(); ajouterFavori(id); return; }
     if (action === 'supprimer') { ev.preventDefault(); demanderSuppression(id); }
   });
 

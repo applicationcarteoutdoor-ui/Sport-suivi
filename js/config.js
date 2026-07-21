@@ -24,7 +24,7 @@ export const DB_VERSION = 1;
 
 // Version applicative. Doit rester alignee sur le champ `version` de version.json a chaque
 // deploiement : c'est la comparaison entre les deux qui declenche le bandeau de mise a jour.
-export const APP_VERSION = '2026-07-20-07';
+export const APP_VERSION = '2026-07-20-08';
 
 // Les 6 magasins IndexedDB, figes au premier commit.
 // `cle` = keyPath ; `index` = index secondaires a creer dans onUpgrade.

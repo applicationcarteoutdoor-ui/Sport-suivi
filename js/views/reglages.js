@@ -24,6 +24,7 @@ import * as sheet from '../ui/sheet.js';
 import * as toast from '../ui/toast.js';
 import * as keypad from '../ui/keypad.js';
 import { estIOS, estStandalone, estInstallable, proposer } from '../ui/install.js';
+import { verifier } from '../ui/update.js';
 import { ouvrirFeuille, fermerFeuille, aller } from '../ui/router.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -364,11 +365,22 @@ function monterReglages(conteneur, paramsInitiaux) {
 
   // ── 9. À propos ──────────────────────────────────────────────────────────
 
+  // v4 : verification manuelle de mise a jour — l'utilisateur a du changer de navigateur pour
+  // voir une nouvelle version, ce bouton lui evite d'attendre le prochain passage du throttle.
+  const etatMaj = h('span', { class: 'ligne-liste-secondaire', role: 'status' }, '');
+  let verificationMajEnCours = false;
+
   const groupeApropos = groupe('À propos',
     ligneInfo('Version de l\'application',
       h('span', { class: 'ligne-liste-secondaire' }, APP_VERSION)),
     ligneInfo('Version du schéma de données',
       h('span', { class: 'ligne-liste-secondaire' }, String(SCHEMA_VERSION))),
+    ligneAction('Rechercher une mise à jour',
+      'Compare la version installée à la dernière publiée.',
+      'verifier-maj', etatMaj),
+    h('p', { class: 'ligne-reglage-aide', style: { padding: '0 var(--esp-4) var(--esp-3)' } },
+      'Après une publication, la mise à jour peut mettre jusqu\'à 10 minutes à apparaître ' +
+      '(cache du CDN de GitHub Pages).'),
     h('a', { class: 'ligne-liste', href: '#/aide/installation' },
       h('div', {},
         h('div', { class: 'ligne-liste-principal' }, 'Installer l\'application'),
@@ -857,6 +869,41 @@ function monterReglages(conteneur, paramsInitiaux) {
       return;
     }
     if (!detruit) btnPersister.disabled = false;
+  }
+
+  /**
+   * Verification manuelle de mise a jour. verifier({ force: true }) ignore le throttle de
+   * 15 minutes et ne rejette jamais : elle rend une issue, traduite ici en toast. L'affichage
+   * du bandeau « recharger », lui, reste entierement pilote par ui/update.js.
+   */
+  async function actionVerifierMaj() {
+    if (verificationMajEnCours) return;
+    verificationMajEnCours = true;
+    etatMaj.textContent = 'Vérification…';
+    try {
+      const issue = await verifier({ force: true });
+      if (detruit) return;
+      if (issue === 'a-jour') {
+        etatMaj.textContent = 'À jour';
+        toast.afficher('Application à jour.', { duree: 5000 });
+      } else if (issue === 'precache') {
+        etatMaj.textContent = 'Téléchargement…';
+        toast.afficher('Nouvelle version en téléchargement… Un bandeau proposera de recharger ' +
+          'dès qu\'elle sera prête.', { duree: 8000 });
+      } else if (issue === 'kill') {
+        etatMaj.textContent = '—';
+        toast.afficher('Cette version a été désactivée : un rechargement va être proposé.', { duree: 8000 });
+      } else if (issue === 'indisponible') {
+        etatMaj.textContent = '—';
+        toast.afficher('Vérification indisponible : ce navigateur ne prend pas en charge la ' +
+          'mise à jour automatique.', { duree: 8000 });
+      } else {
+        etatMaj.textContent = 'Échec';
+        toast.afficher('Vérification impossible. Es-tu hors ligne ?', { duree: 8000 });
+      }
+    } finally {
+      verificationMajEnCours = false;
+    }
   }
 
   async function actionArchiverLieu(id) {
