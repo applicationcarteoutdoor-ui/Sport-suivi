@@ -1895,3 +1895,59 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
   font-size: 13px;
   line-height: 1;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   16. v9 — onglets de metriques equilibres, stepper de charge en ligne
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Les onglets de metriques occupent TOUTE la largeur (l'onglet « Répétitions max » a disparu,
+   la place a droite restait vide — retour utilisateur). ⚠ Meme specificite que la regle
+   historique .vue-progression .metriques .segment (flex: 0 0 auto), qu'elle doit battre. */
+.metriques { display: flex; gap: var(--esp-2); }
+.vue-progression .metriques .segment {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 var(--esp-2);
+  white-space: nowrap;
+}
+
+/* Stepper de charge/lest dans la ligne compacte du composeur : boutons reduits mais tapables,
+   valeur toujours visible — le tap au milieu ouvre le pave (contrat stepper.js).
+   ⚠ Budget de largeur SERRE (mesure a 349px utiles) : dessin 32 + nom (flex, ellipse) +
+   stepper ~130 + commandes 84 + gaps. Le nom est le seul a retrecir. */
+.ligne-exercice-compacte { gap: var(--esp-2); }
+.ligne-exercice-compacte .ligne-exercice-dessin { width: 32px; height: 32px; }
+.ligne-charge-stepper { flex: 0 0 auto; }
+.ligne-exercice-compacte .stepper {
+  gap: 2px;
+  /* ⚠ Le stepper de base est une GRILLE aux pistes taillees pour l'ecran de saisie (56px par
+     bouton) : imposer une largeur aux boutons ne retrecit PAS les pistes. On redefinit les
+     colonnes — c'est ELLES qui font la largeur. */
+  grid-template-columns: 28px minmax(44px, auto) 28px;
+  min-width: 0;
+  width: auto;
+  padding: 0;
+}
+.ligne-exercice-compacte .stepper-bouton {
+  min-width: 28px;
+  width: 28px;
+  min-height: 32px;
+  padding: 0;
+}
+.ligne-exercice-compacte .stepper-valeur {
+  min-width: 40px;
+  max-width: 64px;
+  padding: 0 2px;
+  font-size: var(--txt-m);
+  overflow: hidden;
+}
+.ligne-exercice-compacte .stepper-unite { font-size: var(--txt-xs); }
+.ligne-exercice-compacte .stepper-astuce { display: none; }
+/* Le NOM garde toujours une largeur lisible : c'est le stepper et les commandes qui cedent. */
+.ligne-exercice-compacte .ligne-exercice-nom { min-width: 72px; }
+.ligne-exercice-compacte .ligne-commande {
+  min-width: 28px;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+}

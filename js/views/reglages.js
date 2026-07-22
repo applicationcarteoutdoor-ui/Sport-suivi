@@ -399,11 +399,11 @@ function monterReglages(conteneur, paramsInitiaux) {
   );
 
   // ── Assemblage : 5 groupes repliables ────────────────────────────────────
-  // « Données » reste EN TETE et est le seul groupe ouvert par defaut : un export enterre sous
-  // les interrupteurs est un export qui n'est jamais fait. « Tout remplacer » (import) garde sa
-  // zone-danger a l'interieur du parcours d'import : il n'existe pas hors d'une analyse reussie.
-  const groupeDonnees = groupePliant({ nomIcone: 'telecharger', titre: 'Données', ouvert: true },
-    blocExport, blocImport, blocMaintenance, blocStockage);
+  // v9 : « Données » reste EN TETE mais FERME comme les autres (retour utilisateur : il ne veut
+  // AUCUN groupe ouvert a l'arrivee), et ne contient plus que l'export et l'import — la
+  // maintenance (recalcul des derives) et le stockage sortent de l'ecran, machinerie dormante.
+  const groupeDonnees = groupePliant({ nomIcone: 'telecharger', titre: 'Données' },
+    blocExport, blocImport);
   const groupeCorps = groupePliant({ nomIcone: 'poids-du-corps', titre: 'Poids de corps' },
     blocPoids);
 
@@ -420,7 +420,7 @@ function monterReglages(conteneur, paramsInitiaux) {
   // range au DEPART (page cachee, repli invisible) : le retour retrouve l'ecran propre, et rien
   // ne se referme sous le doigt.
   const groupesParDefaut = [
-    { noeud: groupeDonnees, ouvert: true },
+    { noeud: groupeDonnees, ouvert: false },
     { noeud: groupeSeance, ouvert: false },
     { noeud: groupeCorps, ouvert: false },
     { noeud: groupeApparence, ouvert: false },
@@ -1100,9 +1100,9 @@ function monterReglages(conteneur, paramsInitiaux) {
   // ── Peinture initiale ────────────────────────────────────────────────────
   majPreferences();
   /* v8 : plus de chargerLieux() — les lieux ne sont plus affiches ici. */
+  /* v9 : plus de majStockage() initial — le bloc stockage n'est plus rendu. */
   majPoidsJour();
   chargerPoids();
-  majStockage();
   synchroniserFeuille(paramsInitiaux);
 
   return {

@@ -362,15 +362,18 @@ async function synchroniserCatalogue(existants) {
  * l'utilisateur dès la première ouverture.
  */
 async function semerModelesLivres() {
-  if (etat.meta.modelesSemes === true) return;
-
+  // v9 : le drapeau « semés une fois » ne suffit plus — de NOUVELLES séances livrées (ajoutées
+  // dans templates.js apres l'installation) doivent atteindre les appareils existants. On sème
+  // donc TOUT id manquant, à chaque démarrage : un modèle déjà présent — modifié, renommé ou
+  // ARCHIVÉ par l'utilisateur — est dans etat.modeles et n'est jamais retouché ; rien ne
+  // ressuscite, rien n'est écrasé (les modèles livrés s'archivent, ne se suppriment pas).
   const livres = Array.isArray(templates.MODELES) ? templates.MODELES : [];
   const manquants = livres.filter((m) => m && m.id && !etat.modeles.has(m.id)).map(copie);
   if (manquants.length) {
     await idb.putBatch(db, 'modeles', manquants);
     for (const m of manquants) etat.modeles.set(m.id, m);
   }
-  await ecrireMeta({ modelesSemes: true });
+  if (etat.meta.modelesSemes !== true) await ecrireMeta({ modelesSemes: true });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

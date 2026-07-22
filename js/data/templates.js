@@ -197,6 +197,148 @@ export const MODELES = [
       { exerciceId: 'cat:releve-de-jambes', seriesCibles: 3,
         repsCibles: { min: 8, max: 12 }, reposSec: 90 }
     ]
+  }),
+
+  // ═══ v9 — « de vraies séances types » (retour utilisateur) ═══════════════════
+  // Splits par SEGMENT, dans l'esprit des guides de mouvements classiques (un segment = une
+  // seance, du mouvement lourd vers l'isolation), et full body au POIDS DU CORPS dans l'esprit
+  // des methodes sans materiel (circuits, repos courts, hautes repetitions). Compositions
+  // ORIGINALES : aucun programme publie n'est recopie.
+
+  // ── 7. Pecs et triceps ─────────────────────────────────────────────────────
+  modele({
+    id: 'mod:pecs-triceps',
+    nom: 'Pecs et triceps',
+    description: 'Le segment pectoraux, du développé lourd à l\'isolation des triceps.',
+    dureeEstimeeMin: 55,
+    items: [
+      { exerciceId: 'cat:developpe-couche-barre', seriesCibles: 4, seriesEchauffement: 2,
+        repsCibles: { min: 5, max: 8 }, reposSec: 180 },
+      { exerciceId: 'cat:developpe-incline-barre', seriesCibles: 3, seriesEchauffement: 1,
+        repsCibles: { min: 8, max: 10 }, reposSec: 150 },
+      { exerciceId: 'cat:dips-barres', seriesCibles: 3,
+        repsCibles: { min: 8, max: 12 }, reposSec: 120 },
+      { exerciceId: 'cat:pompes', seriesCibles: 2,
+        repsCibles: { min: 12, max: 20 }, reposSec: 90,
+        note: 'Finisher, jusqu\'à la limite propre' },
+      { exerciceId: 'cat:extensions-triceps-poulie', seriesCibles: 3,
+        repsCibles: { min: 10, max: 12 }, reposSec: 90 },
+      { exerciceId: 'cat:extensions-triceps-nuque', seriesCibles: 3,
+        repsCibles: { min: 10, max: 12 }, reposSec: 90 }
+    ]
+  }),
+
+  // ── 8. Dos et biceps ───────────────────────────────────────────────────────
+  modele({
+    id: 'mod:dos-biceps',
+    nom: 'Dos et biceps',
+    description: 'Le segment dos : tirages verticaux, horizontaux, puis les bras.',
+    dureeEstimeeMin: 55,
+    items: [
+      { exerciceId: 'cat:tractions-pronation', seriesCibles: 4, seriesEchauffement: 1,
+        repsCibles: { min: 5, max: 8 }, reposSec: 150 },
+      { exerciceId: 'cat:rowing-barre', seriesCibles: 4, seriesEchauffement: 1,
+        repsCibles: { min: 8, max: 10 }, reposSec: 150 },
+      { exerciceId: 'cat:tirage-vertical', seriesCibles: 3,
+        repsCibles: { min: 10, max: 12 }, reposSec: 120 },
+      { exerciceId: 'cat:face-pull', seriesCibles: 3,
+        repsCibles: { min: 12, max: 15 }, reposSec: 75 },
+      { exerciceId: 'cat:curl-barre', seriesCibles: 3,
+        repsCibles: { min: 8, max: 12 }, reposSec: 90 },
+      { exerciceId: 'cat:curl-halteres', seriesCibles: 3,
+        repsCibles: { min: 10, max: 12 }, reposSec: 90 }
+    ]
+  }),
+
+  // ── 9. Épaules et abdos ────────────────────────────────────────────────────
+  modele({
+    id: 'mod:epaules-abdos',
+    nom: 'Épaules et abdos',
+    description: 'Les trois faisceaux de l\'épaule, puis la sangle abdominale.',
+    dureeEstimeeMin: 45,
+    items: [
+      { exerciceId: 'cat:developpe-militaire', seriesCibles: 4, seriesEchauffement: 1,
+        repsCibles: { min: 6, max: 10 }, reposSec: 150 },
+      { exerciceId: 'cat:elevations-laterales', seriesCibles: 4,
+        repsCibles: { min: 12, max: 15 }, reposSec: 75 },
+      { exerciceId: 'cat:oiseau', seriesCibles: 3,
+        repsCibles: { min: 12, max: 15 }, reposSec: 75 },
+      { exerciceId: 'cat:crunchs', seriesCibles: 3,
+        repsCibles: { min: 15, max: 20 }, reposSec: 60 },
+      { exerciceId: 'cat:releve-de-jambes', seriesCibles: 3,
+        repsCibles: { min: 10, max: 15 }, reposSec: 75 },
+      { exerciceId: 'cat:planche', seriesCibles: 3,
+        dureeCibleSec: 45, reposSec: 60 }
+    ]
+  }),
+
+  // ── 10. Chaîne postérieure ─────────────────────────────────────────────────
+  modele({
+    id: 'mod:chaine-posterieure',
+    nom: 'Chaîne postérieure',
+    description: 'Fessiers, ischios et bas du dos — le complément de la séance Jambes.',
+    dureeEstimeeMin: 50,
+    items: [
+      { exerciceId: 'cat:souleve-de-terre-roumain', seriesCibles: 4, seriesEchauffement: 1,
+        repsCibles: { min: 6, max: 10 }, reposSec: 180 },
+      { exerciceId: 'cat:hip-thrust', seriesCibles: 4,
+        repsCibles: { min: 8, max: 12 }, reposSec: 150 },
+      { exerciceId: 'cat:leg-curl', seriesCibles: 3,
+        repsCibles: { min: 10, max: 12 }, reposSec: 120 },
+      { exerciceId: 'cat:squat-bulgare', seriesCibles: 3,
+        repsCibles: { min: 8, max: 12 }, reposSec: 120,
+        note: 'Par jambe' },
+      { exerciceId: 'cat:mollets', seriesCibles: 4,
+        repsCibles: { min: 12, max: 20 }, reposSec: 90 }
+    ]
+  }),
+
+  // ── 11. Full body sans matériel 1 ──────────────────────────────────────────
+  // Esprit « methode sans materiel » : tout le corps a chaque seance, repos courts, hautes
+  // repetitions — 2 a 3 fois par semaine.
+  modele({
+    id: 'mod:fullbody-pdc-1',
+    nom: 'Full body sans matériel 1',
+    description: 'Tout le corps au poids du corps, repos courts. 2 à 3 fois par semaine.',
+    dureeEstimeeMin: 40,
+    items: [
+      { exerciceId: 'cat:pompes', seriesCibles: 5,
+        repsCibles: { min: 8, max: 15 }, reposSec: 60 },
+      { exerciceId: 'cat:dips-banc', seriesCibles: 4,
+        repsCibles: { min: 8, max: 15 }, reposSec: 60 },
+      { exerciceId: 'cat:tractions-supination', seriesCibles: 4,
+        repsCibles: { min: 5, max: 10 }, reposSec: 75 },
+      { exerciceId: 'cat:squat-poids-du-corps', seriesCibles: 4,
+        repsCibles: { min: 15, max: 20 }, reposSec: 60 },
+      { exerciceId: 'cat:releve-de-jambes', seriesCibles: 3,
+        repsCibles: { min: 10, max: 15 }, reposSec: 60 },
+      { exerciceId: 'cat:planche', seriesCibles: 3,
+        dureeCibleSec: 45, reposSec: 45 }
+    ]
+  }),
+
+  // ── 12. Full body sans matériel 2 ──────────────────────────────────────────
+  modele({
+    id: 'mod:fullbody-pdc-2',
+    nom: 'Full body sans matériel 2',
+    description: 'La séance jumelle : variantes plus dures, à alterner avec la 1.',
+    dureeEstimeeMin: 40,
+    items: [
+      { exerciceId: 'cat:pompes-declinees', seriesCibles: 4,
+        repsCibles: { min: 6, max: 12 }, reposSec: 75 },
+      { exerciceId: 'cat:tractions-pronation', seriesCibles: 4,
+        repsCibles: { min: 5, max: 10 }, reposSec: 75 },
+      { exerciceId: 'cat:dips-barres', seriesCibles: 4,
+        repsCibles: { min: 6, max: 12 }, reposSec: 75 },
+      { exerciceId: 'cat:squat-bulgare', seriesCibles: 3,
+        repsCibles: { min: 8, max: 12 }, reposSec: 75,
+        note: 'Par jambe' },
+      { exerciceId: 'cat:burpees', seriesCibles: 3,
+        repsCibles: { min: 10, max: 15 }, reposSec: 60 },
+      { exerciceId: 'cat:planche-laterale', seriesCibles: 3,
+        dureeCibleSec: 30, reposSec: 45,
+        note: 'Par côté' }
+    ]
   })
 ];
 

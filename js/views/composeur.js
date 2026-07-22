@@ -43,6 +43,7 @@ import * as store from '../data/store.js';
 import * as session from '../domain/session.js';
 import { icone, iconePourExercice } from '../ui/icons.js';
 import { creerSilhouette } from '../ui/silhouette.js';
+import * as stepper from '../ui/stepper.js';
 import * as keypad from '../ui/keypad.js';
 import * as sheet from '../ui/sheet.js';
 import * as toast from '../ui/toast.js';
@@ -557,36 +558,60 @@ export function mount(conteneur, params) {
     // Figee : elle affiche le kilo (« +10 kg »), avec l'avertissement la premiere fois.
     const champCharge = champDeCharge(champs);
     if (champCharge) {
-      puces.appendChild(puceCompacte({
-        libelle: LIBELLES_CHARGE[champCharge] || 'Charge',
-        valeur: () => (estNombre(cibles.chargeKg) ? cibles.chargeKg : 0),
-        texte: () => {
-          if (!cibles.chargeFigee || !estNombre(cibles.chargeKg)) {
-            return LIBELLES_CHARGE_LIBRE[champCharge] || 'Dernière';
-          }
-          const prefixe = champCharge === 'lestKg' && cibles.chargeKg > 0 ? '+' : '';
-          const unite = UNITES_CHARGE[champCharge];
-          return prefixe + formatFr(cibles.chargeKg) + (unite ? ' ' + unite : '');
-        },
-        estVide: () => cibles.chargeFigee !== true,
+      // v9 : STEPPER visible en ligne — « on voit tout, + et − à côté, le milieu ouvre le
+      // clavier » (retour utilisateur, verbatim). La valeur affichée ne FIGE la charge qu'au
+      // premier geste : tant qu'on ne touche a rien, la routine reste sur { type:'derniere' },
+      // aucun kilo en dur. Le lest demarre a 0 (poids du corps seul), une charge a sa valeur.
+      const hoteStepper = h('div', { class: 'ligne-charge-stepper' });
+      puces.appendChild(hoteStepper);
+
+      const depart = cibles.chargeFigee && estNombre(cibles.chargeKg)
+        ? cibles.chargeKg
+        : (champCharge === 'lestKg' ? 0 : (estNombre(cibles.chargeKg) ? cibles.chargeKg : 20));
+
+      const figer = (v) => {
+        cibles.chargeKg = v;
+        cibles.chargeFigee = true;
+        if (modeRoutine && !etat.avertiCharge) {
+          etat.avertiCharge = true;
+          toast.afficher(
+            'Charge figée : cette routine annoncera ce poids même après des mois de progression.',
+            { duree: 6000 }
+          );
+        }
+      };
+
+      const poignee = stepper.monter(hoteStepper, {
+        valeur: depart,
         // ⚠ pasChamp resout la chaine 'incrementKg' de MODES contre l'exercice.
         pas: pasChamp(exercice, champCharge),
         // Pas de borne basse sur le lest : il est SIGNE (+10 lest, −20 assistance elastique).
         min: champCharge === 'lestKg' ? undefined : 0,
         unite: UNITES_CHARGE[champCharge],
         signe: champCharge === 'lestKg',
-        onChange(v) {
-          cibles.chargeKg = v;
-          cibles.chargeFigee = true;
-          if (modeRoutine && !etat.avertiCharge) {
-            etat.avertiCharge = true;
-            toast.afficher(
-              'Charge figée : cette routine annoncera ce poids même après des mois de progression.',
-              { duree: 6000 }
-            );
-          }
+        onChange: figer,
+        onTapValeur() {
+          keypad.ouvrir({
+            champs: [{
+              cle: 'v',
+              label: LIBELLES_CHARGE[champCharge] || 'Charge',
+              valeur: poignee.valeur(),
+              unite: UNITES_CHARGE[champCharge],
+              pas: pasChamp(exercice, champCharge),
+              min: champCharge === 'lestKg' ? undefined : 0,
+              signe: champCharge === 'lestKg'
+            }],
+            onValider(valeurs) {
+              const v = valeurs && valeurs.v;
+              if (!estNombre(v)) return;
+              // ⚠ setValeur n'appelle PAS onChange (contrat de stepper.js) : on fige explicitement.
+              poignee.setValeur(v);
+              figer(v);
+            }
+          });
         }
-      }).bouton);
+      });
+      ligne.steppers.push(poignee);
     }
 
     // v4 : plus de reglage de repos (retour utilisateur).

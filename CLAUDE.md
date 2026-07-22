@@ -139,7 +139,23 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-22, v8 livrée)
+## État et risques connus (2026-07-22, v9 livrée)
+
+- v9 :
+  · **12 séances livrées** (templates.js) : les 6 d'origine + Pecs et triceps, Dos et biceps,
+    Épaules et abdos, Chaîne postérieure (splits par segment, esprit guides Delavier), et deux
+    Full body sans matériel (esprit méthode Lafay : circuits poids du corps, repos courts).
+    Compositions ORIGINALES — aucun programme publié recopié. `semerModelesLivres` sème
+    désormais TOUT id manquant à chaque boot (plus de drapeau bloquant) : les nouveautés
+    atteignent les installations existantes ; l'archivé/modifié n'est jamais retouché.
+  · **Composeur** : la charge/lest est un STEPPER inline visible ([−] valeur [+], tap au
+    milieu → pavé). ⚠ Le stepper de base est une GRILLE : pour le compacter, redéfinir
+    `grid-template-columns` (imposer une largeur aux boutons ne rétrécit pas les pistes —
+    bug de largeur vécu, mesuré, corrigé). Le nom garde min-width 72px et s'ellipse.
+  · **Réglages** : les 5 groupes TOUS fermés par défaut ; « Données » = export + import
+    seulement (maintenance et stockage retirés de l'écran, machinerie dormante).
+  · **Progression** : les onglets de métriques s'étirent sur toute la largeur — la règle doit
+    battre `.vue-progression .metriques .segment` (flex: 0 0 auto) à spécificité égale.
 
 - v8 en ligne :
   · **Panneau superposé** (ui/router.js) : une route `panneau: true` (boot.js — le détail
