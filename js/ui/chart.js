@@ -51,6 +51,10 @@ const MARGE_DROITE = 8;
 const RAYON_POINT = 4;    // ⚠ points TOUJOURS visibles : la ligne seule ment sur la densite reelle
                           //   (v7 : 8 px de diametre, le plancher des specs de dataviz)
 
+// Rayon de la zone TAPABLE autour d'un point, en unites de viewBox (~pixels sur 360 de large) :
+// la pulpe d'un doigt. Au-dela, le tap est « a cote » et ne selectionne rien (v8).
+const RAYON_TAP = 26;
+
 const MAX_GRADUATIONS_Y = 4;
 const CIBLE_GRADUATIONS_Y = 3;
 const MAX_ETIQUETTES_X = 4;
@@ -334,6 +338,8 @@ export function renderLineChart(conteneur, options = {}) {
     for (const off of offs) off();
     offs.length = 0;
     bulle = null;
+    bulleTexte = null;
+    bulleOnFermer = null;
     // Le fragment ne retire QUE son propre noeud : il ne vide pas le conteneur de l'appelant,
     // qui peut legitimement contenir le tableau des 20 dernieres seances juste en dessous.
     if (racine.parentNode) racine.parentNode.removeChild(racine);
@@ -368,12 +374,32 @@ export function renderLineChart(conteneur, options = {}) {
    * Bulle de lecture. Noeud PERSISTANT dont on ne mute que le texte et la position : jamais
    * recreee, donc jamais de clignotement, et rien a re-attacher.
    */
-  function poserBulle(graphe, texte, xVue, yVue) {
+  // v8 : la bulle porte une CROIX (retour utilisateur — rien ne permettait de la fermer) et un
+  // rappel de fermeture quand on tape a cote des points. onFermer retire la surbrillance du
+  // point selectionne — c'est le rendu (simple ou multi) qui sait comment.
+  let bulleTexte = null;
+  let bulleOnFermer = null;
+
+  function masquerBulle() {
+    if (!bulle || bulle.hidden) return;
+    bulle.hidden = true;
+    const cb = bulleOnFermer;
+    bulleOnFermer = null;
+    if (typeof cb === 'function') cb();
+  }
+
+  function poserBulle(graphe, texte, xVue, yVue, onFermer) {
     if (!bulle) {
-      bulle = h('div', { class: 'courbe-bulle' });
+      bulleTexte = h('span', { class: 'courbe-bulle-texte' });
+      const fermer = h('button', {
+        class: 'courbe-bulle-fermer', type: 'button', 'aria-label': 'Fermer le détail'
+      }, '✕');
+      offs.push(on(fermer, 'click', (ev) => { ev.stopPropagation(); masquerBulle(); }));
+      bulle = h('div', { class: 'courbe-bulle' }, bulleTexte, fermer);
       racine.appendChild(bulle);
     }
-    bulle.textContent = texte;
+    bulleOnFermer = onFermer || null;
+    bulleTexte.textContent = texte;
     bulle.hidden = false;
 
     // Conversion coordonnees viewBox -> pixels reels, relue a chaque tap : elle survit ainsi a
@@ -570,30 +596,46 @@ export function renderLineChart(conteneur, options = {}) {
       cercles[i].setAttribute('data-selectionne', 'oui');
 
       const detail = p.libelle || formatValeur(p.y, uniteSerie, dec);
-      poserBulle(graphe, `Le ${formatLong(p.x)} : ${detail}`, xDe(i), yDe(p.y));
+      poserBulle(graphe, `Le ${formatLong(p.x)} : ${detail}`, xDe(i), yDe(p.y), () => {
+        if (pointSelectionne !== null && cercles[pointSelectionne]) {
+          cercles[pointSelectionne].removeAttribute('data-selectionne');
+        }
+        pointSelectionne = null;
+      });
 
       if (typeof onSelect === 'function') onSelect(p, i, serie);
     }
 
-    /** Point le plus proche EN X du tap. */
-    function indexLePlusProche(clientX) {
+    /**
+     * Point VISE par le tap — proche en X ET en Y, dans le rayon d'un doigt. -1 si le tap est
+     * a cote : viser une date ne doit pas selectionner un point situe a l'autre bout de l'axe Y.
+     */
+    function indexVise(clientX, clientY) {
       const rectSvg = graphe.getBoundingClientRect();
-      if (!rectSvg.width) return 0;
-      const xVue = ((clientX - rectSvg.left) / rectSvg.width) * LARGEUR;
-      let meilleur = 0;
+      if (!rectSvg.width) return -1;
+      const ratio = rectSvg.width / LARGEUR;
+      const xVue = (clientX - rectSvg.left) / ratio;
+      const yVue = (clientY - rectSvg.top) / ratio;
+      let meilleur = -1;
       let ecart = Infinity;
       for (let i = 0; i < points.length; i++) {
-        const e = Math.abs(xDe(i) - xVue);
-        if (e < ecart) { ecart = e; meilleur = i; }
+        const dx = xDe(i) - xVue;
+        const dy = yDe(points[i].y) - yVue;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < ecart) { ecart = d; meilleur = i; }
       }
-      return meilleur;
+      return ecart <= RAYON_TAP ? meilleur : -1;
     }
 
-    // pointerdown et non click : le retour visuel arrive sous le doigt, sans les 300 ms de certains
-    // navigateurs. L'ecouteur appartient au fragment, qui est le seul a pouvoir le detruire.
-    offs.push(on(graphe, 'pointerdown', (ev) => {
+    // v8 : 'click' et non 'pointerdown' — un pointerdown part au DEBUT d'un defilement, donc
+    // faire defiler la page selectionnait un point au passage (retour utilisateur). Un click ne
+    // part pas apres un defilement. La hitbox est CENTREE sur le point (X et Y) : taper a cote
+    // ne selectionne rien et REFERME la bulle.
+    offs.push(on(graphe, 'click', (ev) => {
       if (!points.length) return;
-      selectionner(indexLePlusProche(ev.clientX));
+      const i = indexVise(ev.clientX, ev.clientY);
+      if (i === -1) { masquerBulle(); return; }
+      selectionner(i);
     }));
   }
 
@@ -831,12 +873,17 @@ export function renderLineChart(conteneur, options = {}) {
           }
         }
       }
-      return meilleur;
+      // v8 : le candidat doit etre DANS le rayon d'un doigt — sinon le tap est « a cote ».
+      if (!meilleur) return null;
+      const dx = meilleur.position.x - xVue;
+      const dy = meilleur.position.y - yVue;
+      return Math.sqrt(dx * dx + dy * dy) <= RAYON_TAP ? meilleur : null;
     }
 
-    offs.push(on(graphe, 'pointerdown', (ev) => {
+    // v8 : 'click' et non 'pointerdown' — meme raison que le rendu simple (defilement).
+    offs.push(on(graphe, 'click', (ev) => {
       const trouve = plusProche(ev.clientX, ev.clientY);
-      if (!trouve) return;
+      if (!trouve) { masquerBulle(); return; }
       deselectionner();
       selection = trouve;
       trouve.marque.setAttribute('data-selectionne', 'oui');
@@ -849,7 +896,8 @@ export function renderLineChart(conteneur, options = {}) {
         graphe,
         `${nom ? nom + ' — ' : ''}${formatLong(p.x)} : ${detail}`,
         trouve.position.x,
-        trouve.position.y
+        trouve.position.y,
+        deselectionner
       );
 
       if (typeof onSelect === 'function') onSelect(p, trouve.index, trouve.rendu.serie);

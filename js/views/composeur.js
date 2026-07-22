@@ -521,17 +521,10 @@ export function mount(conteneur, params) {
     const champs = cibles.champs;
     const puces = h('div', { class: 'ligne-exercice-puces' });
 
-    // ── Series : toujours presentes. « 4 × » se lit sans libelle. ─────────────
-    puces.appendChild(puceCompacte({
-      libelle: 'Séries',
-      valeur: () => cibles.series,
-      texte: () => cibles.series + ' ×',
-      pas: 1, min: 1, max: 20, entier: true,
-      onChange(v) { cibles.series = v; }
-    }).bouton);
-
-    // v5 : plus de reglage « Reps min / Reps max » — les repetitions se saisissent PENDANT
-    // l'entrainement. ciblesDepuisItem sait toujours LIRE repsCibles des routines anciennes.
+    // v8 : plus de puce « Séries » (retour utilisateur — les series s'ajoutent EN SALLE, avec
+    // « + série » ; le tableau affiche de toute facon 8 colonnes minimum). cibles.series garde
+    // sa valeur par defaut dans les donnees. Comme les reps (v5), on ne regle plus rien ici :
+    // ne reste que la charge ou le lest — et duree/distance pour le cardio.
 
     // ── Duree (modes temps et cardio) ─────────────────────────────────────────
     if (champs.indexOf('dureeSec') !== -1) {

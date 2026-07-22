@@ -427,7 +427,11 @@ export function mount(conteneur, params = {}) {
    */
   function peindreMetriques() {
     vider(barreMetriques);
-    const dispo = metriquesCommunes();
+    // v8 : « Répétitions max » n'est PLUS un onglet (retour utilisateur — la 2e courbe empilee
+    // montre deja les repetitions, l'onglet ne servait a rien). La cle reste dans MODES : elle
+    // signale qu'un mode se compte en repetitions (repsEmpilablesPossibles) et la 2e courbe
+    // l'affiche sous les metriques de charge. La barre se recentre seule (flex).
+    const dispo = metriquesCommunes().filter((m) => m.cle !== 'reps-max');
 
     // Metrique retenue : celle deja choisie si elle reste valide (changer de plage ne doit pas
     // ramener a la metrique par defaut), sinon la preference de l'exercice principal.
@@ -536,9 +540,14 @@ export function mount(conteneur, params = {}) {
       let cReps = null;
       let enveloppeReps = null;
       if (repsEmpilablesPossibles()) {
-        const stReps = serieTemporelle(seances, id, 'reps-total', bornes);
+        // v8 : la 2e courbe SUIT l'onglet choisi — sous « Volume » le CUMUL des repetitions de
+        // la seance ; sous une metrique de charge, le MAX de reps par serie (demande verbatim).
+        const cleReps = metrique === 'tonnage' ? 'reps-total' : 'reps-max';
+        const stReps = serieTemporelle(seances, id, cleReps, bornes);
         enveloppeReps = h('div', { class: 'courbe-pile courbe-pile-reps' },
-          titrePile(2, 'Répétitions (total par séance)'));
+          titrePile(2, cleReps === 'reps-total'
+            ? 'Répétitions (total par séance)'
+            : 'Répétitions (max par série)'));
         hoteCourbe.appendChild(enveloppeReps);
         cReps = renderLineChart(enveloppeReps, {
           points: stReps.points, unite: stReps.unite, sens: 'haut',

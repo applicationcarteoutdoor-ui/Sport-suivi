@@ -13,7 +13,7 @@ import { h, on, delegate, vider } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import { formatFr, formatDuree, parseFr } from '../lib/num.js';
 import { dayKey, formatLong, joursEntre } from '../lib/dates.js';
-import { APP_VERSION, SCHEMA_VERSION, JOURS_AVANT_RAPPEL_EXPORT } from '../config.js';
+import { SCHEMA_VERSION, JOURS_AVANT_RAPPEL_EXPORT } from '../config.js';
 
 import * as store from '../data/store.js';
 import * as prefs from '../data/prefs.js';
@@ -276,14 +276,10 @@ function monterReglages(conteneur, paramsInitiaux) {
   const videLieux = h('p', { class: 'ligne-reglage-aide', style: { padding: 'var(--esp-3) var(--esp-4)' } },
     'Aucun lieu enregistré. Un lieu sert à mémoriser les réglages de machines propres à ta salle.');
 
-  const blocLieux = [
-    sousTitre('Lieux d\'entraînement'),
-    videLieux,
-    listeLieux,
-    h('div', { style: { padding: 'var(--esp-3) var(--esp-4)' } },
-      h('button', { class: 'bouton bouton-large', type: 'button', dataset: { action: 'lieu-creer' } },
-        'Ajouter un lieu'))
-  ];
+  // v8 : les LIEUX ne sont plus proposes dans les reglages (retour utilisateur — l'option
+  // n'apportait rien a son usage). La donnee Lieu reste dans le schema et l'export ; la
+  // machinerie ci-dessous (ligneDeLieu, feuilleLieu…) est conservee dormante, plus rien ne
+  // l'affiche ni ne la declenche.
 
   // ── 6. Apparence ─────────────────────────────────────────────────────────
 
@@ -386,31 +382,20 @@ function monterReglages(conteneur, paramsInitiaux) {
   const etatMaj = h('span', { class: 'ligne-liste-secondaire', role: 'status' }, '');
   let verificationMajEnCours = false;
 
+  // v8 : groupe Application EPURE (retour utilisateur) — plus de version datee, plus de note
+  // CDN sous la recherche de mise a jour, plus de lien de diagnostic. La version du schema
+  // reste : c'est elle qu'on demande en cas de probleme d'import.
   const groupeApplication = groupePliant({ nomIcone: 'recherche', titre: 'Application' },
-    ligneInfo('Version de l\'application',
-      h('span', { class: 'ligne-liste-secondaire' }, APP_VERSION)),
     ligneInfo('Version du schéma de données',
       h('span', { class: 'ligne-liste-secondaire' }, String(SCHEMA_VERSION))),
     ligneAction('Rechercher une mise à jour',
       'Compare la version installée à la dernière publiée.',
       'verifier-maj', etatMaj),
-    h('p', { class: 'ligne-reglage-aide', style: { padding: '0 var(--esp-4) var(--esp-3)' } },
-      'Après une publication, la mise à jour peut mettre jusqu\'à 10 minutes à apparaître ' +
-      '(cache du CDN de GitHub Pages).'),
     h('a', { class: 'ligne-liste', href: '#/aide/installation' },
       h('div', {},
         h('div', { class: 'ligne-liste-principal' }, 'Installer l\'application'),
         h('div', { class: 'ligne-liste-secondaire' }, 'Instructions Android et iPhone')),
-      h('span', { class: 'ligne-liste-secondaire', 'aria-hidden': 'true' }, '›')),
-    // Chemin RELATIF : « /verif.html » pointerait hors du depot sur GitHub Pages.
-    h('a', {
-      class: 'ligne-liste', href: './verif.html', target: '_blank', rel: 'noopener'
-    },
-      h('div', {},
-        h('div', { class: 'ligne-liste-principal' }, 'Diagnostic des fichiers'),
-        h('div', { class: 'ligne-liste-secondaire' },
-          'Vérifie que tous les fichiers de l\'application répondent. S\'ouvre hors de l\'application.')),
-      h('span', { class: 'ligne-liste-secondaire', 'aria-hidden': 'true' }, '↗'))
+      h('span', { class: 'ligne-liste-secondaire', 'aria-hidden': 'true' }, '›'))
   );
 
   // ── Assemblage : 5 groupes repliables ────────────────────────────────────
@@ -419,8 +404,8 @@ function monterReglages(conteneur, paramsInitiaux) {
   // zone-danger a l'interieur du parcours d'import : il n'existe pas hors d'une analyse reussie.
   const groupeDonnees = groupePliant({ nomIcone: 'telecharger', titre: 'Données', ouvert: true },
     blocExport, blocImport, blocMaintenance, blocStockage);
-  const groupeCorps = groupePliant({ nomIcone: 'poids-du-corps', titre: 'Poids et lieux' },
-    blocPoids, blocLieux);
+  const groupeCorps = groupePliant({ nomIcone: 'poids-du-corps', titre: 'Poids de corps' },
+    blocPoids);
 
   racine.appendChild(groupeDonnees);
   racine.appendChild(groupeSeance);
@@ -428,6 +413,32 @@ function monterReglages(conteneur, paramsInitiaux) {
   racine.appendChild(groupeApparence);
   racine.appendChild(groupeApplication);
   conteneur.appendChild(racine);
+
+  // v8 : quand on QUITTE l'application (changement de fenetre, mise en veille), les groupes
+  // reviennent a leur etat par defaut — seul « Données » ouvert. Retour utilisateur : revenir
+  // sur des reglages laisses tout depliés une heure plus tot donne une page en desordre. On
+  // range au DEPART (page cachee, repli invisible) : le retour retrouve l'ecran propre, et rien
+  // ne se referme sous le doigt.
+  const groupesParDefaut = [
+    { noeud: groupeDonnees, ouvert: true },
+    { noeud: groupeSeance, ouvert: false },
+    { noeud: groupeCorps, ouvert: false },
+    { noeud: groupeApparence, ouvert: false },
+    { noeud: groupeApplication, ouvert: false }
+  ];
+  desabos.push(on(document, 'visibilitychange', () => {
+    if (!document.hidden) return;
+    for (const g of groupesParDefaut) g.noeud.open = g.ouvert;
+  }));
+
+  // v8 : un groupe qui S'OUVRE se place en haut de l'ecran. Ouvert depuis le bas de la page
+  // (tous les groupes deplies), son contenu se depliait ENTIEREMENT sous le pli de l'ecran et
+  // « rien ne se passait » (bug rapporte sur le groupe Application, le dernier de la liste).
+  for (const g of groupesParDefaut) {
+    desabos.push(on(g.noeud, 'toggle', () => {
+      if (g.noeud.open) g.noeud.scrollIntoView({ block: 'start' });
+    }));
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // Synchronisations ciblees — aucune ne reconstruit quoi que ce soit
@@ -1084,11 +1095,11 @@ function monterReglages(conteneur, paramsInitiaux) {
   // l'evenement plutot que sur le clic, ce qui evite un etat d'interrupteur qui ment.
   desabos.push(bus.on('prefs:modifiees', () => { if (!detruit) majPreferences(); }));
   desabos.push(bus.on('lieu:enregistrer', ({ lieu }) => { if (!detruit && lieu) insererLieu(lieu); }));
-  desabos.push(bus.on('lieu:archiver', ({ lieu }) => { if (!detruit && lieu) insererLieu(lieu); }));
+  /* v8 : plus d'abonnement lieu:archiver — les lieux ne sont plus affiches ici. */
 
   // ── Peinture initiale ────────────────────────────────────────────────────
   majPreferences();
-  chargerLieux();
+  /* v8 : plus de chargerLieux() — les lieux ne sont plus affiches ici. */
   majPoidsJour();
   chargerPoids();
   majStockage();

@@ -152,6 +152,18 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
     choisie + `reps-total` (CUMUL des répétitions par séance, réducteur v8) ; le bouton
     « Poids + reps » a disparu. Un SECOND tap sur le même point ouvre la séance en panneau
     (`dernierPointVu`, aide écrite sous la courbe).
+  · **Courbes, suite (2e commit)** : l'onglet « Répétitions max » n'existe PLUS (filtré dans
+    peindreMetriques — la clé RESTE dans MODES : marqueur de capacité pour
+    repsEmpilablesPossibles) ; la 2e courbe SUIT l'onglet — `reps-total` sous Volume,
+    `reps-max` sous une métrique de charge. La bulle porte une CROIX ; sélection au 'click'
+    (plus jamais 'pointerdown' : défiler sélectionnait un point) et seulement dans
+    RAYON_TAP=26 unités du point (X ET Y) — tap à côté = referme la bulle.
+  · **Réglages (2e commit)** : plus de lieux (machinerie dormante conservée), plus de version
+    datée ni de note CDN ni de lien diagnostic ; groupes remis à l'état PAR DÉFAUT quand la
+    page est masquée (visibilitychange) ; un groupe qui s'ouvre se scrolle en vue (ouvert
+    depuis le bas de page, il se dépliait entièrement sous le pli — « ça ne marche pas »).
+  · **Composeur (2e commit)** : plus de puce « Séries » (elles s'ajoutent en salle) — ne reste
+    que charge/lest, et durée/distance pour le cardio.
   · `reps-total` existe dans REDUCTEURS/UNITES/LIBELLES mais PAS dans MODES.metriques :
     c'est voulu (pas une puce, seulement la 2e courbe).
 

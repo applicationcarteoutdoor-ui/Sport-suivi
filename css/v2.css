@@ -1868,3 +1868,30 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
   font-size: var(--txt-xs);
   color: var(--texte-attenue);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   15. v8 — bulle de courbe fermable
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* La bulle porte desormais une croix : texte + bouton alignes. Le fond/position viennent de la
+   regle d'origine (components.css) ; on ne fait qu'organiser l'interieur. */
+.courbe-bulle {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-1);
+}
+.courbe-bulle-texte { min-width: 0; }
+.courbe-bulle-fermer {
+  flex: 0 0 auto;
+  min-width: 26px;
+  min-height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--rayon-plein);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
