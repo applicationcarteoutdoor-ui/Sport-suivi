@@ -27,13 +27,15 @@ export const MODES = {
     // plus nulle part). Le reducteur et les calculs du domaine restent : donnees intactes.
     // v6 : 'tonnage' revient sous le nom « Volume » (retour utilisateur — il veut une courbe de
     // volume par seance ; c'est le tonnage du domaine, seul le libelle change).
-    metriques: ['charge-effective-max', 'reps-max', 'tonnage'],
+    // v8 : « Volume » EN PREMIER — c'est l'onglet par defaut demande (metriqueParDefaut rend le
+    // premier de cette liste quand l'exercice n'a pas de preference).
+    metriques: ['tonnage', 'charge-effective-max', 'reps-max'],
     pas: { reps: 1, lestKg: 'incrementKg' },
     lestSiLestable: true
   },
   'charge': {
     saisie: ['reps', 'chargeKg'],
-    metriques: ['e1rm-max', 'charge-max', 'reps-max', 'tonnage'],
+    metriques: ['tonnage', 'e1rm-max', 'charge-max', 'reps-max'],
     pas: { reps: 1, chargeKg: 'incrementKg' },
     lestSiLestable: false
   },
@@ -140,6 +142,7 @@ export const UNITES = {
   'charge-max': 'kg',
   'charge-effective-max': 'kg',
   'reps-max': 'reps',
+  'reps-total': 'reps',
   'tonnage': 'kg',
   'duree-max': 'sec',
   'duree-totale': 'sec',
@@ -154,6 +157,7 @@ export const LIBELLES_METRIQUES = {
   'charge-max': 'Charge max',
   'charge-effective-max': 'Charge effective max',
   'reps-max': 'Répétitions max',
+  'reps-total': 'Répétitions (total séance)',   // v8 : cumul, pour la 2e courbe permanente
   'tonnage': 'Volume',   // v6 : somme charge x reps par seance — le mot « tonnage » rebutait
   'duree-max': 'Durée max',
   'duree-totale': 'Durée totale',

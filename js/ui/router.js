@@ -41,6 +41,13 @@ const etat = {
   params: {},
   chemin: '#/',
   demarre: false,
+  // v8 : PANNEAU SUPERPOSE. Une route marquee `panneau: true` atteinte DEPUIS une vue montee
+  // s'ouvre par-dessus elle (fond floute), SANS la demonter : la liste reste vivante derriere,
+  // le retour referme le panneau et retrouve l'ecran intact — scroll compris. En acces direct
+  // (lien partage, rechargement), la meme route se monte en pleine page : repli assume.
+  panneau: null,        // { cle, vue } quand un panneau est ouvert
+  hotePanneau: null,    // #panneau-hote (zone A) ; corpsPanneau = #panneau-corps
+  corpsPanneau: null,
   // Profondeur d'historique creee par ouvrirFeuille : permet a fermerFeuille() de faire un
   // vrai history.back(), donc de laisser l'historique du navigateur coherent avec l'ecran.
   profondeurFeuille: 0,
@@ -257,6 +264,56 @@ function majCoquille(contexte) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Panneau superpose (v8)
+// ─────────────────────────────────────────────────────────────────────────────
+// L'hote et son corps sont ecrits EN DUR dans index.html (zone A) : le routeur ne fait que
+// muter hidden et data-ouvert, et monter la vue dans le corps. z-panneau (38) est SOUS la
+// feuille (40) : une confirmation ouverte depuis le panneau passe devant lui.
+
+/**
+ * Monte `def` dans le panneau, par-dessus la vue de fond qui reste montee et abonnee.
+ * @param {{titre: string, mount: Function}} def
+ * @param {Object} params
+ * @param {{cle: string}} contexte
+ */
+function ouvrirPanneau(def, params, contexte) {
+  const hote = etat.hotePanneau;
+  const corps = etat.corpsPanneau;
+  vider(corps);
+  hote.hidden = false;
+  // ⚠ Reflow force puis attribut pose SYNCHRONEMENT (invariant n°2 : jamais d'etat fonctionnel
+  //   dans requestAnimationFrame). Le navigateur voit les deux etats et joue la transition.
+  void hote.offsetHeight;
+  hote.setAttribute('data-ouvert', 'oui');
+
+  let vue = null;
+  try {
+    vue = def.mount(corps, params) || null;
+  } catch (err) {
+    console.error('[router] montage du panneau en echec', err);
+    vue = monterSecours(corps, def.titre, err);
+  }
+  etat.panneau = { cle: contexte.cle, vue: vue || { destroy() { vider(corps); }, onParams() {} } };
+
+  majCoquille(contexte);
+  if (typeof corps.focus === 'function') {
+    try { corps.focus({ preventScroll: true }); } catch (_) { /* sans consequence */ }
+  }
+}
+
+/** Referme le panneau : destroy() de sa vue, hote cache. La vue de fond n'est pas touchee. */
+function fermerPanneau() {
+  const p = etat.panneau;
+  etat.panneau = null;
+  if (p) appelerSur(p.vue, 'destroy');
+  if (etat.corpsPanneau) vider(etat.corpsPanneau);
+  if (etat.hotePanneau) {
+    etat.hotePanneau.setAttribute('data-ouvert', 'non');
+    etat.hotePanneau.hidden = true;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Boucle de navigation
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -288,6 +345,37 @@ function traiter() {
   // Une feuille refermee (par le bouton retour d'Android ou par fermerFeuille) remet le compteur
   // a zero : sans cela, un second history.back() sauterait hors de la seance.
   if (!tous.sheet) { etat.profondeurFeuille = 0; etat.clesFeuille = []; }
+
+  // ── v8 : panneau superpose ──────────────────────────────────────────────────
+  if (etat.panneau) {
+    if (trouve && trouve.cle === etat.panneau.cle) {
+      // Meme panneau : seuls les parametres changent (une feuille de confirmation s'ouvre…).
+      appelerSur(etat.panneau.vue, 'onParams', tous);
+      majCoquille(contexte);
+      emit('route:params', { cle: contexte.cle, params: tous, feuille: tous.sheet || null });
+      return;
+    }
+    fermerPanneau();
+    if (etat.vue && trouve && trouve.cle === etat.cle) {
+      // Retour a la vue de fond, restee MONTEE et abonnee : rien a reconstruire, son scroll et
+      // son etat sont intacts — c'est toute la raison d'etre du panneau.
+      appelerSur(etat.vue, 'onParams', tous);
+      majCoquille(contexte);
+      emit('route:changee', { cle: contexte.cle, chemin, params: tous, introuvable });
+      return;
+    }
+    // Autre destination : le flux normal ci-dessous demonte la vue de fond et monte la cible.
+  }
+
+  // Route marquee `panneau: true` atteinte DEPUIS une vue montee : superposition. En acces
+  // direct (etat.vue nul — lien partage, rechargement), le flux normal la monte en pleine page.
+  const brutRoute = trouve && trouve.route && typeof trouve.route === 'object' ? trouve.route : {};
+  if (brutRoute.panneau === true && def && etat.vue && trouve.cle !== etat.cle &&
+      etat.hotePanneau && etat.corpsPanneau) {
+    ouvrirPanneau(def, tous, contexte);
+    emit('route:changee', { cle: contexte.cle, chemin, params: tous, introuvable, panneau: true });
+    return;
+  }
 
   // ⚠ LE POINT CENTRAL. Meme route de base : on ne demonte RIEN. Le minuteur en cours, le volet
   //   ouvert, la position de scroll et le bouton sous le doigt survivent par construction.
@@ -354,6 +442,11 @@ export function demarrer(routes, conteneur) {
   etat.routes = routes;
   etat.conteneur = conteneur;
   etat.demarre = true;
+
+  // Hote du panneau superpose (zone A, ecrit en dur dans index.html). Absent d'une coquille
+  // plus ancienne : les routes `panneau` retombent alors en pleine page, sans erreur.
+  etat.hotePanneau = noeud('panneau-hote');
+  etat.corpsPanneau = noeud('panneau-corps');
 
   etat.detacher.push(on(window, 'hashchange', traiter));
 
@@ -468,6 +561,7 @@ export function fermerFeuille() {
 export function arreter() {
   for (const off of etat.detacher) { try { off(); } catch (_) { /* deja detache */ } }
   etat.detacher = [];
+  fermerPanneau();
   if (etat.vue) appelerSur(etat.vue, 'destroy');
   etat.vue = null;
   etat.cle = null;

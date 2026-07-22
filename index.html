@@ -131,6 +131,13 @@
      jamais une route : #/seance n'est donc jamais demonte par une action de saisie.
      ui/sheet.js pose lui aussi cette classe a l'ouverture : la poser ici la rend simplement vraie
      des le premier rendu. -->
+<!-- v8 : hote du PANNEAU SUPERPOSE. Une route marquee `panneau` (le detail d'une seance)
+     s'ouvre ici, PAR-DESSUS la vue de fond qui reste montee : fond floute, retour = fermeture.
+     Le routeur ne fait que muter hidden et data-ouvert, et monter la vue dans le corps. -->
+<div class="panneau-hote" id="panneau-hote" data-ouvert="non" hidden>
+  <div class="panneau-corps" id="panneau-corps" role="dialog" aria-modal="true" tabindex="-1"></div>
+</div>
+
 <div class="feuille-conteneur" id="conteneur-feuille" hidden></div>
 
 <!-- Pave numerique in-app. Separe de la feuille : il peut se superposer a une feuille ouverte

@@ -139,7 +139,21 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-22, v7 livrée)
+## État et risques connus (2026-07-22, v8 livrée)
+
+- v8 en ligne :
+  · **Panneau superposé** (ui/router.js) : une route `panneau: true` (boot.js — le détail
+    `#/historique/:id`) atteinte DEPUIS une vue montée s'ouvre dans `#panneau-hote`
+    (index.html, zone A, z 38 SOUS la feuille 40) par-dessus la vue de fond qui reste MONTÉE
+    et abonnée — le retour la retrouve intacte, scroll compris. Accès direct/rechargement =
+    pleine page (repli assumé). `fermerPanneau()` avant toute autre navigation.
+  · **Progression** : « Volume » est la PREMIÈRE métrique (ordre de MODES.metriques =
+    métrique par défaut) ; pour un exercice seul, DEUX graphes toujours empilés — métrique
+    choisie + `reps-total` (CUMUL des répétitions par séance, réducteur v8) ; le bouton
+    « Poids + reps » a disparu. Un SECOND tap sur le même point ouvre la séance en panneau
+    (`dernierPointVu`, aide écrite sous la courbe).
+  · `reps-total` existe dans REDUCTEURS/UNITES/LIBELLES mais PAS dans MODES.metriques :
+    c'est voulu (pas une puce, seulement la 2e courbe).
 
 - v7 en ligne :
   · **« Séance libre » supprimée** de l'accueil (doublon de Composer — composer sans enregistrer

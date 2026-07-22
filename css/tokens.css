@@ -186,6 +186,8 @@
   --z-tiroir: 35;        /* tiroir du minuteur : au-dessus de la barre d'action et de la
                             navigation, mais SOUS la feuille et le pave — on doit pouvoir ouvrir
                             le pave numerique depuis le reglage libre du minuteur. */
+  --z-panneau: 38;       /* panneau superpose (detail de seance) : au-dessus du tiroir, SOUS la
+                            feuille — une confirmation ouverte depuis le panneau passe devant. */
   --z-feuille: 40;
   --z-pave: 50;
   --z-bandeau: 60;

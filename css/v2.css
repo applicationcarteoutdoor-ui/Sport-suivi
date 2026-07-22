@@ -1817,3 +1817,54 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
 /* La feuille peut etre haute : le corps defile (feuille-corps est deja defilable), on resserre
    juste la respiration au-dessus de la silhouette. */
 .feuille-anatomie .feuille-corps { padding-top: var(--esp-3); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   15. v8 — panneau superpose (routes `panneau` du routeur)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* L'hote couvre l'ecran : voile + flou, la vue de fond reste visible et VIVANTE derriere.
+   hidden est pose/retire par le routeur ; data-ouvert pilote la transition. */
+.panneau-hote {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-panneau);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--voile);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  opacity: 0;
+  transition: opacity var(--duree-moyenne) var(--courbe-sortie);
+}
+.panneau-hote[data-ouvert='oui'] { opacity: 1; }
+
+/* Le corps est une grande carte montante : poignee visuelle en tete, coins hauts arrondis,
+   defilement interne. La vue s'y monte exactement comme dans <main>. */
+.panneau-corps {
+  width: 100%;
+  max-width: var(--largeur-max);
+  height: calc(94% - var(--safe-haut));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--fond);
+  border-radius: var(--rayon-xl) var(--rayon-xl) 0 0;
+  box-shadow: var(--ombre-3);
+  padding: var(--esp-4) var(--esp-4) calc(var(--esp-6) + var(--safe-bas));
+  transform: translateY(24px);
+  transition: transform var(--duree-moyenne) var(--courbe-sortie);
+}
+.panneau-hote[data-ouvert='oui'] .panneau-corps { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panneau-hote, .panneau-corps { transition-duration: 0.01ms !important; }
+  .panneau-hote { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* Aide discrete sous les courbes : le double-tap qui ouvre la seance ne se devine pas. */
+.courbe-aide {
+  margin-top: var(--esp-1);
+  font-size: var(--txt-xs);
+  color: var(--texte-attenue);
+}

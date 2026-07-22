@@ -129,6 +129,10 @@ const REDUCTEURS = {
 
   'reps-max': (sets) => max(sets, (x) => x.reps, (x) => `${x.reps} reps`),
 
+  // v8 : CUMUL des repetitions de la seance (retour utilisateur : sous la courbe de volume, le
+  // « max par seance » ne disait rien — c'est le total qui fait sens en volume).
+  'reps-total': (sets) => somme(sets, (x) => x.reps, (v) => `${formatFr(v, 0)} reps`),
+
   // Delegue a metrics.js : le tonnage est sa responsabilite, la dupliquer ici la ferait diverger.
   // ⚠ tonnageEntree rend { kg, fiable }, PAS un nombre. Le traiter comme un nombre ne lève
   //   aucune erreur : le réducteur rend simplement null pour toujours, et la courbe de tonnage

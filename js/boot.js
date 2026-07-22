@@ -135,7 +135,9 @@ const ROUTES = {
   '#/seance':                  route('./views/seance-tableau.js', 'Séance'),
   '#/seance/fin':              route('./views/seance-fin.js', 'Fin de séance'),
   '#/historique':              route('./views/historique.js', 'Historique'),
-  '#/historique/:id':          route('./views/seance-detail.js', 'Détail de séance'),
+  // v8 : le detail s'ouvre en PANNEAU par-dessus la liste (ou la progression), qui reste
+  // montee derriere — le retour la retrouve intacte, scroll compris.
+  '#/historique/:id':          route('./views/seance-detail.js', 'Détail de séance', { panneau: true }),
   '#/progression':             route('./views/progression.js', 'Progression'),
   '#/progression/:exerciceId': route('./views/progression.js', 'Progression'),
   '#/exercices':               route('./views/exercices.js', 'Exercices'),
@@ -160,11 +162,14 @@ const ROUTES = {
  *
  * @param {string} chemin specifieur relatif du module de vue
  * @param {string} titre titre affiche dans l'en-tete
+ * @param {{panneau?: boolean}} [options] panneau:true = la route s'ouvre en PANNEAU SUPERPOSE
+ *   quand on y arrive depuis une vue montee (voir ui/router.js, v8) ; pleine page sinon.
  */
-function route(chemin, titre) {
+function route(chemin, titre, options) {
   return {
     titre,
     chemin,
+    panneau: !!(options && options.panneau),
     mount(conteneur, params) {
       let vueReelle = null;
       let demonte = false;
