@@ -25,15 +25,11 @@ import * as router from '../ui/router.js';
 export function mount(conteneur) {
   let groupeChoisi = null;
 
-  const aide = h('p', { class: 'muscles-aide' },
-    'Touche un muscle pour voir son rôle, comment le travailler, et les exercices qui le sollicitent.');
-
   const silhouette = creerSilhouette({ onGroupe: choisir });
 
   const detail = h('div', { class: 'muscles-detail', hidden: true });
 
   const racine = h('section', { class: 'vue vue-muscles' },
-    aide,
     silhouette,
     detail
   );
@@ -69,8 +65,11 @@ export function mount(conteneur) {
       }, ex.nom),
       h('a', {
         class: 'anatomie-video',
-        href: 'https://www.youtube.com/results?search_query=' +
-          encodeURIComponent((ex.nom || '') + ' musculation technique'),
+        // v11 : un lien video POSE sur l'exercice (videoUrl) prime ; la recherche reste le repli.
+        href: (typeof ex.videoUrl === 'string' && ex.videoUrl)
+          ? ex.videoUrl
+          : 'https://www.youtube.com/results?search_query=' +
+            encodeURIComponent((ex.nom || '') + ' musculation technique'),
         target: '_blank',
         rel: 'noopener',
         'aria-label': 'Vidéo : ' + (ex.nom || 'exercice')

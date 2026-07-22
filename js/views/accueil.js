@@ -28,7 +28,7 @@
 // ecrit par store.commit(), et apprend les changements par le bus.
 
 import { MAX_SEANCES_EN_COURS, JOURS_AVANT_RAPPEL_EXPORT } from '../config.js';
-import { h, delegate } from '../lib/dom.js';
+import { h, on, delegate } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import { dayKey, joursEntre, formatLong } from '../lib/dates.js';
 import { formatFr } from '../lib/num.js';
@@ -42,6 +42,7 @@ import * as router from '../ui/router.js';
 import * as toast from '../ui/toast.js';
 import * as sheet from '../ui/sheet.js';
 import * as picker from '../ui/picker-exercice.js';
+import * as creerExo from '../ui/creer-exercice.js';
 import * as install from '../ui/install.js';
 
 const estNombre = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -230,6 +231,21 @@ export function mount(conteneur) {
   const barre = document.getElementById('barre-action');
   if (barre) barre.hidden = true;
 
+  // v11 : les Réglages ne sont plus un onglet de navigation — l'ENGRENAGE vit ici, dans
+  // l'en-tete de l'accueil (retour utilisateur : moins d'onglets, nav plus aeree). On reutilise
+  // #btn-menu de la coquille, comme l'ecran de seance le fait pour son propre menu : chaque vue
+  // l'arme au montage et le rend au demontage.
+  const btnReglages = document.getElementById('btn-menu');
+  const glypheMenu = btnReglages ? btnReglages.querySelector('span') : null;
+  if (btnReglages) {
+    btnReglages.hidden = false;
+    btnReglages.setAttribute('aria-label', 'Réglages');
+    btnReglages.setAttribute('aria-haspopup', 'false');
+    btnReglages.setAttribute('aria-expanded', 'false');
+    if (glypheMenu) glypheMenu.textContent = '⚙';
+    desabos.push(on(btnReglages, 'click', () => { router.aller('#/reglages'); }));
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 1. Seances en cours — rangee qui defile horizontalement
   // ═══════════════════════════════════════════════════════════════════════════
@@ -357,6 +373,8 @@ export function mount(conteneur) {
   // v7 : plus de tuile « Séance libre » (retour utilisateur : doublon de Composer — composer
   // sans enregistrer de routine EST la seance libre).
   const CLE_COMPOSER = 'action:composer';
+  // v11 : creation d'un exercice complet (nom, muscles, materiel, video…) depuis l'accueil.
+  const CLE_CREER_EXERCICE = 'action:creer-exercice';
   const CLE_CARDIO = 'action:cardio';
 
   function tuile({ cle, nomIcone, titre, detail, pastille, action, id, classe }) {
@@ -381,6 +399,12 @@ export function mount(conteneur) {
       return tuile({
         cle, nomIcone: 'composer', titre: 'Composer', detail: 'Exercice par exercice',
         action: 'composer', classe: 'tuile-composer'
+      });
+    }
+    if (cle === CLE_CREER_EXERCICE) {
+      return tuile({
+        cle, nomIcone: 'plus', titre: 'Créer un exercice', detail: 'Nom, muscles, matériel…',
+        action: 'creer-exercice', classe: 'tuile-creer-exercice'
       });
     }
     if (cle === CLE_CARDIO) {
@@ -420,7 +444,7 @@ export function mount(conteneur) {
   }
 
   function majLanceur(cle, noeud) {
-    if (cle === CLE_COMPOSER || cle === CLE_CARDIO) return;
+    if (cle === CLE_COMPOSER || cle === CLE_CREER_EXERCICE || cle === CLE_CARDIO) return;
     const modele = store.modele(cle);
     if (!modele) return;
     const nom = noeud.querySelector('.tuile-lanceur-nom');
@@ -437,7 +461,8 @@ export function mount(conteneur) {
     //   v6 : plus de tri « favorites d'abord » — le concept de favori a disparu.
     const routinesUtilisateur = actifs.filter(estRoutine).map((m) => m.id);
     const livres = actifs.filter((m) => !estRoutine(m)).map((m) => m.id);
-    const cles = [CLE_COMPOSER, CLE_CARDIO].concat(routinesUtilisateur, livres);
+    // v11 : « Créer un exercice » vient juste APRES Composer (demande utilisateur).
+    const cles = [CLE_COMPOSER, CLE_CREER_EXERCICE, CLE_CARDIO].concat(routinesUtilisateur, livres);
     reconcilier(grilleLanceurs, cles, noeudsLanceurs, fabriquerLanceur, majLanceur);
     majPlafond();
   }
@@ -460,6 +485,8 @@ export function mount(conteneur) {
     // ⚠ querySelectorAll et non children : une seance type est ENVELOPPEE (.tuile-hote) et
     //   poser disabled sur un <div> ne desactiverait rien du tout.
     for (const bouton of grilleLanceurs.querySelectorAll('.tuile-lanceur')) {
+      // v11 : « Créer un exercice » n'ouvre AUCUNE seance — le plafond ne le concerne pas.
+      if (bouton.getAttribute('data-cle') === CLE_CREER_EXERCICE) continue;
       bouton.disabled = atteint;
     }
   }
@@ -658,6 +685,15 @@ export function mount(conteneur) {
     } finally {
       etat.lancement = false;
     }
+  }
+
+  /** v11 : parcours complet de creation d'exercice, en FEUILLE — on ne quitte pas l'accueil.
+   *  L'ecriture passe par le commit existant 'exercice:enregistrer' (ui/creer-exercice.js).
+   *  Pas de toast de succes. */
+  function ouvrirCreationExercice() {
+    etat.feuille = creerExo.ouvrir({
+      onFermer: () => { etat.feuille = null; }
+    });
   }
 
   /** Sortie cardio : le type est un EXERCICE du catalogue, choisi dans la feuille filtrable. */
@@ -911,6 +947,7 @@ export function mount(conteneur) {
     if (action === 'menu-seance') { ouvrirMenuSeance(id); return; }
     if (action === 'gerer-routine') { ouvrirMenuRoutine(id); return; }
     if (action === 'composer') { router.aller('#/composer'); return; }
+    if (action === 'creer-exercice') { ouvrirCreationExercice(); return; }
     if (action === 'cardio') { choisirCardio(); return; }
     if (action === 'modele') {
       const modele = store.modele(id);
@@ -957,6 +994,14 @@ export function mount(conteneur) {
   return {
     destroy() {
       etat.detruit = true;
+      // L'engrenage est RENDU a la coquille : cache, glyphe et semantique d'origine restaures
+      // (l'ecran de seance re-armera #btn-menu a sa maniere au prochain montage).
+      if (btnReglages) {
+        btnReglages.hidden = true;
+        btnReglages.setAttribute('aria-label', 'Menu');
+        btnReglages.setAttribute('aria-haspopup', 'menu');
+        if (glypheMenu) glypheMenu.textContent = '⋮';
+      }
       for (const off of desabos) { try { off(); } catch (_) { /* deja detache */ } }
       desabos.length = 0;
       if (etat.bandeau) { try { etat.bandeau.detruire(); } catch (_) { /* deja detruit */ } etat.bandeau = null; }

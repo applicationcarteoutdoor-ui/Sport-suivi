@@ -874,8 +874,7 @@ export function mount(conteneur, params) {
   function ouvrirFeuilleAnatomie() {
     if (etat.feuille) return;
 
-    const zoneResultats = h('div', { class: 'anatomie-resultats' },
-      h('p', { class: 'anatomie-aide' }, 'Touche un muscle pour voir les exercices qui le travaillent.'));
+    const zoneResultats = h('div', { class: 'anatomie-resultats' });
 
     // Peint l'etat du bouton d'ajout d'une ligne. Pas de bascule : un exercice deja dans la
     // selection reste affiche « ajouté » (coche), le retrait se fait depuis la liste elle-meme.
@@ -916,8 +915,11 @@ export function mount(conteneur, params) {
           h('span', { class: 'anatomie-nom' }, ex.nom),
           h('a', {
             class: 'anatomie-video',
-            href: 'https://www.youtube.com/results?search_query='
-              + encodeURIComponent(ex.nom + ' musculation technique'),
+            // v11 : un lien video POSE sur l'exercice (videoUrl) prime ; la recherche reste le repli.
+            href: (typeof ex.videoUrl === 'string' && ex.videoUrl)
+              ? ex.videoUrl
+              : 'https://www.youtube.com/results?search_query='
+                + encodeURIComponent(ex.nom + ' musculation technique'),
             target: '_blank',
             rel: 'noopener',
             'aria-label': 'Vidéo : ' + ex.nom

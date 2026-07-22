@@ -437,8 +437,11 @@ export function mount(conteneur, params) {
     if (ex && ex.nom) {
       contenu.appendChild(h('a', {
         class: 'menu-seance-item',
-        href: 'https://www.youtube.com/results?search_query=' +
-          encodeURIComponent(ex.nom + ' musculation technique'),
+        // v11 : un lien video POSE sur l'exercice (videoUrl) prime ; la recherche reste le repli.
+        href: (typeof ex.videoUrl === 'string' && ex.videoUrl)
+          ? ex.videoUrl
+          : 'https://www.youtube.com/results?search_query=' +
+            encodeURIComponent(ex.nom + ' musculation technique'),
         target: '_blank',
         rel: 'noopener'
       },

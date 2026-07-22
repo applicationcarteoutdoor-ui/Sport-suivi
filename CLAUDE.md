@@ -139,7 +139,27 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-22, v10 livrée)
+## État et risques connus (2026-07-22, v11 livrée)
+
+- v11 :
+  · **Réglages hors navigation** : 4 onglets (Accueil, Historique, Progression, Muscles) ;
+    l'engrenage ⚙ vit dans l'en-tête de l'ACCUEIL via #btn-menu (armé au montage, RENDU au
+    démontage — même modèle que l'écran de séance). Bouton flottant du minuteur relevé
+    (esp-5 au-dessus de la nav — il chevauchait le 5ᵉ onglet).
+  · **« Créer un exercice »** : tuile accueil (2ᵉ position) → feuille complète
+    (js/ui/creer-exercice.js) — nom, muscle principal + secondaires (tuiles aria-pressed),
+    mode, matériel (vocabulaire MATERIELS), description, lien vidéo. Champs ADDITIFS du
+    schéma : `musclesSecondaires` (filtré sur CATEGORIES) et `videoUrl` (prime sur la
+    recherche YouTube dans les 3 fiches vidéo : séance, muscles, anatomie du composeur).
+    Commit : 'exercice:enregistrer'.
+  · **Feuilles** : plus JAMAIS d'autofocus sur un champ à l'ouverture (sheet.js — le clavier
+    jaillissait sur « Catalogue complet ») ; le focus va au panneau si le premier élément
+    utile est un input. Les vues qui VEULENT le clavier appellent champ.focus() elles-mêmes.
+  · **Picker** : pictogramme (pastille accent-doux) en tête de chaque ligne.
+  · ⚠ Un plafond de dépense a fauché 10 agents EN PLEIN VOL pendant cette vague : leurs
+    éditions partielles ont été inventoriées et complétées à la main (CSS de la feuille de
+    création, asset version.json). En cas de rechute : `git status` + node --check de chaque
+    fichier modifié AVANT toute autre chose.
 
 - v10 :
   · **Push et Pull RETIRÉS** (doublons de « Pecs et triceps » / « Dos et biceps ») :

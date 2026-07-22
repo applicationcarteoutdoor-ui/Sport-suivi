@@ -101,9 +101,9 @@
     <a class="nav-onglet" id="onglet-muscles" href="#/muscles" data-onglet="muscles">
       <span class="nav-onglet-icone" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.4" r="2.1"/><path d="M12 7.2v6"/><path d="M6.8 10.2 12 8.4l5.2 1.8"/><path d="M12 13.2 9.2 20"/><path d="m12 13.2 2.8 6.8"/></svg></span><span class="nav-onglet-nom">Muscles</span>
     </a>
-    <a class="nav-onglet" id="onglet-reglages" href="#/reglages" data-onglet="reglages">
-      <span class="nav-onglet-icone" aria-hidden="true">&#9881;</span><span class="nav-onglet-nom">Réglages</span>
-    </a>
+    <!-- v11 : Réglages n'est PLUS un onglet — l'engrenage vit dans l'en-tete de l'accueil
+         (views/accueil.js reutilise #btn-menu). La nav revient a 4 onglets : plus d'espace,
+         et le bouton flottant du minuteur ne chevauche plus le dernier onglet. -->
   </nav>
 
   <!-- BARRE D'ACTION BASSE — exactement DEUX zones, jamais quatre roles.

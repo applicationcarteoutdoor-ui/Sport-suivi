@@ -248,11 +248,14 @@
 .tour-ecart { color: var(--texte-attenue); font-size: var(--txt-s); font-variant-numeric: tabular-nums; }
 .tours-vide { color: var(--texte-attenue); font-size: var(--txt-s); text-align: center; padding: var(--esp-3); }
 
-/* Bouton flottant d'ouverture — present sur tous les ecrans, au-dessus de la navigation. */
+/* Bouton flottant d'ouverture — present sur tous les ecrans, au-dessus de la navigation.
+   v11 : marge relevee (esp-5) — avec 5 onglets il chevauchait le dernier, qui ne restait
+   atteignable que par un liseré (bug rapporte). La nav est revenue a 4 onglets ET le bouton
+   garde une garde genereuse : les deux protections sont independantes. */
 .bouton-minuteur-flottant {
   position: fixed;
   right: calc(var(--esp-3) + var(--safe-droite));
-  bottom: calc(var(--hauteur-nav) + var(--esp-3) + var(--safe-bas));
+  bottom: calc(var(--hauteur-nav) + var(--esp-5) + var(--safe-bas));
   z-index: var(--z-barre);
   min-width: var(--cible-tactile);
   min-height: var(--cible-tactile);
@@ -2007,3 +2010,75 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
 
 /* Cinq onglets au lieu de quatre : les libelles se serrent sans se couper. */
 .nav-onglet-nom { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   18. v11 — picker illustre
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Lignes du selecteur d'exercice : pictogramme en tete, dans une pastille douce. */
+.picker-dessin {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--rayon-m);
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+.picker-textes { flex: 1 1 auto; min-width: 0; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   19. v11 — creation d'exercice (feuille complete)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.creer-exo { display: flex; flex-direction: column; gap: var(--esp-2); }
+
+.creer-exo-libelle {
+  margin-top: var(--esp-2);
+  font-size: var(--txt-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+}
+.creer-exo-note { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+/* Champs natifs (admis hors ecran de seance) : >= 16px sinon iOS zoome au focus. */
+.creer-exo-champ {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--esp-2) var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  color: var(--texte);
+  font-size: max(16px, 1rem);
+  font-family: inherit;
+}
+.creer-exo-description { min-height: 72px; resize: vertical; }
+
+/* Tuiles de muscles : etat par aria-pressed, comme partout. */
+.creer-exo-grille { display: flex; flex-wrap: wrap; gap: var(--esp-1); }
+.creer-exo-muscle {
+  min-height: 40px;
+  padding: 0 var(--esp-3);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-plein);
+  background: var(--surface);
+  color: var(--texte-attenue);
+  font-size: var(--txt-s);
+  font-weight: 600;
+  cursor: pointer;
+}
+.creer-exo-muscle[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+
+.creer-exo-modes { flex-wrap: wrap; }
+.creer-exo-message { color: var(--alerte); font-size: var(--txt-s); font-weight: 600; }
+
+/* Tuile « Créer un exercice » de l'accueil : meme boite que les autres, trait discret. */
+.tuile-creer-exercice { border-style: dashed; }

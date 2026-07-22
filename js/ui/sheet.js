@@ -298,8 +298,14 @@ export function ouvrir(config) {
     conteneur.setAttribute('data-ouvert', 'oui');
     // Le focus va au premier element utile de la feuille, en sautant la croix de fermeture :
     // atterrir sur « Fermer » est la pire des destinations pour un lecteur d'ecran.
+    // v11 : et en sautant les CHAMPS DE SAISIE — focaliser un input a l'ouverture fait jaillir
+    // le clavier du telephone avant meme qu'on ait lu la feuille (bug rapporte sur le
+    // « Catalogue complet »). Celui qui veut chercher touche le champ ; la feuille, elle,
+    // recoit le focus sur son panneau, et le lecteur d'ecran y entre comme avant.
     const liste = focusables(panneau);
-    const cible = liste.find((el) => el !== btnFermer) || liste[0] || panneau;
+    const estSaisie = (el) => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+    const premierUtile = liste.find((el) => el !== btnFermer) || null;
+    const cible = (!premierUtile || estSaisie(premierUtile)) ? panneau : premierUtile;
     if (cible === panneau) panneau.setAttribute('tabindex', '-1');
     try { cible.focus({ preventScroll: true }); } catch (_) { /* sans consequence */ }
   }

@@ -172,34 +172,57 @@ const D_TRAPEZE_F =
 // Deltoide : calotte posee entre clavicule et bras, qui descend en V vers son insertion
 // a mi-bras. Identique de face et de dos ; les stries separent les trois faisceaux.
 const D_DELTOIDE =
-  'M34.3 50.9 C31.3 52.5 29.3 55.5 28.5 59.3 C27.7 62.9 28.1 66.7 29.5 69.9 '
-  + 'C30.3 71.7 31.4 73.1 32.7 73.9 C34.1 72.3 35.4 69.9 36.4 67.1 '
-  + 'C37.9 62.9 38.7 58.3 38.7 54.3 C38.7 52.7 37.7 51.3 36.1 50.5 '
-  + 'C35.5 50.5 34.9 50.7 34.3 50.9 Z';
-const S_DELTOIDE_1 = 'M30.5 54.7 C29.9 59.5 30.3 64.3 31.7 68.9';   // faisceau anterieur
-const S_DELTOIDE_2 = 'M35.9 53.5 C35.3 58.7 34.3 63.9 32.9 68.7';   // faisceau moyen
+  'M34.5 50.7 C31.1 51.9 28.7 54.9 27.7 59.1 C26.9 63.1 27.3 67.1 28.9 70.7 '
+  + 'C29.9 72.9 31.3 74.5 32.9 75.1 C34.5 73.3 35.9 70.5 37 67.3 '
+  + 'C38.6 62.7 39.3 57.9 39.1 53.9 C39 52.1 37.9 50.9 36.1 50.3 '
+  + 'C35.5 50.3 35 50.5 34.5 50.7 Z';
+// Faisceaux du deltoide (anterieur, moyen, posterieur) : leurs fibres FANENT depuis le bord
+// haut (clavicule -> acromion -> epine) et convergent toutes vers l'insertion a mi-bras (~33,74).
+const S_DELTOIDE = [
+  'M36.9 53.7 C36.1 59.3 35 64.7 33.6 72.7',
+  'M35.1 52.5 C34.7 58.7 34 64.9 33.2 73.1',
+  'M33.1 52.1 C32.9 58.5 32.8 65 32.8 73.1',
+  'M31 53.1 C31.2 59.2 31.7 65.3 32.4 72.7',
+  'M29.3 55.4 C29.8 60.8 30.7 66.1 32 71.9',
+  'M28.3 59 C29 63.7 30 68.3 31.4 72.5'
+];
 
 // ── FACE : pectoraux ─────────────────────────────────────────────────────────
 
 // Pectoral : eventail accroche a la clavicule et au sternum (x = 59.3 ; le miroir laisse la
 // gouttiere sternale), qui plonge vers l'aisselle ou ses fibres convergent sous le deltoide.
 const D_PECTORAL =
-  'M42.3 52.5 C47.7 51.3 53.7 51 59.3 51.3 L59.3 53.9 '
-  + 'C59.3 61.9 58.5 68.9 56.7 74.1 C55.1 78.5 52.1 80.7 48.1 80.1 '
-  + 'C43.9 79.4 40.8 76.1 39.4 71.1 C38.3 64.7 39.3 57.9 42.3 52.5 Z';
-const S_PECTORAL_1 = 'M58.1 55.9 C52.7 56.3 47.3 58.1 42.5 61.3';   // fibres claviculaires
-const S_PECTORAL_2 = 'M58.1 61.7 C53.1 62.1 48.1 63.9 43.7 67.1';   // fibres sternales
-const S_PECTORAL_3 = 'M57.3 68.1 C53.1 68.5 49.1 69.9 45.5 72.5';   // fibres abdominales
+  'M42.1 52.3 C47.9 51.1 53.7 50.8 59.3 51.1 L59.3 53.9 '
+  + 'C59.3 62.3 58.4 69.7 56.5 75.3 C54.7 80 51.3 82 47 81.1 '
+  + 'C42.7 80.1 39.9 76.5 38.9 70.9 C37.9 64.1 39.1 57.7 42.1 52.3 Z';
+// Fibres du grand pectoral en EVENTAIL : elles rayonnent de l'origine mediane (clavicule en
+// haut, sternum au milieu, cotes en bas) et convergent toutes vers l'insertion humerale sous
+// l'aisselle (~42,72) — claviculaires descendantes, costales remontantes.
+const S_PECTORAL = [
+  'M57.9 53.8 C52.6 55.6 47.2 58.4 41.9 70',
+  'M58.8 57.4 C53.2 58.9 47.6 61.5 41.7 71',
+  'M59 61.5 C53.4 62.6 47.8 64.6 41.7 71.9',
+  'M58.6 65.9 C53.2 66.8 47.7 68.2 42.1 72.6',
+  'M57.4 70.3 C52.6 70.8 47.7 71.4 42.7 73.2',
+  'M55.2 74.8 C50.8 74.4 46.6 73.3 43.3 72.4'
+];
 
 // ── FACE : bras ──────────────────────────────────────────────────────────────
 
 // Biceps : fuseau bombe sur l'avant du bras, du bord du deltoide au pli du coude.
 const D_BICEPS =
-  'M31.3 72.1 C33.7 73.7 35.5 76.7 36.2 80.7 C36.9 85.1 36.4 90.1 34.9 94.5 '
-  + 'C34.1 96.9 33 98.8 31.7 99.9 C29.9 98.5 28.4 95.9 27.6 92.5 '
-  + 'C26.7 87.5 27.1 81.9 28.9 77.1 C29.5 75.3 30.3 73.5 31.3 72.1 Z';
-const S_BICEPS_1 = 'M31.3 76.3 C32.3 81.5 32.5 87.1 31.7 92.5';
-const S_BICEPS_2 = 'M34.1 79.1 C34.7 83.5 34.5 88.3 33.5 92.7';
+  'M31.3 72.1 C34 73.5 36 76.5 36.9 80.9 C37.6 85.5 37 90.5 35.3 94.9 '
+  + 'C34.4 97.3 33.2 99.1 31.7 100.1 C29.8 98.7 28.2 96 27.3 92.5 '
+  + 'C26.4 87.3 26.8 81.5 28.7 76.7 C29.4 74.9 30.3 73.3 31.3 72.1 Z';
+// Fibres fusiformes du biceps : longitudinales, resserrees aux deux extremites (tendon
+// superieur, pli du coude) et bombees au ventre.
+const S_BICEPS = [
+  'M31.5 74.3 C32.8 80.5 33 87.3 31.9 96.7',
+  'M33.7 77.6 C34.6 83.7 34.4 89.5 33.1 95.3',
+  'M29.4 77.9 C28.6 84 28.8 89.7 30.1 95.3',
+  'M35.1 82 C35.4 86.7 34.9 90.9 33.7 94.3',
+  'M28 82.7 C27.7 87.3 28.2 91.3 29.5 94.7'
+];
 
 // Brachial : la lentille qui pointe entre biceps et triceps juste au-dessus du coude.
 const D_BRACHIAL =
@@ -215,8 +238,15 @@ const D_AVANT_BRAS =
   + 'C27.8 129.5 28.7 131.3 29.9 132.9 L32.7 132.9 '
   + 'C33.5 130.9 34.1 128.3 34.4 125.1 C34.9 119.1 34.5 112.5 33.3 106.3 '
   + 'C32.9 104.3 32.4 102.5 31.9 100.9 C30.7 100.1 29.6 99.4 28.7 98.9 Z';
-const S_AVANT_BRAS_1 = 'M30.5 102.5 C29.9 110.5 30.1 118.7 31.3 126.9';
-const S_AVANT_BRAS_2 = 'M27.7 105.9 C27.1 112.5 27.5 119.5 29.1 125.9';
+// Faisceau des flechisseurs/extenseurs de l'avant-bras : fibres longues du coude au poignet,
+// en leger eventail depuis l'epicondyle.
+const S_AVANT_BRAS = [
+  'M30.6 101.7 C29.9 110 30.1 118.5 31.2 126.7',
+  'M27.9 104.9 C27.2 111.5 27.6 119 29 126',
+  'M32.4 104.3 C32.9 111 32.7 117.9 31.9 124.9',
+  'M29.1 102.3 C28.5 110.5 28.7 119.3 30 127.3',
+  'M26.6 108.5 C26.3 114.3 26.9 120.5 28.2 126'
+];
 
 // ── FACE : sangle abdominale ─────────────────────────────────────────────────
 
@@ -235,18 +265,24 @@ const S_RECTUS = [
 
 // Oblique externe : le pan qui borde la tablette et epouse le flanc jusqu'a la crete iliaque.
 const D_OBLIQUE =
-  'M50.5 84.9 C47.3 87.7 45.1 91.7 44.1 96.7 C43.3 101.5 43.5 106.6 44.5 111.9 '
-  + 'C45.7 114.7 47.5 117.1 49.9 119.1 C49 113.3 48.7 106.9 49 100.3 '
+  'M50.5 84.9 C47 87.5 44.6 91.5 43.5 96.7 C42.7 101.7 42.9 106.9 44 112.3 '
+  + 'C45.3 115.3 47.3 117.7 49.9 119.5 C49 113.5 48.7 107 49 100.3 '
   + 'C49.2 95 49.7 89.9 50.5 84.9 Z';
-const S_OBLIQUE_1 = 'M44.7 96.9 C46.3 98.1 47.6 99.9 48.5 102.1';
-const S_OBLIQUE_2 = 'M44.5 103.5 C46.1 104.7 47.4 106.4 48.3 108.6';
+// Fibres de l'oblique externe : diagonales, du bord des cotes vers le pubis (« mains aux poches »).
+const S_OBLIQUE = [
+  'M44.2 92.7 C45.9 94.5 47.3 96.9 48.2 100',
+  'M43.7 97.5 C45.5 99.3 46.9 101.7 47.9 104.9',
+  'M43.6 102.5 C45.4 104.3 46.9 106.7 47.9 109.9',
+  'M44.1 107.5 C45.8 109.2 47.2 111.4 48.2 114.2'
+];
 
 // Dentele anterieur : trois digitations decoratives sous l'aisselle, entre pectoral
 // et oblique — la signature des ecorches.
 const S_SERRATUS = [
-  'M41.9 75.5 C43.3 75.9 44.7 76.7 45.9 77.7',
-  'M42.3 79.7 C43.7 80.1 45.1 80.7 46.3 81.7',
-  'M42.9 83.7 C44.3 83.9 45.7 84.5 46.9 85.3'
+  'M40.7 73.7 C42.5 73.9 44.2 74.7 45.7 75.9',
+  'M40.9 77.5 C42.7 77.7 44.4 78.6 45.9 79.8',
+  'M41.4 81.3 C43.1 81.6 44.8 82.5 46.3 83.7',
+  'M42.1 85.1 C43.7 85.5 45.2 86.4 46.6 87.6'
 ];
 
 // Pli inguinal : le V de l'aine, de la crete iliaque vers le pubis — il s'arrete au bord
@@ -264,24 +300,37 @@ const D_TFL =
 // Quadriceps, chef par chef — les bords voisins se FROLENT (une seule couture visible,
 // jamais de couloir vide entre deux chefs). Vaste externe : le galbe du dehors de la cuisse.
 const D_VASTE_EXT =
-  'M40.9 133.3 C40.3 142.3 40.6 151.9 41.9 161.3 C42.7 168.1 44 174.3 45.9 179.7 '
-  + 'C46.1 176.9 46.5 172.9 46.9 167.9 C47.5 158.9 47 148.3 45.4 136.5 '
-  + 'C44.1 135.1 42.6 134 40.9 133.3 Z';
-const S_VASTE_EXT = 'M43.1 140.9 C44.3 149.9 44.7 159.7 44.3 169.5';
+  'M40.7 133.7 C39.9 143 40.1 152.8 41.4 162.3 C42.4 169.7 44 176.1 46.2 181.2 '
+  + 'C46.7 178 46.9 173 46.8 166.5 C46.6 156 46.3 145.6 45.9 136 '
+  + 'C44 134.8 42.4 134 40.7 133.7 Z';
+// Fibres du vaste externe : longues, du grand trochanter vers le tendon rotulien (bas-dedans).
+const S_VASTE_EXT = [
+  'M41.3 141 C41.8 151 43 161 45.6 179',
+  'M43.2 139 C44 149 45.2 158.5 46.4 176.5',
+  'M40.4 148 C40.9 156.5 42 165 44.4 180'
+];
 
-// Droit femoral : le fuseau central, du bassin au tendon quadricipital.
+// Droit femoral : le fuseau central bipenne, du bassin au tendon quadricipital.
 const D_DROIT_FEM =
-  'M48.1 133.9 C50.2 137.9 51.4 143.5 51.9 150.7 C52.4 158.3 51.9 166.1 50.3 173.5 '
-  + 'C49.7 176.6 48.9 179.1 47.9 181.3 C47.3 178.1 46.9 174.1 46.9 169.3 '
-  + 'C46.9 159.7 47.3 147.9 48.1 133.9 Z';
-const S_DROIT_FEM = 'M48.9 140.9 C49.7 150.3 49.8 160.9 49.1 171.5';
+  'M47.5 134.2 C49.7 138.2 51 144 51.5 151.4 C52 159.3 51.4 167.2 49.7 174.7 '
+  + 'C49 178.1 48.1 180.9 47.1 183.1 C46.5 179.6 46.2 175 46.2 169.6 '
+  + 'C46.2 159.5 46.7 147.4 47.5 134.2 Z';
+const S_DROIT_FEM = [
+  'M48.5 140 C49.2 150.5 49.3 161.5 48.3 174',
+  'M46.9 145 C47.2 154 47.4 163 47.5 172',
+  'M50.3 145 C50.6 153 50.3 161 49.5 170.5'
+];
 
-// Vaste interne : la « goutte » qui bombe juste au-dessus du genou, cote interne.
+// Vaste interne : la « goutte » qui bombe juste au-dessus du genou, cote interne, fibres
+// obliques serrees plongeant vers la rotule.
 const D_VASTE_INT =
-  'M50.1 168.5 C51.9 169.5 53.5 171.7 54.7 175.1 C55.5 177.7 55.7 180.5 55.2 183.3 '
-  + 'C54.4 185.9 52.8 187.5 50.9 188.1 C49.8 186.1 49.1 183.1 48.9 179.3 '
-  + 'C48.8 175.5 49.2 171.9 50.1 168.5 Z';
-const S_VASTE_INT = 'M51.7 172.9 C52.7 175.7 53.1 178.9 52.9 182.3';
+  'M49.6 167.9 C51.7 168.9 53.5 171.3 54.8 175.1 C55.7 178.1 55.9 181.3 55.3 184.5 '
+  + 'C54.5 187.5 52.7 189.3 50.6 189.9 C49.4 187.7 48.7 184.3 48.5 180.1 '
+  + 'C48.4 175.7 48.8 171.5 49.6 167.9 Z';
+const S_VASTE_INT = [
+  'M50.5 172 C51.5 175 51.9 178.5 51.7 182.5',
+  'M52.5 173 C53.3 176 53.5 179.3 52.9 183'
+];
 
 // Adducteurs : tout le versant interne de la cuisse, du pubis a la goutte du vaste
 // interne. Decoratif.
@@ -308,8 +357,13 @@ const D_TIBIAL =
   'M46.7 196.5 C45.9 202.3 45.7 208.9 46.3 216.1 C46.7 222.1 47.7 228.1 49.3 233.9 '
   + 'C50.1 230.7 50.6 226.9 50.8 222.5 C51.1 214.1 50.4 205.1 48.7 196.9 '
   + 'C48 196.5 47.3 196.4 46.7 196.5 Z';
-const S_TIBIAL = 'M47.5 200.5 C47.1 208.1 47.4 216.3 48.5 224.5';
+const S_TIBIAL = [
+  'M47.7 200.5 C47.3 208.1 47.6 216.3 48.6 224.3',
+  'M46.4 203 C46.1 210 46.4 217.6 47.3 224.6'
+];
 const S_TENDON_TIBIAL = 'M49.4 234.1 C50.1 237.5 51.1 240.7 52.3 243.5';
+// Galbe interne du gastrocnemien vu de face : une fibre qui suit sa bombe.
+const S_GASTRO_MED_F = 'M54.6 200.7 C55.4 205.7 55.6 211.1 55 217.1';
 
 // ... peroniers en lisiere externe...
 const D_PERONIERS =
@@ -336,15 +390,25 @@ const D_TRAPEZE_D =
   'M59.3 38.9 C56.3 42.5 51.9 45.7 46.7 48.1 C42.9 49.8 39.1 50.5 35.5 50.3 '
   + 'C40.1 53.3 44.9 56.5 49.3 60.5 C53.9 64.7 56.9 69.9 58.3 76.1 '
   + 'C58.9 79.1 59.3 82.3 59.3 85.7 L59.3 94.9 Z';
-const S_TRAPEZE_1 = 'M57.1 43.5 C53.3 46.5 49.1 48.9 44.7 50.5';
-const S_TRAPEZE_2 = 'M58.5 55.3 C53.9 55.1 49.3 54.1 45.1 52.3';
-const S_TRAPEZE_3 = 'M58.9 87.9 C56.7 80.5 52.9 73.7 47.5 67.7';
+// Faisceaux du trapeze : superieurs descendants vers l'acromion, moyens horizontaux vers la
+// scapula, inferieurs remontants depuis les dorsales basses — l'eventail caracteristique.
+const S_TRAPEZE = [
+  'M58.4 40.8 C53.2 43.6 47.6 46.4 41.2 49',
+  'M58.8 44 C53.6 46 48 47.8 42.6 49.6',
+  'M59 49.8 C54 50.5 49 50.6 44.6 50.3',
+  'M59 55.2 C54.4 55 49.8 54.2 45.4 52.4',
+  'M59 82 C55.8 77 51 72.4 46.4 68',
+  'M58.9 89.5 C56 81.8 52 74.8 47 69'
+];
 
 // Infra-epineux (et petit rond) : la plaque sur l'omoplate, entre trapeze et deltoide.
 const D_INFRA =
   'M39.5 55.5 C42.5 57.1 45.3 59.7 47.7 62.9 C46.3 65.5 44.2 67.3 41.7 68.5 '
   + 'C39.9 66.1 38.8 62.9 38.5 59.1 C38.8 57.7 39.1 56.5 39.5 55.5 Z';
-const S_INFRA = 'M40.3 59.7 C42.7 60.7 44.8 62.2 46.5 64.1';
+const S_INFRA = [
+  'M40.3 59.7 C42.7 60.7 44.8 62.2 46.5 64.1',
+  'M39.5 62.5 C41.5 63.5 43.4 64.9 45 66.5'
+];
 
 // Grand dorsal : l'aile qui part de l'aisselle, s'accroche a la colonne sous le trapeze
 // et fond vers la taille. Son bord bas rejoint la colonne en biais (aponevrose lombaire).
@@ -352,15 +416,25 @@ const D_DORSAL =
   'M40.5 69.9 C44.8 73.5 49.9 76.1 55.7 77.7 L59.3 78.7 L59.3 104.9 '
   + 'C55.3 104.3 51.5 102.5 48.1 99.5 C43.9 95.3 41.3 89.3 40.5 81.5 '
   + 'C40.2 77.7 40.2 73.9 40.5 69.9 Z';
-const S_DORSAL_1 = 'M44.1 77.9 C47.8 84.3 52.3 89.9 57.3 94.7';
-const S_DORSAL_2 = 'M42.1 81.9 C44.5 89.3 48.3 95.9 53.5 101.7';
-const S_DORSAL_3 = 'M46.9 75.9 C50.7 80.7 54.9 84.5 59.1 87.3';
+// Fibres du grand dorsal : elles balayent en eventail de la taille et de la colonne vers
+// l'aisselle (bas-dedans -> haut-dehors).
+const S_DORSAL = [
+  'M48.5 73.5 C52.5 77 56.5 79.5 59.2 81',
+  'M46.9 75.9 C50.7 80.7 54.9 84.5 59.1 87.3',
+  'M44.1 77.9 C47.8 84.3 52.3 89.9 57.3 94.7',
+  'M42.1 81.9 C44.5 89.3 48.3 95.9 53.5 101.7',
+  'M41 86 C43 92.5 46.4 98 51 103.5'
+];
 
 // Lombaires : les deux colonnes des erecteurs, visibles sous le bord du grand dorsal.
 const D_LOMBAIRES =
-  'M55.3 106.1 C56.6 106.5 57.9 106.8 59.3 106.9 L59.3 123.9 '
-  + 'C57.9 123.5 56.5 122.5 55.3 121.1 C54.7 116.1 54.7 111.1 55.3 106.1 Z';
-const S_LOMBAIRES = 'M57.3 108.9 L57.4 120.9';
+  'M55.5 105.9 C56.8 106.3 58 106.6 59.3 106.7 L59.3 124.3 '
+  + 'C57.9 123.9 56.6 122.7 55.6 120.9 C54.8 116 54.9 110.9 55.5 105.9 Z';
+// Deux fibres verticales : la colonne de l'erecteur du rachis qui gonfle au bas du dos.
+const S_LOMBAIRES = [
+  'M56.9 108.5 C56.7 113 56.8 117.5 57.3 121.3',
+  'M58.2 108 C58.1 112.5 58.1 117 58.4 121'
+];
 
 // ── DOS : bras ───────────────────────────────────────────────────────────────
 
@@ -370,8 +444,14 @@ const D_TRICEPS =
   'M31.3 71.9 C33.7 73.5 35.5 76.5 36.2 80.5 C36.9 84.9 36.4 89.9 34.9 94.3 '
   + 'C34.1 96.7 33 98.6 31.7 99.7 C29.9 98.3 28.4 95.7 27.6 92.3 '
   + 'C26.7 87.3 27.1 81.7 28.9 76.9 C29.5 75.1 30.3 73.3 31.3 71.9 Z';
-const S_TRICEPS_1 = 'M34.3 76.9 C34.7 81.7 34.3 86.9 32.9 91.5';
-const S_TRICEPS_2 = 'M29.5 77.9 C29.1 82.7 29.6 87.7 31.1 92.1';
+// Fibres des trois chefs du triceps, convergeant vers le tendon (le « fer a cheval »).
+const S_TRICEPS = [
+  'M34.3 76.9 C34.7 81.7 34.3 86.9 32.9 91.5',   // chef externe (vaste)
+  'M29.5 77.9 C29.1 82.7 29.6 87.7 31.1 92.1',   // chef long
+  'M32 75 C32.2 81 32.1 87 31.8 92.3',           // chef median
+  'M35.2 82 C35 86.4 34.1 90 32.7 92.7',
+  'M28.4 82.6 C28.5 86.7 29.3 90.1 30.6 92.9'
+];
 const S_TRICEPS_3 = 'M30.7 93.3 C31.5 94.7 32.7 94.9 33.7 93.7';   // arc du fer a cheval
 
 // Pointe du coude (olecrane). Decorative.
@@ -389,8 +469,14 @@ const D_GRAND_FESSIER =
   'M45.9 119.9 C50.3 118.3 54.9 118.5 59.3 120.7 L59.3 127.9 '
   + 'C59.3 136.9 57.1 144.3 52.7 149.5 C48.9 151.1 45.5 149.9 43.1 146.1 '
   + 'C41.3 141.3 41.5 134.9 43.7 127.5 C44.3 124.9 45 122.3 45.9 119.9 Z';
-const S_FESSIER_1 = 'M55.3 123.3 C52.1 129.5 49.9 136.7 48.7 144.7';
-const S_FESSIER_2 = 'M50.5 121.9 C47.9 127.3 46.1 133.5 45.1 140.5';
+// Fibres du grand fessier : en biais, du sacrum et de la crete iliaque (haut-dedans) vers
+// le femur (bas-dehors).
+const S_FESSIER = [
+  'M57.5 126 C54.5 131.5 52 138 50.5 145.5',
+  'M55.3 123.3 C52.1 129.5 49.9 136.7 48.7 144.7',
+  'M53 122.5 C50 127.5 47.8 133.5 46.6 141',
+  'M50.5 121.9 C47.9 127.3 46.1 133.5 45.1 140.5'
+];
 
 // Pli sous-fessier. Decoratif.
 const S_PLI_FESSIER = 'M45.3 149.9 C49.5 151.7 54.1 151.9 58.7 150.5';
@@ -407,8 +493,13 @@ const D_ISCHIO_INT =
   'M51.1 153.3 C53.4 155.1 55.2 158.5 56.1 163.3 C57.1 169.5 56.9 176.1 55.5 182.5 '
   + 'C54.7 185.7 53.6 188.3 52.3 190.3 C50.9 187.5 49.9 183.3 49.5 177.9 '
   + 'C49 169.7 49.5 161.3 51.1 153.3 Z';
-const S_ISCHIO_1 = 'M45.9 158.9 C46.9 167.3 47.1 176.5 46.3 185.3';
-const S_ISCHIO_2 = 'M53.1 159.9 C54.1 167.9 54.1 176.3 53.1 184.5';
+// Fibres longitudinales des ischio-jambiers (deux par masse : biceps femoral, semi-tendineux).
+const S_ISCHIO = [
+  'M45.9 158.9 C46.9 167.3 47.1 176.5 46.3 185.3',
+  'M47.4 160.5 C48.1 168 48.1 176 47.3 183.5',
+  'M53.1 159.9 C54.1 167.9 54.1 176.3 53.1 184.5',
+  'M51.5 161 C52.1 168 52.1 175.5 51.3 182.5'
+];
 const S_TENDON_ISCHIO_1 = 'M45.9 190.9 C45.5 193.9 45.3 196.9 45.3 199.9';
 const S_TENDON_ISCHIO_2 = 'M52.7 190.9 C53.1 193.9 53.3 196.9 53.3 199.9';
 
@@ -425,8 +516,13 @@ const D_GASTRO_INT =
   + 'C54.9 221.7 54 224.7 52.9 227.3 C51.5 223.9 50.5 219.7 50.1 214.7 '
   + 'C49.8 208.9 50 203.1 50.9 197.7 Z';
 const S_FOURCHE = 'M49.9 200.9 C49.8 205.9 49.8 210.9 49.9 215.9';
-const S_GASTRO_1 = 'M46.3 201.9 C45.9 207.5 46.2 213.5 47.1 219.5';
-const S_GASTRO_2 = 'M53.3 201.9 C53.9 207.1 53.9 212.9 53.1 218.9';
+// Fibres des deux chefs du gastrocnemien, bombant le diamant du mollet.
+const S_GASTRO = [
+  'M46.3 201.9 C45.9 207.5 46.2 213.5 47.1 219.5',
+  'M53.3 201.9 C53.9 207.1 53.9 212.9 53.1 218.9',
+  'M47.7 200.7 C47.4 206 47.6 211.3 48.2 216.8',
+  'M52 200.7 C52.4 206 52.3 211.3 51.7 216.8'
+];
 const D_SOLEAIRE_EXT =
   'M45.1 216.9 C45.2 221.7 45.9 226.3 47.3 230.7 C47.7 228.7 47.9 226.3 47.8 223.7 '
   + 'C47.7 220.9 47.2 218.3 46.4 215.9 C45.9 216.1 45.5 216.4 45.1 216.9 Z';
@@ -468,22 +564,22 @@ function vueFace() {
     groupe('dos', paire(D_TRAPEZE_F)),
     groupe('epaules', [
       ...paire(D_DELTOIDE),
-      ...paire(S_DELTOIDE_1, STRIE), ...paire(S_DELTOIDE_2, STRIE)
+      S_DELTOIDE.map((d) => paire(d, STRIE))
     ]),
     groupe('pectoraux', [
       ...paire(D_PECTORAL),
-      ...paire(S_PECTORAL_1, STRIE), ...paire(S_PECTORAL_2, STRIE), ...paire(S_PECTORAL_3, STRIE)
+      S_PECTORAL.map((d) => paire(d, STRIE))
     ]),
     // Bras complet : biceps, brachial et avant-bras repondent tous « biceps ».
     groupe('biceps', [
       ...paire(D_BICEPS), ...paire(D_BRACHIAL), ...paire(D_AVANT_BRAS),
-      ...paire(S_BICEPS_1, STRIE), ...paire(S_BICEPS_2, STRIE),
-      ...paire(S_AVANT_BRAS_1, STRIE), ...paire(S_AVANT_BRAS_2, STRIE)
+      S_BICEPS.map((d) => paire(d, STRIE)),
+      S_AVANT_BRAS.map((d) => paire(d, STRIE))
     ]),
     groupe('abdos', [
       ...paire(D_RECTUS), ...paire(D_OBLIQUE),
       S_RECTUS.map((d) => paire(d, STRIE)),
-      ...paire(S_OBLIQUE_1, STRIE), ...paire(S_OBLIQUE_2, STRIE)
+      S_OBLIQUE.map((d) => paire(d, STRIE))
     ]),
     // Adducteurs, tenseur du fascia lata et sartorius habillent la cuisse SOUS les quadriceps.
     paire(D_ADDUCTEURS, DECO),
@@ -491,11 +587,14 @@ function vueFace() {
     paire(S_SARTORIUS, STRIE),
     groupe('quadriceps', [
       ...paire(D_VASTE_EXT), ...paire(D_DROIT_FEM), ...paire(D_VASTE_INT),
-      ...paire(S_VASTE_EXT, STRIE), ...paire(S_DROIT_FEM, STRIE), ...paire(S_VASTE_INT, STRIE)
+      S_VASTE_EXT.map((d) => paire(d, STRIE)),
+      S_DROIT_FEM.map((d) => paire(d, STRIE)),
+      S_VASTE_INT.map((d) => paire(d, STRIE))
     ]),
     groupe('mollets', [
       ...paire(D_TIBIAL), ...paire(D_PERONIERS), ...paire(D_GASTRO_MED_F),
-      ...paire(S_TIBIAL, STRIE), ...paire(S_TENDON_TIBIAL, STRIE)
+      S_TIBIAL.map((d) => paire(d, STRIE)),
+      ...paire(S_TENDON_TIBIAL, STRIE), ...paire(S_GASTRO_MED_F, STRIE)
     ]),
     // Finitions par-dessus : V de l'aine, rotule et son tendon.
     paire(S_INGUINAL, TRAIT),
@@ -513,37 +612,37 @@ function vueDos() {
     paire(S_TALON, STRIE),
     groupe('epaules', [
       ...paire(D_DELTOIDE),
-      ...paire(S_DELTOIDE_1, STRIE), ...paire(S_DELTOIDE_2, STRIE)
+      S_DELTOIDE.map((d) => paire(d, STRIE))
     ]),
     // Tout le tronc arriere repond « dos » : trapeze, infra-epineux, grand dorsal, lombaires.
     groupe('dos', [
       ...paire(D_TRAPEZE_D), ...paire(D_INFRA), ...paire(D_DORSAL), ...paire(D_LOMBAIRES),
-      ...paire(S_TRAPEZE_1, STRIE), ...paire(S_TRAPEZE_2, STRIE), ...paire(S_TRAPEZE_3, STRIE),
-      ...paire(S_INFRA, STRIE),
-      ...paire(S_DORSAL_1, STRIE), ...paire(S_DORSAL_2, STRIE), ...paire(S_DORSAL_3, STRIE),
-      ...paire(S_LOMBAIRES, STRIE)
+      S_TRAPEZE.map((d) => paire(d, STRIE)),
+      S_INFRA.map((d) => paire(d, STRIE)),
+      S_DORSAL.map((d) => paire(d, STRIE)),
+      S_LOMBAIRES.map((d) => paire(d, STRIE))
     ]),
     // Bras complet : triceps et avant-bras (extenseurs) repondent tous « triceps ».
     groupe('triceps', [
       ...paire(D_TRICEPS), ...paire(D_AVANT_BRAS),
-      ...paire(S_TRICEPS_1, STRIE), ...paire(S_TRICEPS_2, STRIE), ...paire(S_TRICEPS_3, STRIE),
-      ...paire(S_AVANT_BRAS_1, STRIE), ...paire(S_AVANT_BRAS_2, STRIE)
+      S_TRICEPS.map((d) => paire(d, STRIE)), ...paire(S_TRICEPS_3, STRIE),
+      S_AVANT_BRAS.map((d) => paire(d, STRIE))
     ]),
     groupe('fessiers', [
       ...paire(D_MOYEN_FESSIER), ...paire(D_GRAND_FESSIER),
-      ...paire(S_FESSIER_1, STRIE), ...paire(S_FESSIER_2, STRIE)
+      S_FESSIER.map((d) => paire(d, STRIE))
     ]),
     paire(S_PLI_FESSIER, STRIE),
     groupe('ischios', [
       ...paire(D_ISCHIO_EXT), ...paire(D_ISCHIO_INT),
-      ...paire(S_ISCHIO_1, STRIE), ...paire(S_ISCHIO_2, STRIE)
+      S_ISCHIO.map((d) => paire(d, STRIE))
     ]),
     paire(S_TENDON_ISCHIO_1, STRIE),
     paire(S_TENDON_ISCHIO_2, STRIE),
     groupe('mollets', [
       ...paire(D_GASTRO_EXT), ...paire(D_GASTRO_INT),
       ...paire(D_SOLEAIRE_EXT), ...paire(D_SOLEAIRE_INT),
-      ...paire(S_FOURCHE, STRIE), ...paire(S_GASTRO_1, STRIE), ...paire(S_GASTRO_2, STRIE),
+      ...paire(S_FOURCHE, STRIE), S_GASTRO.map((d) => paire(d, STRIE)),
       ...paire(S_ACHILLE_1, STRIE), ...paire(S_ACHILLE_2, STRIE)
     ])
   );

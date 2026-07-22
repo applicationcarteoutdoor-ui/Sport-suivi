@@ -269,6 +269,12 @@ export function nouvelExercice(p = {}) {
     nom: p.nom || '',
     alias: Array.isArray(p.alias) ? p.alias.slice() : [], // recherche UNIQUEMENT, jamais regroupement
     categorie: p.categorie || 'corps-entier',
+    // v11 : muscles SECONDAIRES travailles, en plus de la categorie principale. Champ ADDITIF
+    // et optionnel — AUCUNE migration : un exercice anterieur le lit `[]`, et les lecteurs
+    // restent defensifs. Seules les categories du vocabulaire ferme sont retenues.
+    musclesSecondaires: Array.isArray(p.musclesSecondaires)
+      ? p.musclesSecondaires.filter((c) => CATEGORIES.indexOf(c) !== -1)
+      : [],
     materiel: p.materiel || 'aucun',
     mode,
     lestable: p.lestable === true,           // active lestKg SIGNE
@@ -280,6 +286,9 @@ export function nouvelExercice(p = {}) {
     reposParDefautSec: estNombre(p.reposParDefautSec) ? p.reposParDefautSec : 120,
     metriquePreferee: p.metriquePreferee || null,
     notes: p.notes || null,
+    // v11 : lien video d'EXECUTION pose par l'utilisateur (URL complete). Champ ADDITIF et
+    // optionnel — null = les vues retombent sur la recherche YouTube construite sur le nom.
+    videoUrl: (typeof p.videoUrl === 'string' && p.videoUrl.trim() !== '') ? p.videoUrl.trim() : null,
     // ⚠ interdit a la synchronisation du catalogue livre d'ecraser cet exercice.
     userModified: p.userModified === true,
     // ⚠ JAMAIS de suppression dure : des seances de 2023 referencent cet id a vie.

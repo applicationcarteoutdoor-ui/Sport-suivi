@@ -12,6 +12,7 @@
 import { h, on, delegate, vider } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import * as store from '../data/store.js';
+import { icone, iconePourExercice } from './icons.js';
 import {
   MODES, NOMS_MODES, LIBELLES_MODES, LIBELLES_CATEGORIES, LIBELLES_MATERIELS,
   CATEGORIES, nouvelExercice, estSeanceComptable } from '../data/schema.js';
@@ -138,7 +139,12 @@ function ligne(ex) {
     'data-id': ex.id,
     'data-archive': ex.archived ? 'oui' : null
   },
-    h('span', null,
+    // v11 : le PICTOGRAMME d'abord (retour utilisateur, « Catalogue complet ») — on reconnait
+    // un exercice a son dessin bien avant de lire son nom. Resolution par iconePourExercice,
+    // jamais ex.icone (les exercices crees par l'utilisateur n'en ont pas).
+    h('span', { class: 'picker-dessin', 'aria-hidden': 'true' },
+      icone(iconePourExercice(ex), { taille: 26 })),
+    h('span', { class: 'picker-textes' },
       h('span', { class: 'ligne-liste-principal' }, ex.nom),
       h('br'),
       h('span', { class: 'ligne-liste-secondaire' }, sousTitre(ex))

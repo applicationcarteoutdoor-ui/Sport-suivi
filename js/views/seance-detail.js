@@ -894,10 +894,7 @@ export function mount(conteneur, params = {}) {
           dataset: { action: 'refaire' }
         },
           icone('plus', { taille: 20 }),
-          h('span', null, 'Créer une séance type')),
-        h('p', { class: 'zone-refaire-note' },
-          'Une séance à relancer à vide depuis l\'accueil, avec les mêmes exercices. ' +
-          'Renommable, modifiable et supprimable depuis l\'accueil.')
+          h('span', null, 'Créer une séance type'))
       ));
     }
 
