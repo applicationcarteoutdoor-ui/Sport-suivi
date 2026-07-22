@@ -139,7 +139,24 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-22, v9 livrée)
+## État et risques connus (2026-07-22, v10 livrée)
+
+- v10 :
+  · **Push et Pull RETIRÉS** (doublons de « Pecs et triceps » / « Dos et biceps ») :
+    `MODELES_RETIRES` dans templates.js ; `semerModelesLivres` les ARCHIVE sur les
+    installations existantes UNIQUEMENT si jamais touchés (updatedAt === createdAt) — un Push
+    renommé/modifié appartient à l'utilisateur et reste. 10 séances livrées actives.
+  · **Titre de l'écran séance** = nom de la séance (majSituation écrit #titre-ecran et
+    document.title — le routeur avait posé « Séance », la vue surcharge après montage).
+  · **Fiche exercice en séance** (colonne de gauche) : affiche le muscle principal
+    (LIBELLES_CATEGORIES) et un lien vidéo YouTube avant les actions.
+  · **5ᵉ onglet « Muscles »** (#/muscles, views/muscles.js) : silhouette cliquable partagée →
+    fiche du muscle (data/muscles-info.js : rôle + conseil, textes originaux) + tous les
+    exercices du groupe (lien vidéo, nom → #/progression/:id). Nav basse : 5 onglets
+    (index.html — l'icône du 5ᵉ est un SVG inline statique, pas un glyphe).
+  · **Silhouette détaillée** (ui/silhouette.js) : écorché façon planches anatomiques — muscles
+    individuellement délimités + stries (`silhouette-strie`), décoratifs non cliquables en
+    pointer-events:none, les 10 groupes de catégories restent la surface interactive.
 
 - v9 :
   · **12 séances livrées** (templates.js) : les 6 d'origine + Pecs et triceps, Dos et biceps,

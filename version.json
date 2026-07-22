@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-22-04",
+  "version": "2026-07-22-05",
   "kill": false,
   "_note_outils": "verif.html et tests.html sont volontairement HORS de cette liste : ce sont des outils de diagnostic. Les precacher les ferait servir en cache-first, donc auditer le cache qu'ils sont censes verifier, et une version corrigee n'arriverait qu'apres un cycle complet de mise a jour. Ils exigent une connexion, c'est assume et documente dans le README.",
   "assets": [
@@ -24,6 +24,7 @@
     "./js/lib/num.js",
 
     "./js/data/schema.js",
+    "./js/data/muscles-info.js",
     "./js/data/catalog.js",
     "./js/data/packs.js",
     "./js/data/templates.js",
@@ -63,6 +64,7 @@
     "./js/views/exercices.js",
     "./js/views/modeles.js",
     "./js/views/composeur.js",
+    "./js/views/muscles.js",
     "./js/views/reglages.js",
 
     "./icons/icon-192.png",

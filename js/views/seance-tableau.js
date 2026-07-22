@@ -26,7 +26,7 @@ import { dayKey } from '../lib/dates.js';
 import * as store from '../data/store.js';
 import * as hot from '../data/hot.js';
 import * as prefs from '../data/prefs.js';
-import { champsSaisieEntree, champsSaisie, pasChamp, nouveauPoids } from '../data/schema.js';
+import { champsSaisieEntree, champsSaisie, pasChamp, nouveauPoids, LIBELLES_CATEGORIES } from '../data/schema.js';
 import * as session from '../domain/session.js';
 import * as prefill from '../domain/prefill.js';
 import * as router from '../ui/router.js';
@@ -284,6 +284,12 @@ export function mount(conteneur, params) {
     if (!seance) return;
     let faites = 0;
     for (const e of seance.entrees) faites += e.series.filter((s) => s.done === true).length;
+    // v10 : le titre de l'ecran porte le NOM de la seance, pas le mot « Séance » (retour
+    // utilisateur). Meme regle de nommage que partout : nom personnalise > snapshot > libre.
+    const titre = noeud('titre-ecran');
+    const nom = seance.nom || (seance.modeleSnapshot && seance.modeleSnapshot.nom) || 'Séance libre';
+    if (titre) titre.textContent = nom;
+    document.title = nom + ' — Carnet Muscu';
     if (sousTitre) sousTitre.textContent = heureDe(seance.startedAt) + ' · ' + faites + ' série' + (faites > 1 ? 's' : '');
     bandeauPoids.textContent = estNombre(seance.poidsDeCorpsKg)
       ? 'Poids de corps : ' + formatFr(seance.poidsDeCorpsKg) + ' kg'
@@ -417,6 +423,31 @@ export function mount(conteneur, params) {
   function ouvrirFicheExercice(entree) {
     const r = rangees.get(entree.id);
     const contenu = h('div', { class: 'menu-seance' });
+
+    // v10 : la fiche dit d'abord CE QUE l'exercice travaille, et comment bien le faire (retour
+    // utilisateur). Le muscle vient de la categorie du catalogue ; la video est une recherche
+    // YouTube sur le nom — meme lien que la vue anatomique du composeur.
+    const ex = entree.exerciceId ? store.exercice(entree.exerciceId) : null;
+    if (ex && ex.categorie && LIBELLES_CATEGORIES[ex.categorie]) {
+      contenu.appendChild(h('p', { class: 'fiche-muscle' },
+        h('span', { class: 'menu-seance-icone' }, icone('anatomie', { taille: 20 })),
+        h('span', null, 'Muscle principal : '),
+        h('strong', null, LIBELLES_CATEGORIES[ex.categorie])));
+    }
+    if (ex && ex.nom) {
+      contenu.appendChild(h('a', {
+        class: 'menu-seance-item',
+        href: 'https://www.youtube.com/results?search_query=' +
+          encodeURIComponent(ex.nom + ' musculation technique'),
+        target: '_blank',
+        rel: 'noopener'
+      },
+        h('span', { class: 'menu-seance-icone' }, icone('lecture')),
+        h('span', { class: 'menu-seance-textes' },
+          h('span', null, 'Voir la technique en vidéo'),
+          h('span', { class: 'texte-attenue' }, 'YouTube — s\'ouvre hors de l\'application'))));
+      contenu.appendChild(h('div', { class: 'menu-seance-separateur' }));
+    }
 
     // Le toggle « Lesté » n'a de sens que si le MODE l'admet (poids du corps, temps) : on le
     // derive du schema, jamais d'un test sur le mode ici.

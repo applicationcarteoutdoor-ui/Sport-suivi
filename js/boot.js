@@ -149,6 +149,8 @@ const ROUTES = {
   '#/composer':                route('./views/composeur.js', 'Composer une séance'),
   '#/composer/routine':        route('./views/composeur.js', 'Nouvelle routine'),
   '#/composer/routine/:id':    route('./views/composeur.js', 'Modifier la routine'),
+  // v10 : 5e onglet — le corps humain, ses fiches muscle et les exercices par groupe.
+  '#/muscles':                 route('./views/muscles.js', 'Muscles'),
   '#/reglages':                route('./views/reglages.js', 'Réglages'),
   '#/aide/installation':       route('./views/reglages.js', 'Installer l\'application')
 };

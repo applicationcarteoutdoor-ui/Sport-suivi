@@ -1951,3 +1951,59 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
   min-height: 28px;
   padding: 0;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   17. v10 — vue Muscles (5e onglet), fiche muscle de la seance
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.vue-muscles { display: flex; flex-direction: column; gap: var(--esp-3); }
+.muscles-aide { font-size: var(--txt-s); color: var(--texte-attenue); line-height: 1.4; }
+
+.muscles-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-4);
+  background: var(--surface);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-l);
+  box-shadow: var(--ombre-1);
+}
+.muscles-role { line-height: 1.45; }
+.muscles-conseil {
+  line-height: 1.45;
+  color: var(--texte-attenue);
+  padding: var(--esp-2) var(--esp-3);
+  background: var(--accent-doux);
+  border-radius: var(--rayon-m);
+  color: var(--texte);
+}
+.muscles-sous-titre {
+  margin-top: var(--esp-2);
+  font-size: var(--txt-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texte-attenue);
+}
+/* Le nom d'exercice est un BOUTON vers sa progression : il garde l'apparence d'une ligne. */
+.muscles-vers-progression {
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--texte);
+}
+
+/* Fiche d'exercice en seance : la ligne muscle au-dessus des actions. */
+.fiche-muscle {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2) var(--esp-3);
+  color: var(--texte-attenue);
+}
+.fiche-muscle strong { color: var(--texte); }
+
+/* Cinq onglets au lieu de quatre : les libelles se serrent sans se couper. */
+.nav-onglet-nom { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }

@@ -373,6 +373,23 @@ async function semerModelesLivres() {
     await idb.putBatch(db, 'modeles', manquants);
     for (const m of manquants) etat.modeles.set(m.id, m);
   }
+
+  // v10 : modeles livres RETIRES (doublons). On les ARCHIVE — jamais de suppression d'un
+  // modele livre — et UNIQUEMENT s'ils n'ont jamais ete touches (updatedAt === createdAt) :
+  // un Push renomme ou remanie est devenu la seance de l'utilisateur, on n'y touche pas.
+  const retires = Array.isArray(templates.MODELES_RETIRES) ? templates.MODELES_RETIRES : [];
+  const aArchiver = [];
+  for (const id of retires) {
+    const m = etat.modeles.get(id);
+    if (!m || m.archived === true) continue;
+    if (m.updatedAt !== m.createdAt) continue;
+    aArchiver.push(Object.assign(copie(m), { archived: true, archivedAt: Date.now(), updatedAt: Date.now() }));
+  }
+  if (aArchiver.length) {
+    await idb.putBatch(db, 'modeles', aArchiver);
+    for (const m of aArchiver) etat.modeles.set(m.id, m);
+  }
+
   if (etat.meta.modelesSemes !== true) await ecrireMeta({ modelesSemes: true });
 }
 

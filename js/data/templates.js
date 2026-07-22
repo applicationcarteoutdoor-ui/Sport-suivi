@@ -63,52 +63,13 @@ function modele(p) {
   };
 }
 
+// v10 : Push et Pull RETIRES (retour utilisateur — doublons de « Pecs et triceps » et « Dos et
+// biceps », memes exercices sous un autre nom). Sur une installation existante,
+// store.semerModelesLivres ARCHIVE ces ids s'ils n'ont jamais ete touches par l'utilisateur ;
+// un Push renomme ou modifie reste intact (c'est devenu SA seance).
+export const MODELES_RETIRES = ['mod:push', 'mod:pull'];
+
 export const MODELES = [
-
-  // ── 1. Push ────────────────────────────────────────────────────────────────
-  modele({
-    id: 'mod:push',
-    nom: 'Push',
-    description: 'Pectoraux, épaules et triceps. Les mouvements de poussée.',
-    dureeEstimeeMin: 60,
-    items: [
-      { exerciceId: 'cat:developpe-couche-barre', seriesCibles: 4, seriesEchauffement: 2,
-        repsCibles: { min: 5, max: 8 }, reposSec: 180 },
-      { exerciceId: 'cat:developpe-incline-barre', seriesCibles: 3, seriesEchauffement: 1,
-        repsCibles: { min: 6, max: 10 }, reposSec: 150 },
-      { exerciceId: 'cat:dips-barres', seriesCibles: 3, seriesEchauffement: 1,
-        repsCibles: { min: 6, max: 10 }, reposSec: 150 },
-      { exerciceId: 'cat:developpe-militaire', seriesCibles: 3, seriesEchauffement: 1,
-        repsCibles: { min: 6, max: 8 }, reposSec: 150 },
-      { exerciceId: 'cat:elevations-laterales', seriesCibles: 3,
-        repsCibles: { min: 12, max: 15 }, reposSec: 75 },
-      { exerciceId: 'cat:extensions-triceps-poulie', seriesCibles: 3,
-        repsCibles: { min: 10, max: 12 }, reposSec: 90 }
-    ]
-  }),
-
-  // ── 2. Pull ────────────────────────────────────────────────────────────────
-  modele({
-    id: 'mod:pull',
-    nom: 'Pull',
-    description: 'Dos et biceps. Les mouvements de tirage.',
-    dureeEstimeeMin: 60,
-    items: [
-      { exerciceId: 'cat:tractions-pronation', seriesCibles: 4, seriesEchauffement: 1,
-        repsCibles: { min: 5, max: 8 }, reposSec: 150 },
-      { exerciceId: 'cat:rowing-barre', seriesCibles: 4, seriesEchauffement: 1,
-        repsCibles: { min: 6, max: 10 }, reposSec: 150 },
-      { exerciceId: 'cat:tirage-vertical', seriesCibles: 3,
-        repsCibles: { min: 8, max: 12 }, reposSec: 120 },
-      { exerciceId: 'cat:rowing-halteres', seriesCibles: 3,
-        repsCibles: { min: 8, max: 12 }, reposSec: 120,
-        note: 'Par cote' },
-      { exerciceId: 'cat:oiseau', seriesCibles: 3,
-        repsCibles: { min: 12, max: 15 }, reposSec: 75 },
-      { exerciceId: 'cat:curl-barre', seriesCibles: 3,
-        repsCibles: { min: 8, max: 12 }, reposSec: 90 }
-    ]
-  }),
 
   // ── 3. Jambes ──────────────────────────────────────────────────────────────
   modele({
