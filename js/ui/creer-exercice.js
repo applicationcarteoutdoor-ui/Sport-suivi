@@ -13,10 +13,25 @@
 import { h, delegate } from '../lib/dom.js';
 import * as store from '../data/store.js';
 import * as sheet from './sheet.js';
+import { icone } from './icons.js';
 import {
-  NOMS_MODES, LIBELLES_MODES, CATEGORIES, LIBELLES_CATEGORIES,
-  MATERIELS, LIBELLES_MATERIELS, nouvelExercice
+  NOMS_MODES, LIBELLES_MODES, CATEGORIES, LIBELLES_CATEGORIES, nouvelExercice
 } from '../data/schema.js';
+
+// Logos proposes : les dessins d'EXERCICE et de MATERIEL de ui/icons.js — jamais les icones
+// d'interface (chevrons, poubelle…), qui n'ont aucun sens comme logo d'exercice. Toutes ces
+// cles existent dans ICONES ; iconePourExercice les honore en priorite (v11).
+const LOGOS = [
+  'halteres', 'barre', 'poulie', 'machine', 'poids-du-corps', 'elastique', 'gainage', 'cardio',
+  'developpe-couche-barre', 'developpe-couche-halteres', 'developpe-incline-barre', 'developpe-militaire',
+  'pompes', 'dips-barres', 'elevations-laterales', 'oiseau', 'face-pull',
+  'tractions-pronation', 'rowing-barre', 'rowing-halteres', 'tirage-vertical', 'souleve-de-terre',
+  'curl-barre', 'curl-halteres', 'extensions-triceps-poulie',
+  'squat', 'presse-a-cuisses', 'fentes', 'leg-curl', 'leg-extension', 'mollets',
+  'squat-bulgare', 'goblet-squat', 'hip-thrust', 'souleve-de-terre-roumain',
+  'planche', 'planche-laterale', 'suspension-barre', 'releve-de-jambes', 'crunchs',
+  'burpees', 'course-a-pied', 'velo', 'rameur', 'elliptique', 'corde-a-sauter'
+];
 
 /**
  * Ouvre la feuille de creation d'exercice.
@@ -30,7 +45,7 @@ export function ouvrir({ onCree, onFermer } = {}) {
   const desabonnements = [];
   let modeChoisi = 'charge';
   let principal = null;              // categorie principale, ou null (defaut au moment de creer)
-  const secondaires = new Set();     // categories secondaires, multi-selection
+  let logoChoisi = null;             // cle d'icone, ou null (resolution automatique)
   let poignee = null;                // { fermer } rendu par sheet.ouvrir
   let ferme = false;
 
@@ -47,24 +62,9 @@ export function ouvrir({ onCree, onFermer } = {}) {
     enterkeyhint: 'next'
   });
 
-  // Les MEMES tuiles pour le principal (choix unique) et les secondaires (multi-selection) :
-  // etat porte par aria-pressed, jamais par une classe conditionnelle.
-  function grilleMuscles(role, libelleGroupe) {
-    return h('div', { class: 'creer-exo-grille', role: 'group', 'aria-label': libelleGroupe },
-      ...CATEGORIES.map((c) => h('button', {
-        type: 'button',
-        class: 'creer-exo-muscle',
-        'data-action': role,
-        'data-cat': c,
-        'aria-pressed': 'false'
-      }, LIBELLES_CATEGORIES[c] || c))
-    );
-  }
-  const grillePrincipal = grilleMuscles('principal', 'Muscle principal');
-  const grilleSecondaires = grilleMuscles('secondaire', 'Muscles secondaires');
-
   // Mode de suivi : memes segments que la creation eclair du picker (role=tablist,
   // aria-selected — l'attribut que le CSS des segments stylise, jamais aria-pressed ici).
+  // v12 : place EN PREMIER (au-dessus du muscle), retour utilisateur.
   const segmentsMode = h('div', { class: 'segments creer-exo-modes', role: 'tablist', 'aria-label': 'Mode de suivi' },
     ...NOMS_MODES.map((m) => h('button', {
       type: 'button', class: 'segment', role: 'tab',
@@ -73,19 +73,26 @@ export function ouvrir({ onCree, onFermer } = {}) {
     }, LIBELLES_MODES[m] || m))
   );
 
-  // Materiel : le vocabulaire ferme MATERIELS du schema, dans un <select> natif — compact,
-  // accessible, et le clavier systeme n'a rien a y faire.
-  const champMateriel = h('select', { class: 'creer-exo-champ', 'aria-label': 'Matériel' },
-    ...MATERIELS.map((m) => h('option', { value: m }, LIBELLES_MATERIELS[m] || m))
+  // Muscle principal : une tuile par categorie, choix UNIQUE (aria-pressed).
+  const grillePrincipal = h('div', { class: 'creer-exo-grille', role: 'group', 'aria-label': 'Muscle principal' },
+    ...CATEGORIES.map((c) => h('button', {
+      type: 'button', class: 'creer-exo-muscle',
+      'data-action': 'principal', 'data-cat': c, 'aria-pressed': 'false'
+    }, LIBELLES_CATEGORIES[c] || c))
   );
 
-  const champDescription = h('textarea', {
-    class: 'creer-exo-champ creer-exo-description',
-    rows: '3',
-    placeholder: 'Consignes, réglages, points de forme…',
-    'aria-label': 'Description'
-  });
+  // Logo : une grille de pictogrammes (v11). Choix UNIQUE, deselectionnable — sans choix, l'icone
+  // se resout automatiquement. Chaque tuile porte le dessin lui-meme, pas son nom.
+  const grilleLogos = h('div', { class: 'creer-exo-logos', role: 'group', 'aria-label': 'Logo' },
+    ...LOGOS.map((cle) => h('button', {
+      type: 'button', class: 'creer-exo-logo',
+      'data-action': 'logo', 'data-logo': cle, 'aria-pressed': 'false',
+      'aria-label': 'Logo ' + cle
+    }, icone(cle, { taille: 26 })))
+  );
 
+  // v12 : plus de champ Matériel ni Description (invisibles hors de l'ecran Exercices, orphelin) ;
+  // plus de muscles secondaires (jamais lus). Le lien video reste : il alimente les fiches.
   const champVideo = h('input', {
     type: 'url',
     class: 'creer-exo-champ',
@@ -106,16 +113,12 @@ export function ouvrir({ onCree, onFermer } = {}) {
   const racine = h('div', { class: 'creer-exo' },
     libelle('Nom'),
     champNom,
-    libelle('Muscle principal'),
-    grillePrincipal,
-    libelle('Muscles secondaires', true),
-    grilleSecondaires,
     libelle('Mode de suivi'),
     segmentsMode,
-    libelle('Matériel'),
-    champMateriel,
-    libelle('Description', true),
-    champDescription,
+    libelle('Muscle principal'),
+    grillePrincipal,
+    libelle('Logo', true),
+    grilleLogos,
     libelle('Lien ou vidéo d’exécution', true),
     champVideo,
     message
@@ -140,22 +143,15 @@ export function ouvrir({ onCree, onFermer } = {}) {
       for (const b of grillePrincipal.children) {
         b.setAttribute('aria-pressed', b.getAttribute('data-cat') === principal ? 'true' : 'false');
       }
-      // Le principal ne peut pas aussi etre secondaire : on l'y retire s'il y etait.
-      if (principal && secondaires.has(principal)) {
-        secondaires.delete(principal);
-        for (const b of grilleSecondaires.children) {
-          if (b.getAttribute('data-cat') === principal) b.setAttribute('aria-pressed', 'false');
-        }
-      }
       return;
     }
 
-    if (action === 'secondaire') {
-      const cat = cible.getAttribute('data-cat');
-      if (cat === principal) return;                // deja principal : rien a faire
-      if (secondaires.has(cat)) secondaires.delete(cat);
-      else secondaires.add(cat);
-      cible.setAttribute('aria-pressed', secondaires.has(cat) ? 'true' : 'false');
+    if (action === 'logo') {
+      const cle = cible.getAttribute('data-logo');
+      logoChoisi = logoChoisi === cle ? null : cle;  // un second tap revient a l'auto
+      for (const b of grilleLogos.children) {
+        b.setAttribute('aria-pressed', b.getAttribute('data-logo') === logoChoisi ? 'true' : 'false');
+      }
     }
   }));
 
@@ -169,18 +165,15 @@ export function ouvrir({ onCree, onFermer } = {}) {
       return;
     }
     // Muscle principal non choisi : on DEDUIT une categorie valide plutot que de bloquer —
-    // cardio pour le mode cardio, corps entier sinon. Completable plus tard depuis Exercices.
+    // cardio pour le mode cardio, corps entier sinon.
     const categorie = principal || (modeChoisi === 'cardio' ? 'cardio' : 'corps-entier');
-    const description = String(champDescription.value || '').trim();
     const video = String(champVideo.value || '').trim();
     try {
       const brouillon = nouvelExercice({
         nom,
         mode: modeChoisi,
         categorie,
-        materiel: MATERIELS.indexOf(champMateriel.value) !== -1 ? champMateriel.value : 'aucun',
-        musclesSecondaires: Array.from(secondaires).filter((c) => c !== categorie),
-        notes: description || null,
+        icone: logoChoisi,
         videoUrl: video || null,
         metriqueCardio: modeChoisi === 'cardio' ? 'allure' : null,
         userModified: true

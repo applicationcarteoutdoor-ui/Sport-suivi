@@ -269,12 +269,13 @@ export function nouvelExercice(p = {}) {
     nom: p.nom || '',
     alias: Array.isArray(p.alias) ? p.alias.slice() : [], // recherche UNIQUEMENT, jamais regroupement
     categorie: p.categorie || 'corps-entier',
-    // v11 : muscles SECONDAIRES travailles, en plus de la categorie principale. Champ ADDITIF
-    // et optionnel — AUCUNE migration : un exercice anterieur le lit `[]`, et les lecteurs
-    // restent defensifs. Seules les categories du vocabulaire ferme sont retenues.
-    musclesSecondaires: Array.isArray(p.musclesSecondaires)
-      ? p.musclesSecondaires.filter((c) => CATEGORIES.indexOf(c) !== -1)
-      : [],
+    // v12 : le champ musclesSecondaires est retire (retour utilisateur — il n'etait LU nulle
+    // part, seulement ecrit). Aucune migration : un exercice qui le portait encore le garde en
+    // base, personne ne le lit.
+    // v11 : icone/logo CHOISI (une cle de ui/icons.js). null = resolution automatique par le
+    // pack/mode. ⚠ Le schema (couche data) ne peut PAS importer icons.js (couche ui) : la
+    // validite de la cle est verifiee par iconePourExercice, pas ici.
+    icone: (typeof p.icone === 'string' && p.icone.trim() !== '') ? p.icone.trim() : null,
     materiel: p.materiel || 'aucun',
     mode,
     lestable: p.lestable === true,           // active lestKg SIGNE

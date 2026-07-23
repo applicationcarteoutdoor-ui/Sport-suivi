@@ -2082,3 +2082,61 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
 
 /* Tuile « Créer un exercice » de l'accueil : meme boite que les autres, trait discret. */
 .tuile-creer-exercice { border-style: dashed; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   21. v12 — logo d'exercice, suppression au selecteur
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Grille de logos de la feuille « Créer un exercice » : pictogrammes seuls, defilement vertical
+   borne pour ne pas manger tout l'ecran. Etat par aria-pressed, jamais une classe. */
+.creer-exo-logos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: var(--esp-1);
+  max-height: 180px;
+  overflow-y: auto;
+  padding: var(--esp-1);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+}
+.creer-exo-logo {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  color: var(--texte-attenue);
+  cursor: pointer;
+}
+.creer-exo-logo[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-doux);
+  color: var(--accent);
+}
+
+/* Ligne de selecteur d'un exercice utilisateur : le choix (bouton pleine largeur) + la poubelle,
+   freres dans une rangee. La poubelle a deux etats dans le meme bouton (icone / « Supprimer ? »). */
+.picker-rangee { display: flex; align-items: stretch; gap: var(--esp-1); }
+.picker-rangee .ligne-liste { flex: 1 1 auto; min-width: 0; }
+.picker-supprimer {
+  flex: 0 0 auto;
+  min-width: var(--cible-mini);
+  display: grid;
+  place-items: center;
+  padding: 0 var(--esp-2);
+  border: 1px solid var(--bordure);
+  border-radius: var(--rayon-m);
+  background: var(--surface);
+  color: var(--alerte);
+  font-size: var(--txt-s);
+  font-weight: 700;
+  cursor: pointer;
+}
+.picker-supprimer[data-arme='oui'] {
+  border-color: var(--alerte);
+  background: var(--alerte-doux);
+}
+.picker-supprimer-texte { display: none; white-space: nowrap; }
+.picker-supprimer[data-arme='oui'] .picker-supprimer-icone { display: none; }
+.picker-supprimer[data-arme='oui'] .picker-supprimer-texte { display: inline; }

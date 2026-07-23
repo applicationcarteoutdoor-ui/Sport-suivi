@@ -723,6 +723,41 @@ const OPERATIONS = {
     return { exercice: maj };
   },
 
+  // Suppression d'un exercice que l'UTILISATEUR a créé (v12). Réservée aux ids 'usr:'.
+  // ⚠ Un exercice référencé par une séance ne peut PAS disparaître : l'entrée perdrait son mode,
+  //   donc l'interprétation de ses séries à vie. Dans ce cas — et aussi tant que l'historique
+  //   n'est pas chargé, où l'on ne peut RIEN affirmer sur les références — on retombe sur
+  //   l'archivage (réversible, sans perte). La suppression dure n'a lieu que sur un exercice
+  //   'usr:' dont on sait, historique complet en main, qu'aucune séance ne le cite.
+  'exercice:supprimer': async ({ id }) => {
+    const ex = etat.exercices.get(id);
+    if (!ex) throw new Error('exercice:supprimer — id inconnu : ' + id);
+    if (!String(id).startsWith('usr:')) {
+      throw new Error('Seul un exercice que tu as créé peut être supprimé.');
+    }
+
+    let reference = false;
+    for (const s of etat.seances.values()) {
+      for (const e of (s && s.entrees) || []) {
+        if (e && e.exerciceId === id) { reference = true; break; }
+      }
+      if (reference) break;
+    }
+
+    if (reference || !etat.historiqueCharge) {
+      const maj = Object.assign(copie(ex), {
+        archived: true, archivedAt: Date.now(), userModified: true, updatedAt: Date.now()
+      });
+      await idb.put(exigerDb(), 'exercices', maj);
+      etat.exercices.set(maj.id, maj);
+      return { exercice: maj, archived: true };
+    }
+
+    await idb.del(exigerDb(), 'exercices', id);
+    etat.exercices.delete(id);
+    return { id, supprime: true };
+  },
+
   // ── Modèles ─────────────────────────────────────────────────────────────
   'modele:enregistrer': async ({ modele: m }) => {
     const copieM = copie(m);

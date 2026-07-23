@@ -17,6 +17,7 @@ import {
   MODES, NOMS_MODES, LIBELLES_MODES, LIBELLES_CATEGORIES, LIBELLES_MATERIELS,
   CATEGORIES, nouvelExercice, estSeanceComptable } from '../data/schema.js';
 import * as sheet from './sheet.js';
+import * as toast from './toast.js';
 
 // Nombre d'exercices proposes dans la section « Recents ». Au-dela, la section cesse d'etre un
 // raccourci et redevient une liste a lire.
@@ -129,19 +130,17 @@ function sousTitre(ex) {
   return bouts.join(' · ');
 }
 
-// Une ligne est un <button> et non un <div> : cible tactile de 56 px (.ligne-liste), focus
-// clavier et role natifs, sans un seul attribut aria a maintenir.
+// Une ligne est un <button> : cible tactile de 56 px (.ligne-liste), focus clavier et role
+// natifs. v11 : le PICTOGRAMME d'abord — on reconnait un exercice a son dessin avant de lire
+// son nom. Resolution par iconePourExercice (qui honore le logo choisi puis retombe sur le pack).
 function ligne(ex) {
-  return h('button', {
+  const bouton = h('button', {
     type: 'button',
     class: 'ligne-liste',
     'data-action': 'choisir',
     'data-id': ex.id,
     'data-archive': ex.archived ? 'oui' : null
   },
-    // v11 : le PICTOGRAMME d'abord (retour utilisateur, « Catalogue complet ») — on reconnait
-    // un exercice a son dessin bien avant de lire son nom. Resolution par iconePourExercice,
-    // jamais ex.icone (les exercices crees par l'utilisateur n'en ont pas).
     h('span', { class: 'picker-dessin', 'aria-hidden': 'true' },
       icone(iconePourExercice(ex), { taille: 26 })),
     h('span', { class: 'picker-textes' },
@@ -151,6 +150,23 @@ function ligne(ex) {
     ),
     h('span', { class: 'ligne-liste-secondaire' }, LIBELLES_CATEGORIES[ex.categorie] || '')
   );
+
+  // v12 : un exercice CREE par l'utilisateur (usr:) est supprimable — poubelle FRERE du bouton
+  // (jamais un bouton dans un bouton). Deux etats dans le meme bouton : poubelle, puis
+  // « Supprimer ? » armee (confirmation en 2 taps — une feuille de confirmation fermerait le
+  // selecteur, ui/sheet.js n'admettant qu'une feuille a la fois). Les livres n'ont pas la poubelle.
+  if (String(ex.id).startsWith('usr:')) {
+    const suppr = h('button', {
+      type: 'button', class: 'picker-supprimer', 'data-arme': 'non',
+      'data-action': 'supprimer-exo', 'data-id': ex.id,
+      'aria-label': 'Supprimer l’exercice ' + ex.nom
+    },
+      h('span', { class: 'picker-supprimer-icone', 'aria-hidden': 'true' }, icone('poubelle', { taille: 20 })),
+      h('span', { class: 'picker-supprimer-texte' }, 'Supprimer ?')
+    );
+    return h('div', { class: 'picker-rangee' }, bouton, suppr);
+  }
+  return bouton;
 }
 
 function titreSection(texte) {
@@ -178,6 +194,7 @@ export function ouvrir({ filtreCategorie = null, onChoisir, onCreerEclair } = {}
   let requete = '';
   let montrerArchives = false;
   let poignee = null;   // { fermer } rendu par sheet.ouvrir
+  let armeSuppr = null; // id de l'exercice dont la poubelle est armee (confirmation en 2 taps)
   // Drapeau de vivacite : declare AVANT les rappels differes (rAF) pour qu'ils puissent le tester
   // sans dependre de l'ordre d'ecriture du module.
   let ferme = false;
@@ -275,6 +292,8 @@ export function ouvrir({ filtreCategorie = null, onChoisir, onCreerEclair } = {}
   }
 
   function remplir() {
+    // La liste est reconstruite : toute poubelle armee disparait, on oublie son etat.
+    armeSuppr = null;
     vider(liste);
     const scores = scoresUsage();
     const trouves = candidats();
@@ -385,9 +404,51 @@ export function ouvrir({ filtreCategorie = null, onChoisir, onCreerEclair } = {}
     if (typeof onChoisir === 'function') onChoisir(exercice);
   }
 
+  // ── Suppression d'un exercice utilisateur (v12) ───────────────────────────
+
+  /** Desarme la poubelle actuellement armee, s'il y en a une. */
+  function desarmer() {
+    if (!armeSuppr) return;
+    const b = liste.querySelector('.picker-supprimer[data-arme="oui"]');
+    if (b) b.setAttribute('data-arme', 'non');
+    armeSuppr = null;
+  }
+
+  async function supprimerExo(id) {
+    const ex = store.exercice(id);
+    armeSuppr = null;
+    try {
+      // On s'assure que TOUTES les seances sont connues : sans cela le store archive par
+      // precaution au lieu de supprimer (il ne peut affirmer « jamais reference »).
+      if (!store.historiquePret()) await store.chargerHistorique();
+      const r = await store.commit('exercice:supprimer', { id });
+      if (ferme) return;
+      if (r && r.archived) {
+        toast.afficher('« ' + (ex ? ex.nom : 'Exercice') +
+          ' » est utilisé dans des séances : il a été archivé, pas supprimé.', { duree: 6000 });
+      }
+      remplir();
+    } catch (err) {
+      console.error('[picker] suppression exercice en échec', err);
+      if (!ferme) toast.afficher(err && err.message ? err.message : 'Suppression impossible.');
+    }
+  }
+
   // ── Delegation : UN seul ecouteur click pour tout le fragment ─────────────
   desabonnements.push(delegate(racine, 'click', '[data-action]', (ev, cible) => {
     const action = cible.getAttribute('data-action');
+
+    // Tout geste AUTRE qu'un second tap sur la meme poubelle desarme la confirmation en cours.
+    if (action !== 'supprimer-exo') desarmer();
+
+    if (action === 'supprimer-exo') {
+      const id = cible.getAttribute('data-id');
+      if (armeSuppr === id) { supprimerExo(id); return; }
+      desarmer();
+      cible.setAttribute('data-arme', 'oui');
+      armeSuppr = id;
+      return;
+    }
 
     if (action === 'choisir') {
       choisir(store.exercice(cible.getAttribute('data-id')));

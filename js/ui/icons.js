@@ -945,6 +945,14 @@ export function iconePourExercice(exercice) {
 
   const id = typeof exercice === 'string' ? exercice : exercice.id;
 
+  // 0. LOGO explicitement choisi (v11) : une cle valide posee sur l'exercice fait toujours foi.
+  //    C'est aussi ce que porte un exercice du catalogue (catalog.js pose `icone`), donc cette
+  //    etape est transparente pour lui. Un exercice utilisateur qui a choisi son logo l'obtient.
+  if (typeof exercice === 'object' && typeof exercice.icone === 'string'
+      && Object.prototype.hasOwnProperty.call(ICONES, exercice.icone)) {
+    return exercice.icone;
+  }
+
   // 1. Dessin dedie, retrouve par l'id prive de son prefixe d'origine ('cat:' ou 'usr:').
   if (typeof id === 'string') {
     const sep = id.indexOf(':');

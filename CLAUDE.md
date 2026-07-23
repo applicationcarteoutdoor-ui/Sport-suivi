@@ -139,7 +139,22 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-22, v11 livrée)
+## État et risques connus (2026-07-23, v12 livrée)
+
+- v12 — « Créer un exercice » affiné (retours utilisateur) :
+  · Formulaire réordonné et allégé : **Nom → Mode de suivi (en tête) → Muscle principal →
+    Logo → Lien vidéo**. Retirés : matériel et description (affichés seulement dans l'écran
+    `#/exercices`, ORPHELIN depuis la v11 — plus aucun lien vers lui) et muscles secondaires
+    (le champ n'était LU nulle part). `musclesSecondaires` retiré de nouvelExercice.
+  · **Logo choisi** : nouveau champ `exercice.icone` (une clé de ui/icons.js). `iconePourExercice`
+    a une ÉTAPE 0 qui l'honore avant tout — transparente pour le catalogue (catalog.js pose déjà
+    `icone` = id-sans-préfixe). La feuille propose une grille de ~46 dessins d'exercice/matériel.
+  · **Suppression d'un exercice créé** : commit `exercice:supprimer` (usr: uniquement).
+    Suppression DURE seulement si l'historique est chargé ET aucune séance ne le référence ;
+    sinon **archivage** (réversible, sans perte — une entrée de séance perdrait son mode). UI :
+    poubelle sur les lignes usr: du sélecteur (picker-exercice.js), confirmation en 2 taps
+    inline (une feuille de confirmation fermerait le picker, sheet.js n'admettant qu'une feuille).
+- v11 :
 
 - v11 :
   · **Réglages hors navigation** : 4 onglets (Accueil, Historique, Progression, Muscles) ;
