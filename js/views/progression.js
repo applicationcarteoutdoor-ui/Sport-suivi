@@ -36,11 +36,13 @@ import { formatLong, formatCourt, dayKey, joursEntre, plage as plageDe } from '.
 import * as store from '../data/store.js';
 import * as prefs from '../data/prefs.js';
 import {
-  LIBELLES_METRIQUES, UNITES, metriqueParDefaut, estComptable, estSeanceComptable
+  LIBELLES_METRIQUES, UNITES, metriqueParDefaut, estComptable, estSeanceComptable,
+  champsSaisieEntree
 } from '../data/schema.js';
 import {
   metriquesDisponibles, serieTemporelle, tableauChronologique, records
 } from '../domain/progression.js';
+import { resumeSerie } from '../domain/metrics.js';
 import { icone, iconePourExercice } from '../ui/icons.js';
 import { renderLineChart } from '../ui/chart.js';
 import * as picker from '../ui/picker-exercice.js';
@@ -237,19 +239,33 @@ export function mount(conteneur, params = {}) {
   // courbes superposees (retirables une a une). Rien de permanent, aucun mode a apprendre.
   const zoneComparaison = h('div', { class: 'zone-comparaison' });
 
+  // v13 — CARNET. Retour utilisateur : « représentation d'un tableau, sur la gauche la date,
+  // après sur le reste les séries et répétitions qu'on a faites (avec la charge utilisée s'il y
+  // en a), tout en haut le plus récent ». C'est la page de droite du carnet papier : la courbe
+  // donne la tendance, le carnet donne les chiffres exacts a reproduire aujourd'hui.
+  //
+  // ⚠ Chaque serie est une PASTILLE dans une grille a colonnes fixes, jamais une colonne de
+  //   tableau : le nombre de series varie d'une seance a l'autre (3 un jour, 6 le suivant), et
+  //   un <table> a colonnes variables imposerait un defilement horizontal sur telephone. La
+  //   grille CSS aligne malgre tout la 1re serie de chaque ligne sur la 1re serie des autres,
+  //   ce qui est exactement ce qui rend l'evolution lisible d'un coup d'oeil.
   const corpsTableau = h('tbody', {});
-  const tableau = h('table', { class: 'tableau-chrono' },
+  const tableau = h('table', { class: 'tableau-chrono tableau-carnet' },
     h('thead', {},
       h('tr', {},
         h('th', { scope: 'col' }, 'Date'),
-        h('th', { scope: 'col' }, 'Meilleure série'),
         h('th', { scope: 'col' }, 'Séries')
       )
     ),
     corpsTableau
   );
 
-  const titreTableau = h('h3', { class: 'section-titre' }, 'Dernières séances');
+  const titreTableau = h('h3', { class: 'section-titre' }, 'Carnet');
+
+  // Sans cette ligne, « 8×60 » se lit comme une multiplication. Une phrase, jamais un tutoriel.
+  // ⚠ Son texte SUIT l'exercice affiche (voir legendeDe) : figee sur « répétitions × charge »,
+  //   elle mentait sur trois des cinq modes — un gainage affiche « 1:30 », une sortie « 5,2 km ».
+  const legendeTableau = h('p', { class: 'carnet-legende' });
 
   const blocDetail = h('section', { class: 'bloc-detail', hidden: true },
     enteteDetail,
@@ -261,6 +277,7 @@ export function mount(conteneur, params = {}) {
     aideCourbe,
     zoneComparaison,
     titreTableau,
+    legendeTableau,
     tableau
   );
 
@@ -621,37 +638,82 @@ export function mount(conteneur, params = {}) {
   }
 
   /**
-   * Tableau des dernieres seances — TOUJOURS present sous la courbe.
-   * C'est lui que l'on vient reellement lire : la courbe donne la tendance, le tableau donne
-   * les chiffres exacts a reproduire aujourd'hui. En comparaison, il liste la serie PRINCIPALE :
-   * quatre tableaux entrelaces ne se lisent pas, et le titre dit lequel est affiche.
+   * Phrase de lecture des pastilles, DERIVEE de l'entree affichee.
+   *
+   * ⚠ Aucun test sur le nom d'un mode : on lit les CHAMPS DE SAISIE geles sur l'entree
+   *   (champsSaisieEntree, donc MODES). L'ordre des cas est celui de metrics.resumeSerie, qui
+   *   decide de la forme des pastilles : les deux se lisent cote a cote et ne peuvent pas diverger.
+   */
+  function legendeDe(entree) {
+    const champs = entree ? champsSaisieEntree(entree) : [];
+    const a = (c) => champs.indexOf(c) !== -1;
+    const fin = ' La séance la plus récente est en haut.';
+    if (a('distanceM')) return 'Distance parcourue, sortie par sortie.' + fin;
+    if (a('dureeSec') && !a('reps')) return 'Durée tenue, série par série.' + fin;
+    if (a('reps') && a('chargeKg')) return 'Répétitions × charge, série par série.' + fin;
+    if (a('reps') && a('valeur')) return 'Répétitions × cran de la machine, série par série.' + fin;
+    if (a('reps')) return 'Répétitions par série, lest compris quand il y en a.' + fin;
+    return 'Une pastille par série, dans l’ordre où elles ont été faites.' + fin;
+  }
+
+  /**
+   * CARNET des dernieres seances — TOUJOURS present sous la courbe.
+   * C'est lui que l'on vient reellement lire : la courbe donne la tendance, le carnet donne les
+   * chiffres exacts a reproduire aujourd'hui, serie par serie. En comparaison, il liste la serie
+   * PRINCIPALE : quatre carnets entrelaces ne se lisent pas, et le titre dit lequel est affiche.
    */
   function peindreTableau() {
     vider(corpsTableau);
     const id = principal();
 
     titreTableau.textContent = id && selection.length > 1
-      ? `Dernières séances — ${nomDe(id)}`
-      : 'Dernières séances';
+      ? `Carnet — ${nomDe(id)}`
+      : 'Carnet';
 
+    // ⚠ colspan aligne sur les DEUX colonnes reelles de l'en-tete : un colspan trop large
+    //   elargit silencieusement le tableau au-dela de sa grille.
     if (!id) {
+      legendeTableau.hidden = true;
       corpsTableau.appendChild(h('tr', {},
-        h('td', { colspan: '4' }, 'Choisis un exercice pour voir son historique.')));
+        h('td', { colspan: '2' }, 'Choisis un exercice pour voir son carnet.')));
       return;
     }
 
     const lignes = tableauChronologique(store.seances(), id, N_TABLEAU);
     if (!lignes.length) {
+      // Rien a lire : une legende de lecture n'expliquerait qu'un tableau vide.
+      legendeTableau.hidden = true;
       corpsTableau.appendChild(h('tr', {},
-        h('td', { colspan: '3' }, store.historiquePret()
+        h('td', { colspan: '2' }, store.historiquePret()
           ? 'Aucune séance enregistrée avec cet exercice.'
           : 'Chargement de l’historique…')));
       return;
     }
 
+    // La legende suit la seance la PLUS RECENTE : c'est son mode que les pastilles du haut —
+    // celles qu'on lit en premier — affichent.
+    legendeTableau.textContent = legendeDe(lignes[0].entree);
+    legendeTableau.hidden = false;
+
     for (const l of lignes) {
+      const series = h('div', { class: 'carnet-series' });
+      for (const serie of l.series) {
+        // Forme COMPACTE dans la pastille, forme longue dans le titre et pour les lecteurs
+        // d'ecran : les deux viennent du meme formateur (domain/metrics.resumeSerie).
+        const court = resumeSerie(serie, l.entree, { compact: true });
+        const long = resumeSerie(serie, l.entree);
+        series.appendChild(h('span', {
+          class: 'carnet-serie',
+          // Une serie ratee (« rackee avant la fin ») est un fait, pas un detail : elle explique
+          // a elle seule pourquoi la courbe plonge ce jour-la.
+          'data-echec': serie && serie.echec === true ? 'oui' : 'non',
+          title: long,
+          'aria-label': long
+        }, court || '—'));
+      }
+
       corpsTableau.appendChild(h('tr', {},
-        h('td', {},
+        h('td', { class: 'carnet-cellule-date' },
           // Un bouton et non une ligne cliquable : cible tactile, focus clavier et role natifs.
           h('button', {
             type: 'button',
@@ -662,12 +724,11 @@ export function mount(conteneur, params = {}) {
           }, formatCourt(l.date))
         ),
         h('td', {
+          class: 'carnet-cellule-series',
+          // Le tilde des valeurs non fiables (machine sans profil de plaques) vit deja dans la
+          // pastille via resumeSerie (« 8×c7 ») : ici on n'en porte que la mise en forme.
           'data-fiable': l.meilleure && l.meilleure.fiable === false ? 'non' : 'oui'
-        }, l.meilleure
-          ? (l.meilleure.libelle || formatFr(l.meilleure.valeur))
-            + (l.meilleure.fiable === false ? ' ~' : '')
-          : '—'),
-        h('td', {}, String(l.nbSeries))
+        }, series)
       ));
     }
   }

@@ -744,6 +744,19 @@ const OPERATIONS = {
       if (reference) break;
     }
 
+    // v13 : les MODELES referencent aussi des exercices. Sans ce balayage, supprimer un exercice
+    // cree soi-meme laissait dans une seance type un item pointant vers le vide : la routine se
+    // lancait ensuite avec un exercice de moins, sans un mot. Les modeles vivent tous en memoire
+    // des l'initialisation — ce balayage-la ne depend d'aucun chargement differe.
+    if (!reference) {
+      for (const m of etat.modeles.values()) {
+        for (const item of (m && m.items) || []) {
+          if (item && item.exerciceId === id) { reference = true; break; }
+        }
+        if (reference) break;
+      }
+    }
+
     if (reference || !etat.historiqueCharge) {
       const maj = Object.assign(copie(ex), {
         archived: true, archivedAt: Date.now(), userModified: true, updatedAt: Date.now()

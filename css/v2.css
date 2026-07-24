@@ -1173,8 +1173,8 @@
    toutes les tuiles de lancement, quelle que soit leur variante.
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* v6 : selecteur DESCENDANT et non enfant direct — une seance type est enveloppee dans
-   .tuile-hote (pour poser son bouton crayon en frere, jamais de bouton dans un bouton). */
+/* Selecteur DESCENDANT et non enfant direct : la grille a porte des tuiles enveloppees (v6 a
+   v12), et le restera peut-etre. Le style ne doit pas dependre de la profondeur. */
 .grille-lanceurs .tuile-lanceur {
   position: relative;                 /* ancre de la pastille, qui ne decale plus rien */
   width: 100%;
@@ -1510,29 +1510,9 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
    12. v6 — seances types, composeur sur une ligne
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Enveloppe d'une tuile de seance type : la tuile + son bouton crayon, freres.
-   display:flex pour que la tuile epouse la cellule de grille entiere. */
-.tuile-hote {
-  position: relative;
-  display: flex;
-}
-
-/* Crayon de gestion en coin de tuile (renommer, modifier, supprimer). Discret : la tuile reste
-   le geste principal (lancer), le crayon est un satellite. */
-.tuile-gerer {
-  position: absolute;
-  top: var(--esp-1);
-  right: var(--esp-1);
-  min-width: 36px;
-  min-height: 36px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: var(--rayon-plein);
-  background: transparent;
-  color: var(--texte-attenue);
-  cursor: pointer;
-}
+/* v13 : .tuile-hote et .tuile-gerer (l'enveloppe et le crayon de gestion d'une seance type)
+   ont DISPARU avec la feuille d'apercu — voir section 22. La tuile n'est plus qu'un bouton,
+   comme toutes les autres, et le menu qu'ouvrait le crayon est devenu l'apercu lui-meme. */
 
 /* Composeur v6 : UNE seule ligne par exercice — icone, nom (ellipse en premier), puces-valeurs,
    commandes. Ecrase la mise en page en colonne de .ligne-exercice. */
@@ -2140,3 +2120,175 @@ details[open] > .pli-reglages-titre .pli-reglages-chevron { transform: rotate(18
 .picker-supprimer-texte { display: none; white-space: nowrap; }
 .picker-supprimer[data-arme='oui'] .picker-supprimer-icone { display: none; }
 .picker-supprimer[data-arme='oui'] .picker-supprimer-texte { display: inline; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   22. v13 — apercu d'une seance type, carnet de progression
+
+   Deux retours utilisateur, une meme idee : REGARDER sans agir.
+   · l'apercu montre ce qu'une seance contient sans la demarrer ;
+   · le carnet montre ce qu'on a fait, serie par serie, sans ouvrir chaque seance.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Feuille d'apercu ── */
+
+/* La liste peut compter dix exercices : elle defile DANS le corps de la feuille (deja
+   `.defilable`), le pied d'actions restant visible. Rien a plafonner ici. */
+.feuille-apercu .note-discrete {
+  margin: 0;
+}
+
+/* ⚠ ACTIONS EN COLONNE, obligatoire des qu'une feuille en porte plus de deux.
+   `.feuille-actions` est une RANGEE par defaut (components.css) et ses boutons sont en `flex: 1`
+   avec `min-width: auto` : aucun ne peut retrecir sous son mot le plus long. Les quatre actions
+   d'une seance type (Lancer / Modifier les exercices / Renommer / Supprimer) exigent 458 px —
+   mesure faite — donc « Supprimer » sortait de l'ecran sur TOUT telephone, sans defilement de
+   rattrapage possible (la feuille est en position fixed). Meme regle que `.menu-seance`, dont
+   cette feuille reprend le role depuis la v13. */
+.feuille-apercu .feuille-actions {
+  flex-direction: column;
+}
+
+.feuille-apercu .feuille-actions .bouton {
+  flex: none;
+  width: 100%;
+}
+
+.apercu-exos {
+  list-style: none;
+  margin: var(--esp-3) 0 0;
+  padding: 0;
+}
+
+.apercu-exo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: var(--cible-mini);
+  padding: var(--esp-1) 0;
+  border-bottom: 1px solid var(--bordure);
+}
+
+.apercu-exo:last-child {
+  border-bottom: 0;
+}
+
+.apercu-exo-icone {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  color: var(--texte-attenue);
+}
+
+/* Le nom cede la place a la cible et s'ellipse : « Développé couché haltères prise serrée »
+   ne doit jamais pousser « 4 × 6-8 reps » hors de l'ecran. */
+.apercu-exo-nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apercu-exo-cible {
+  flex: 0 0 auto;
+  color: var(--texte-attenue);
+  font-size: var(--txt-s);
+  font-variant-numeric: tabular-nums;
+}
+
+.apercu-vide {
+  margin: var(--esp-3) 0 0;
+  color: var(--texte-attenue);
+  font-size: var(--txt-s);
+}
+
+.apercu-plafond {
+  margin: var(--esp-3) 0 0;
+  color: var(--alerte);
+  font-size: var(--txt-s);
+}
+
+/* ── Carnet (vue Progression) ── */
+
+.carnet-legende {
+  margin: 0 0 var(--esp-2);
+  color: var(--texte-attenue);
+  font-size: var(--txt-xs);
+}
+
+.tableau-carnet {
+  width: 100%;
+  /* ⚠ fixed : sans lui, une seance a six series elargirait sa colonne et les dates cesseraient
+     d'etre alignees d'une ligne a l'autre — or c'est cet alignement qui rend l'evolution
+     lisible d'un seul regard. */
+  table-layout: fixed;
+}
+
+/* Annule l'alignement a droite de la derniere colonne de .tableau-chrono : les series se lisent
+   de gauche a droite, dans leur ordre de realisation. */
+.tableau-carnet td:last-child,
+.tableau-carnet th:last-child {
+  text-align: left;
+}
+
+/* ⚠ La largeur se pose sur le <th>, JAMAIS sur le <td> : en `table-layout: fixed` le navigateur
+   ne lit que la PREMIERE rangee pour calculer ses colonnes. Une largeur posee sur une cellule du
+   corps est ignoree en silence — les deux colonnes se partagent alors l'ecran en deux moities et
+   les series se retrouvent a l'etroit sur trois lignes. */
+.tableau-carnet th:first-child {
+  /* 4,5 rem suffisent a « 21/07 » et rendent 16 px de plus aux pastilles — de quoi ecrire
+     « 12×102,5 » en entier plutot que de l'amputer d'une ellipse. */
+  width: 4.5rem;
+  padding-left: 0;
+}
+
+.tableau-carnet .carnet-cellule-date {
+  padding-left: 0;
+  vertical-align: top;
+}
+
+.tableau-carnet .carnet-cellule-date .bouton {
+  min-height: var(--cible-mini);
+  padding: 0 var(--esp-1);
+  justify-content: flex-start;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ⚠ Prefixe par .tableau-carnet, comme ses voisines : `.tableau-chrono td` (views.css) pose son
+   padding avec une specificite de (0,1,1) et l'emporterait sur une classe seule (0,1,0). La
+   regle serait morte, et les 8 px repris ici manqueraient aux pastilles. */
+.tableau-carnet .carnet-cellule-series {
+  padding-right: 0;
+}
+
+/* auto-fill (et non auto-fit) : le nombre de colonnes ne depend QUE de la largeur disponible,
+   identique pour toutes les lignes. La 1re serie de chaque seance tombe donc dans la meme
+   colonne que la 1re serie des autres, meme quand une seance en compte deux de moins.
+   ⚠ Le minimum de piste est dimensionne sur le PIRE libelle realiste — « 12×102,5 », soit huit
+     caracteres en chiffres tabulaires — et non a vue : sous ce seuil, l'ellipse mange la charge
+     et la pastille ment sur ce qui a ete souleve. */
+.carnet-series {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr));
+  gap: var(--esp-1);
+}
+
+.carnet-serie {
+  padding: var(--esp-1) 2px;
+  border-radius: var(--rayon-s);
+  background: var(--surface-haute);
+  text-align: center;
+  font-size: var(--txt-s);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Serie ratee (rackee avant la fin) : signalee, jamais masquee. C'est elle qui explique un
+   creux dans la courbe. */
+.carnet-serie[data-echec='oui'] {
+  background: var(--alerte-doux);
+  color: var(--alerte);
+}

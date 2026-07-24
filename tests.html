@@ -106,7 +106,7 @@ import {
   allureSecParKm, vitesseKmH, estRecord, resumeSerie
 } from './js/domain/metrics.js';
 import { valeursPour, rappelTextuel, SOURCES } from './js/domain/prefill.js';
-import { serieTemporelle, sensDe, resumeSemaine } from './js/domain/progression.js';
+import { serieTemporelle, sensDe, resumeSemaine, tableauChronologique } from './js/domain/progression.js';
 import { estCardioPure } from './js/domain/session.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -767,6 +767,22 @@ egal('resumeSerie affiche l\'assistance négative', resumeSerie(
 egal('resumeSerie machine sans profil : le cran, jamais un kilo inventé', resumeSerie(
   nouvelleSerie('machine', { reps: 10, valeur: 7.5 }), entreeDe(exMachine)), '10 × cran 7,5');
 
+// v13 — forme COMPACTE (pastilles du carnet). Le fait affiché doit être le MÊME que dans la
+// forme longue : seules l'unité et les espaces tombent. Une forme compacte qui perdrait le
+// signe du lest ferait lire « 20 » là où l'utilisateur était ASSISTÉ de 20 kg.
+egal('resumeSerie compact mode charge', resumeSerie(
+  nouvelleSerie('charge', { reps: 8, chargeKg: 60 }), entreeDe(exCharge), { compact: true }), '8×60');
+egal('resumeSerie compact garde le signe du lest', resumeSerie(
+  nouvelleSerie('poids-du-corps', { reps: 8, lestKg: 10 }), entreeDe(exTractions), { compact: true }), '8×+10');
+egal('resumeSerie compact garde le signe de l\'assistance', resumeSerie(
+  nouvelleSerie('poids-du-corps', { reps: 8, lestKg: -20 }), entreeDe(exTractions), { compact: true }), '8×-20');
+egal('resumeSerie compact : poids du corps sans lest, le nombre de reps seul', resumeSerie(
+  nouvelleSerie('poids-du-corps', { reps: 12 }), entreeDe(exTractions), { compact: true }), '12');
+egal('resumeSerie compact machine : le cran reste un cran', resumeSerie(
+  nouvelleSerie('machine', { reps: 10, valeur: 7.5 }), entreeDe(exMachine), { compact: true }), '10×c7,5');
+egal('resumeSerie sans options : la forme longue est INCHANGÉE', resumeSerie(
+  nouvelleSerie('charge', { reps: 8, chargeKg: 60 }), entreeDe(exCharge)), '8 × 60 kg');
+
 groupe('metrics — estRecord et sa tolérance de demi-incrément');
 
 // ⚠ Sans la tolérance, un poids de corps qui bouge de 200 g décrocherait un badge « record »
@@ -848,6 +864,29 @@ const rs = resumeSemaine(historique, new Date(2026, 2, 5));  // jeudi 5 mars 202
 vrai('le tonnage du résumé de la semaine est un nombre, jamais NaN',
   typeof rs.tonnage === 'number' && !Number.isNaN(rs.tonnage),
   'nombre défini', montrer(rs.tonnage));
+
+groupe('progression — tableauChronologique (le carnet)');
+
+// v13 : le carnet de la vue Progression formate CHAQUE série, et pour cela il lui faut l'entrée
+// porteuse des coefficients GELÉS. Sans elle, resumeSerie retomberait sur les champs présents et
+// une série d'un exercice migré se relirait dans le mode d'aujourd'hui, pas dans le sien.
+const carnet = tableauChronologique(historique, exCharge.id, 20);
+egal('deux lignes : la séance en cours et l\'entrée 100 % échauffement sont écartées',
+  carnet.length, 2);
+memeObjet('ANTICHRONOLOGIQUE : la séance la plus récente est en tête',
+  carnet.map((l) => l.date), ['2026-03-05', '2026-01-10']);
+vrai('chaque ligne porte son entrée, coefficients gelés compris',
+  carnet.every((l) => l.entree && typeof l.entree.modeUtilise === 'string'),
+  'entree.modeUtilise défini partout', montrer(carnet.map((l) => l.entree && l.entree.modeUtilise)));
+vrai('les séries d\'échauffement n\'entrent pas dans le carnet',
+  carnet.every((l) => l.series.every((s) => s.kind !== 'echauffement')),
+  'aucun échauffement', montrer(carnet.map((l) => l.series.map((s) => s.kind))));
+egal('la ligne de janvier expose bien ses DEUX séries effectives',
+  carnet[1].series.length, 2);
+egal('le formateur compact rend une pastille lisible depuis l\'entrée de la ligne',
+  resumeSerie(carnet[1].series[0], carnet[1].entree, { compact: true }), '8×60');
+egal('n = 0 : aucune ligne, aucune exception',
+  tableauChronologique(historique, exCharge.id, 0).length, 0);
 
 groupe('progression — allure : le sens vaut « bas »');
 

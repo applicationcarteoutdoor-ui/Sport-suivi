@@ -282,8 +282,8 @@ function collecter(seances, exerciceId, metrique, plage) {
  * Il est affiche sous chaque courbe et c'est lui qui est reellement consulte : la courbe donne la
  * tendance, le tableau donne les chiffres exacts a reproduire aujourd'hui.
  *
- * @returns {{ date, seanceId, entreeId, nbSeries, series: object[], tonnage: number|null,
- *             meilleure: object|null, note: string|null }[]}
+ * @returns {{ date, seanceId, entreeId, entree: object, nbSeries, series: object[],
+ *             tonnage: number|null, meilleure: object|null, note: string|null }[]}
  */
 export function tableauChronologique(seances, exerciceId, n = 20) {
   const lignes = [];
@@ -304,6 +304,11 @@ export function tableauChronologique(seances, exerciceId, n = 20) {
         date: s.date,
         seanceId: s.id,
         entreeId: e.id,
+        // v13 : l'ENTREE elle-meme, pour que le carnet formate chaque serie avec les coefficients
+        // GELES de ce jour-la (metrics.resumeSerie derive sa forme de champsSaisieEntree). Sans
+        // elle, une serie d'un exercice migre de 'poids-du-corps' vers 'charge' se relirait dans
+        // le mode d'aujourd'hui, pas dans celui ou elle a ete faite.
+        entree: e,
         nbSeries: sets.length,
         series: sets,
         tonnage: estNombre(tonnage.kg) ? tonnage.kg : null,

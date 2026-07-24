@@ -217,9 +217,10 @@ function champsPresents(serie) {
 
 // Suffixe de lest, SIGNE : « +10 kg » lest, « -20 kg » assistance. Un lest nul ou absent ne
 // s'affiche pas : « 8 x +0 kg » se lit plus mal que « 8 reps ».
-function suffixeLest(serie) {
+// En forme COMPACTE l'unite tombe (« +10 ») : voir resumeSerie.
+function suffixeLest(serie, compact) {
   if (!estNombre(serie.lestKg) || serie.lestKg === 0) return '';
-  return (serie.lestKg > 0 ? '+' : '') + formatFr(serie.lestKg) + ' kg';
+  return (serie.lestKg > 0 ? '+' : '') + formatFr(serie.lestKg) + (compact ? '' : ' kg');
 }
 
 /**
@@ -232,19 +233,34 @@ function suffixeLest(serie) {
  * ⚠ La forme est derivee de champsSaisieEntree(entree), donc de MODES : aucun test sur le nom
  *   d'un mode ici, et un mode ajoute demain se formate sans toucher a cette fonction.
  *
+ * v13 — FORME COMPACTE (`{ compact: true }`) : « 8×60 », « 8×+10 », « 8 », « 1:30 », « 5,2 km ».
+ *   Elle existe pour le CARNET de la vue Progression, ou chaque serie tient dans une pastille
+ *   de moins de 60 px : vingt seances de quatre series, c'est quatre-vingts pastilles a l'ecran.
+ *   ⚠ Elle vit ICI et non dans la vue, precisement pour ne pas rouvrir la porte qu'interdit
+ *     l'avertissement ci-dessus : une seule fonction connait la forme d'une serie, dans ses deux
+ *     longueurs. La forme longue reste celle des lecteurs d'ecran et des infobulles — une
+ *     pastille « 8×60 » ne s'annonce pas a la voix.
+ *
+ * @param {object} serie
+ * @param {object} [entree] entree de seance porteuse des coefficients GELES
+ * @param {{compact?: boolean}} [options]
  * @returns {string}
  */
-export function resumeSerie(serie, entree) {
+export function resumeSerie(serie, entree, options) {
   if (!serie) return '';
+  const compact = !!(options && options.compact === true);
   const champs = entree ? champsSaisieEntree(entree) : champsPresents(serie);
   const a = (c) => champs.indexOf(c) !== -1;
-  const lest = a('lestKg') || !entree ? suffixeLest(serie) : '';
+  const lest = a('lestKg') || !entree ? suffixeLest(serie, compact) : '';
 
   // Cardio : la distance est optionnelle, la duree ne l'est pas.
   if (a('distanceM')) {
     const duree = formatDuree(serie.dureeSec);
     if (estNombre(serie.distanceM) && serie.distanceM > 0) {
       const km = formatFr(serie.distanceM / 1000);
+      // Compact : la distance seule. « 5,2 km en 26:00 » ne tient pas dans une pastille, et
+      // c'est la distance que l'on compare d'une sortie a l'autre.
+      if (compact) return `${km} km`;
       return duree ? `${km} km en ${duree}` : `${km} km`;
     }
     return duree;
@@ -260,10 +276,16 @@ export function resumeSerie(serie, entree) {
   if (!estNombre(serie.reps)) return '';
   const reps = formatFr(serie.reps);
 
-  if (a('chargeKg') && estNombre(serie.chargeKg)) return `${reps} × ${formatFr(serie.chargeKg)} kg`;
+  if (a('chargeKg') && estNombre(serie.chargeKg)) {
+    const charge = formatFr(serie.chargeKg);
+    return compact ? `${reps}×${charge}` : `${reps} × ${charge} kg`;
+  }
   // Sans profil de machine, le cran reste la seule verite disponible : on l'affiche tel quel
   // plutot qu'un kilo invente.
-  if (a('valeur') && estNombre(serie.valeur)) return `${reps} × cran ${formatFr(serie.valeur)}`;
-  if (lest) return `${reps} × ${lest}`;
-  return `${reps} reps`;
+  if (a('valeur') && estNombre(serie.valeur)) {
+    const cran = formatFr(serie.valeur);
+    return compact ? `${reps}×c${cran}` : `${reps} × cran ${cran}`;
+  }
+  if (lest) return compact ? `${reps}×${lest}` : `${reps} × ${lest}`;
+  return compact ? reps : `${reps} reps`;
 }

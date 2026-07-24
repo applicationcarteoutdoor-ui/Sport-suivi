@@ -133,14 +133,36 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Minuteur/chrono : dans le tiroir latéral uniquement, jamais dans le flux des séries.
 - PAS de popups de succès (les erreurs, si). PAS d'affichage de tonnage (le domaine le calcule
   toujours ; seul l'affichage est retiré). PAS de réglage de temps de repos.
-- Les exercices les plus utilisés passent devant ; les séances favorites (cœur) en tête de
-  l'accueil ; date d'une séance modifiable (passé ou futur).
+- Les exercices les plus utilisés passent devant ; date d'une séance modifiable (passé ou futur).
+- **Regarder n'est pas agir** (v13) : sélectionner une séance ne la démarre JAMAIS. Une séance
+  ouverte par mégarde reste épinglée « en cours » sur l'accueil et sa clôture date un faux
+  entraînement — un tap de plus vaut mieux qu'une donnée fausse.
 - L'utilisateur écrit en français avec des fautes de frappe : interpréter avec bienveillance.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-23, v12 livrée)
+## État et risques connus (2026-07-24, v13 livrée)
 
+- v13 — regarder sans agir (retours d'un utilisateur testeur) :
+  · **Aperçu d'une séance** : taper une tuile de l'accueil n'ouvre plus une séance, elle ouvre
+    `ouvrirApercuModele` (views/accueil.js) — feuille listant les exercices et leurs cibles, puis
+    Lancer / Modifier / Renommer / Supprimer. Le crayon `.tuile-gerer` et son enveloppe
+    `.tuile-hote` ont DISPARU (leur menu EST devenu l'aperçu) ; les règles CSS aussi.
+    ⚠ Le plafond `MAX_SEANCES_EN_COURS` ne désarme plus les tuiles de modèle (elles ne démarrent
+    plus rien) : c'est le bouton « Lancer » de la feuille qui refuse, en le disant.
+    ⚠ Les cartes de séance EN COURS gardent leur reprise en UN tap : l'aperçu ne les concerne pas.
+  · **Carnet** (views/progression.js) : le tableau sous la courbe n'affiche plus « meilleure série
+    + nombre de séries » mais TOUTES les séries, une pastille chacune, date à gauche, plus récent
+    en haut. `tableauChronologique` expose désormais `entree` (coefficients GELÉS) pour que chaque
+    série se relise dans SON mode d'époque.
+    ⚠ `table-layout: fixed` : la largeur de colonne se pose sur le `<th>`, jamais sur un `<td>`
+    du corps — sinon elle est ignorée en silence et les deux colonnes se partagent l'écran.
+    ⚠ La grille des pastilles est en `auto-fill` (pas `auto-fit`) : c'est ce qui aligne la 1re
+    série de chaque séance sur la même colonne d'une ligne à l'autre, y compris quand une séance
+    en compte deux de moins. C'est tout l'intérêt du carnet.
+  · **resumeSerie a une forme COMPACTE** : `resumeSerie(serie, entree, { compact: true })` →
+    « 8×60 », « 8×+10 », « 12 », « 1:00 ». Elle vit dans domain/metrics.js et NULLE PART ailleurs :
+    l'unicité du formateur reste l'invariant, il a seulement deux longueurs.
 - v12 — « Créer un exercice » affiné (retours utilisateur) :
   · Formulaire réordonné et allégé : **Nom → Mode de suivi (en tête) → Muscle principal →
     Logo → Lien vidéo**. Retirés : matériel et description (affichés seulement dans l'écran
@@ -154,8 +176,6 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
     sinon **archivage** (réversible, sans perte — une entrée de séance perdrait son mode). UI :
     poubelle sur les lignes usr: du sélecteur (picker-exercice.js), confirmation en 2 taps
     inline (une feuille de confirmation fermerait le picker, sheet.js n'admettant qu'une feuille).
-- v11 :
-
 - v11 :
   · **Réglages hors navigation** : 4 onglets (Accueil, Historique, Progression, Muscles) ;
     l'engrenage ⚙ vit dans l'en-tête de l'ACCUEIL via #btn-menu (armé au montage, RENDU au

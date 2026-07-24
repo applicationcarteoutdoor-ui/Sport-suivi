@@ -31,7 +31,7 @@ import { MAX_SEANCES_EN_COURS, JOURS_AVANT_RAPPEL_EXPORT } from '../config.js';
 import { h, on, delegate } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import { dayKey, joursEntre, formatLong } from '../lib/dates.js';
-import { formatFr } from '../lib/num.js';
+import { formatFr, formatDuree } from '../lib/num.js';
 import { estSeanceComptable, estRoutine, LIBELLES_STATUTS_SEANCE } from '../data/schema.js';
 import * as store from '../data/store.js';
 import * as prefs from '../data/prefs.js';
@@ -415,7 +415,11 @@ export function mount(conteneur) {
     }
     const modele = store.modele(cle);
     if (!modele) return null;
-    const noeud = tuile({
+    // v13 : la tuile n'ouvre plus une seance, elle ouvre son APERCU — d'ou le bouton de gestion
+    // disparu (le crayon pose a cote de la tuile depuis la v6). Tout ce qu'il portait — modifier,
+    // renommer, supprimer — vit desormais dans la feuille d'apercu, avec la liste des exercices.
+    // Une tuile, un tap, une seule feuille : moins de commandes a l'ecran, aucune perdue.
+    return tuile({
       cle,
       nomIcone: iconeDuModele(modele),
       titre: modele.nom || 'Séance',
@@ -428,19 +432,6 @@ export function mount(conteneur) {
       id: modele.id,
       classe: estRoutine(modele) ? 'tuile-routine' : 'tuile-modele-livre'
     });
-    // v6 : une SEANCE TYPE (routine utilisateur) se gere depuis l'accueil — renommer, modifier,
-    // supprimer. Le bouton est un FRERE de la tuile (jamais de bouton dans un bouton) : la tuile
-    // est enveloppee, et la cle de reconciliation pointe l'enveloppe.
-    if (estRoutine(modele)) {
-      return h('div', { class: 'tuile-hote' }, noeud,
-        h('button', {
-          type: 'button',
-          class: 'tuile-gerer',
-          dataset: { action: 'gerer-routine', id: modele.id },
-          'aria-label': 'Gérer la séance type ' + (modele.nom || '')
-        }, icone('crayon', { taille: 16 })));
-    }
-    return noeud;
   }
 
   function majLanceur(cle, noeud) {
@@ -482,11 +473,14 @@ export function mount(conteneur) {
         'le maximum. Termine ou abandonne l\'une d\'elles pour en lancer une nouvelle.';
     }
     blocLanceurs.setAttribute('data-plafond', atteint ? 'atteint' : 'libre');
-    // ⚠ querySelectorAll et non children : une seance type est ENVELOPPEE (.tuile-hote) et
-    //   poser disabled sur un <div> ne desactiverait rien du tout.
     for (const bouton of grilleLanceurs.querySelectorAll('.tuile-lanceur')) {
-      // v11 : « Créer un exercice » n'ouvre AUCUNE seance — le plafond ne le concerne pas.
-      if (bouton.getAttribute('data-cle') === CLE_CREER_EXERCICE) continue;
+      // Seules les tuiles qui DEMARRENT quelque chose sont desarmees par le plafond.
+      // v11 : « Créer un exercice » n'ouvre aucune seance.
+      // v13 : une tuile de modele n'en ouvre plus non plus — elle ouvre un apercu. Regarder ce
+      //   qu'on a prevu doit rester possible meme les bras charges de seances en cours ; c'est le
+      //   bouton « Lancer » de la feuille, et lui seul, qui refuse alors.
+      const action = bouton.getAttribute('data-action');
+      if (bouton.getAttribute('data-cle') === CLE_CREER_EXERCICE || action === 'modele') continue;
       bouton.disabled = atteint;
     }
   }
@@ -844,27 +838,122 @@ export function mount(conteneur) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Seances types : gestion depuis l'accueil (v6 — renommer, modifier, supprimer)
+  // Apercu d'une seance AVANT de la lancer (v13)
   // ─────────────────────────────────────────────────────────────────────────
+  //
+  // Retour utilisateur, verbatim : « il faudrait pouvoir sélectionner une séance sans la démarrer
+  // automatiquement, juste pour voir les exos à l'intérieur. Parce que là, si tu veux en regarder
+  // une, tu cliques dessus et faut dire terminer la séance pour la remettre à zéro. »
+  //
+  // ⚠ Le lancement coute donc UN TAP DE PLUS, et c'est assume. Le tap economise a la v1 se payait
+  //   ici : demarrer par megarde laissait une seance « en cours » epinglee en haut de l'accueil,
+  //   qu'il fallait cloturer ou abandonner pour s'en debarrasser — et cette cloture datait un
+  //   faux entrainement dans l'historique. Un tap contre une donnee fausse, le choix est vite fait.
+  //   Les seances DEJA EN COURS, elles, se reprennent toujours en un seul tap : leur carte n'est
+  //   pas concernee par cet apercu.
 
-  /** Menu d'une seance type : lancer, modifier (composeur), renommer, supprimer. */
-  function ouvrirMenuRoutine(id) {
+  /**
+   * Nom de secours quand l'exercice d'un item ne se resout plus (import degrade, exercice
+   * supprime avant le garde-fou de la v13). Un item du modele ne porte PAS de nomAffiche — ce
+   * champ n'existe que sur une entree de seance — donc on tire ce qu'on peut de l'identifiant :
+   * le slug du catalogue est lisible, un ULID d'exercice personnel ne l'est pas.
+   */
+  function nomDeSecours(exerciceId) {
+    const brut = String(exerciceId || '');
+    if (brut.indexOf('cat:') !== 0) return 'Exercice supprimé';
+    const mot = brut.slice(4).replace(/-/g, ' ').trim();
+    return mot ? mot.charAt(0).toUpperCase() + mot.slice(1) : 'Exercice supprimé';
+  }
+
+  /** « 4 × 6-8 reps », « 3 × 1:00 », « 5 km », ou « 4 séries » quand la cible n'en dit pas plus. */
+  function libelleCible(item) {
+    const n = estNombre(item && item.seriesCibles) && item.seriesCibles > 0 ? item.seriesCibles : null;
+    const reps = item && item.repsCibles;
+    let par = '';
+
+    if (reps && (estNombre(reps.min) || estNombre(reps.max))) {
+      const min = estNombre(reps.min) ? reps.min : reps.max;
+      const max = estNombre(reps.max) ? reps.max : reps.min;
+      // ⚠ FOURCHETTE et non entier : « 8 » se lit comme un ordre rate des qu'on en fait 7.
+      par = (min === max ? String(min) : min + '-' + max) + ' reps';
+    } else if (estNombre(item && item.dureeCibleSec) && item.dureeCibleSec > 0) {
+      par = formatDuree(item.dureeCibleSec);
+    } else if (estNombre(item && item.distanceCibleM) && item.distanceCibleM > 0) {
+      par = formatFr(item.distanceCibleM / 1000) + ' km';
+    }
+
+    if (n && par) return n + ' × ' + par;
+    if (n) return n + (n > 1 ? ' séries' : ' série');
+    return par;
+  }
+
+  /**
+   * Feuille d'apercu : la liste des exercices, puis les actions. C'est le SEUL menu d'une seance
+   * type — « Modifier », « Renommer » et « Supprimer » y ont rejoint « Lancer ».
+   *
+   * ⚠ Aucun kilo n'est annonce ici. Les modeles ne portent volontairement aucune charge en dur
+   *   (chargeCible = { type:'derniere' }) : afficher un poids reviendrait a l'inventer, et un
+   *   modele qui annonce « 4 × 8 à 60 kg » ment des la troisieme semaine.
+   */
+  function ouvrirApercuModele(id) {
     const modele = store.modele(id);
     if (!modele) { majLanceurs(); return; }
+
+    const items = (modele.items || []).filter(Boolean);
+    const liste = h('ul', { class: 'apercu-exos' });
+    for (const item of items) {
+      const ex = item.exerciceId ? store.exercice(item.exerciceId) : null;
+      const cible = libelleCible(item);
+      liste.appendChild(h('li', { class: 'apercu-exo' },
+        h('span', { class: 'apercu-exo-icone' },
+          icone(ex ? iconePourExercice(ex) : 'exercice', { taille: 22 })),
+        // Un exercice disparu garde une ligne : une ligne « Exercice supprimé » vaut mieux
+        // qu'une ligne absente, qui ferait croire a une seance plus courte qu'elle ne l'est.
+        h('span', { class: 'apercu-exo-nom' }, (ex && ex.nom) || nomDeSecours(item.exerciceId)),
+        cible ? h('span', { class: 'apercu-exo-cible' }, cible) : null
+      ));
+    }
+
+    const plafond = store.seancesEnCours().length >= MAX_SEANCES_EN_COURS;
+
+    const actions = [{
+      libelle: 'Lancer la séance',
+      variante: 'primaire',
+      disabled: plafond,
+      action: () => { demarrerSeance(modele, null); }
+    }];
+    // Un modele LIVRE ne se modifie pas : le composeur ecrirait une routine par-dessus le
+    // catalogue. On le duplique en le lancant, jamais en l'editant.
+    if (estRoutine(modele)) {
+      actions.push({
+        libelle: 'Modifier les exercices',
+        action: () => { router.aller('#/composer/routine?id=' + encodeURIComponent(id)); }
+      });
+      actions.push({ libelle: 'Renommer', action: () => { ouvrirRenommageRoutine(id); return false; } });
+      actions.push({
+        libelle: 'Supprimer',
+        variante: 'danger',
+        action: () => { confirmerSuppressionRoutine(id); return false; }
+      });
+    }
+
     etat.feuille = sheet.ouvrir({
-      titre: modele.nom || 'Séance type',
-      classe: 'menu-seance',
-      contenu: h('p', { class: 'note-discrete' },
-        (resumeModele(modele) || 'Aucun exercice') + ' · Séance type'),
-      actions: [
-        { libelle: 'Lancer la séance', variante: 'primaire', action: () => { demarrerSeance(modele, null); } },
-        {
-          libelle: 'Modifier les exercices',
-          action: () => { router.aller('#/composer/routine?id=' + encodeURIComponent(id)); }
-        },
-        { libelle: 'Renommer', action: () => { ouvrirRenommageRoutine(id); return false; } },
-        { libelle: 'Supprimer', variante: 'danger', action: () => { confirmerSuppressionRoutine(id); return false; } }
+      titre: modele.nom || 'Séance',
+      classe: 'feuille-apercu',
+      contenu: [
+        h('p', { class: 'note-discrete' },
+          (resumeModele(modele) || 'Aucun exercice') +
+          (estRoutine(modele) ? ' · Séance type' : ' · Modèle livré')),
+        items.length
+          ? liste
+          : h('p', { class: 'apercu-vide' }, 'Cette séance ne contient encore aucun exercice.'),
+        plafond
+          ? h('p', { class: 'apercu-plafond' },
+              MAX_SEANCES_EN_COURS + ' séances sont déjà en cours, le maximum. ' +
+              'Termine ou abandonne l\'une d\'elles pour lancer celle-ci.')
+          : null
       ],
+      actions,
       onFermer: () => { etat.feuille = null; }
     });
   }
@@ -945,14 +1034,11 @@ export function mount(conteneur) {
 
     if (action === 'ouvrir-seance') { ouvrirSeance(id); return; }
     if (action === 'menu-seance') { ouvrirMenuSeance(id); return; }
-    if (action === 'gerer-routine') { ouvrirMenuRoutine(id); return; }
     if (action === 'composer') { router.aller('#/composer'); return; }
     if (action === 'creer-exercice') { ouvrirCreationExercice(); return; }
     if (action === 'cardio') { choisirCardio(); return; }
-    if (action === 'modele') {
-      const modele = store.modele(id);
-      if (modele) demarrerSeance(modele, null);
-    }
+    // v13 : APERCU, jamais un demarrage. Voir ouvrirApercuModele.
+    if (action === 'modele') { ouvrirApercuModele(id); }
   }));
 
   // ─────────────────────────────────────────────────────────────────────────
