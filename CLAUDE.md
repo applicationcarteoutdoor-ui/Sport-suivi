@@ -44,6 +44,16 @@ node --check js/views/seance-tableau.js
 En dev local, le service worker sert son précache : pour voir un changement, purger caches +
 désenregistrer le SW dans la console, ou dérouler le protocole PRECACHE/ACTIVER.
 
+⚠ **Purger le SW ne suffit PAS** (piège qui a coûté deux fois une demi-heure). `python -m
+http.server` n'envoie aucun `Cache-Control` : Chrome applique alors son heuristique (10 % du
+temps écoulé depuis `Last-Modified`) et sert pendant des HEURES un module vieux de trente
+secondes — y compris à un `import` ES, alors qu'un `fetch(..., {cache:'no-store'})` dans la même
+page renvoie, lui, le fichier corrigé. On croit donc à un bug de code là où il n'y a qu'un cache.
+**Protocole fiable, dans cet ordre** : purger caches + SW → charger la RACINE de l'app une fois
+(le SW réinstalle et précache avec `{cache:'reload'}`, seul chemin qui contourne le cache HTTP)
+→ recharger la page à vérifier, qui est alors servie par ce précache neuf. Contrôle en une
+ligne : lire l'entrée du précache et y chercher une chaîne de la modification.
+
 ## Invariants absolus (chacun a déjà cassé une fois — d'où sa présence ici)
 
 1. **AUCUN `innerHTML`**, nulle part. `createElement`/`createElementNS`/`textContent` via
@@ -302,7 +312,7 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - v5 : thème VERT (le bleu est abandonné — ne pas le réintroduire), réglages en 5 `<details>`
   pliants, renommage de séance (`seance.nom` prime sur `modeleSnapshot.nom` partout),
   composeur sans réglage de répétitions (`repsCibles: null`).
-- `tests.html` : 214/214 en navigateur au 2026-07-21 (v6 comprise). ⚠ En dev local, purger
+- `tests.html` : 227/227 en navigateur au 2026-07-25 (v13 comprise). ⚠ En dev local, purger
   SW + caches AVANT de conclure à un bug : le précache sert d'anciens modules et un simple
   reload ne suffit pas (il se ré-enregistre à chaque boot).
 - `views/modeles.js` référence encore `favori` (bascule cœur) : écran secondaire, inerte
