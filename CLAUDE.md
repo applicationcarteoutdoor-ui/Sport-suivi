@@ -23,9 +23,12 @@ PWA de suivi de musculation, **100 % hors-ligne**, mono-utilisateur, qui remplac
 cd ".."; python -m http.server 8123
 # puis ouvrir http://127.0.0.1:8123/Sport-suivi/
 
-# Tests (~190 assertions : domaine pur, migrations, intégrité classes↔CSS, couture icônes) :
+# Tests (227 assertions : domaine pur, migrations, intégrité classes↔CSS, couture icônes) :
 #   ouvrir http://127.0.0.1:8123/Sport-suivi/tests.html — doit être 100 % vert.
-# Il n'y a pas de lanceur de test unitaire : tests.html EST le harnais (zéro dépendance).
+#   Le TITRE DE L'ONGLET porte le score (« ✓ 227/227 ») : c'est le seul contrôle à faire.
+# Il n'y a pas de lanceur de test unitaire : tests.html EST le harnais (zéro dépendance), et il
+# n'a AUCUN filtre — le fichier entier s'exécute en moins d'une seconde. Pour isoler une
+# assertion, la recopier dans un `groupe()` temporaire en tête de fichier (et l'en retirer).
 
 # Vérifier la syntaxe d'un module (sw.js exclu : contexte worker) :
 node --check js/views/seance-tableau.js
@@ -56,6 +59,13 @@ ligne : lire l'entrée du précache et y chercher une chaîne de la modification
 
 ## Invariants absolus (chacun a déjà cassé une fois — d'où sa présence ici)
 
+0. **IRRÉVERSIBLE, et le seul de cette liste qui détruise les données de quelqu'un d'autre :
+   ne JAMAIS renommer le dépôt (`Sport-suivi` à vie), ne JAMAIS toucher à `id` / `start_url` /
+   `scope` dans `manifest.json`.** L'un ou l'autre change l'identité de la PWA : pour le
+   navigateur c'est une AUTRE application — icône installée morte, IndexedDB (liée à l'origine)
+   inaccessible, aucun message d'erreur. Rien ne permet de revenir en arrière côté utilisateur.
+   Ces deux règles ouvrent le contrat de non-régression du README, qui n'est PAS chargé
+   automatiquement : elles sont donc rappelées ici, en tête.
 1. **AUCUN `innerHTML`**, nulle part. `createElement`/`createElementNS`/`textContent` via
    `js/lib/dom.js` (`h()`, `svg()`). Corollaire : zéro problème d'échappement.
 2. **AUCUN état fonctionnel dans `requestAnimationFrame`.** rAF ne s'exécute pas quand la page
@@ -80,8 +90,12 @@ ligne : lire l'entrée du précache et y chercher une chaîne de la modification
    **`estSeanceComptable(seance)`** remplace tout `statut === 'terminee'`. Une séance
    **abandonnée** reste VISIBLE dans l'historique (`estSeanceClose`) mais n'entre dans AUCUNE
    courbe ni statistique.
-9. **Archiver, jamais supprimer un exercice** (les séances le référencent à vie). Une ROUTINE
-   utilisateur (`usr:`) se supprime ; un modèle livré (`tpl:`) s'archive.
+9. **Archiver plutôt que supprimer un exercice** (les séances le référencent à vie). La seule
+   suppression DURE admise (`exercice:supprimer`, v12) exige TOUT ceci : préfixe `usr:`,
+   historique chargé, et aucune référence ni dans une séance ni dans un modèle (v13). Sinon
+   **archivage**, réversible et sans perte — une entrée de séance privée de son exercice perdrait
+   son mode, donc le sens de ses séries. Une ROUTINE utilisateur (`usr:`) se supprime ; un modèle
+   livré (`tpl:`) s'archive.
 10. **Dates locales** : `dayKey()` — jamais `toISOString` (une séance à 23 h basculerait au
     lendemain). Un `<input type=date>` rend déjà du `YYYY-MM-DD` local : le prendre TEL QUEL.
     Comparaison de dayKey = comparaison de chaînes.
@@ -113,11 +127,20 @@ tâche de fond, écran de secours en catch). Les vues lisent le `store` (synchro
 `commit()`, apprennent les changements par `bus`. `domain/` est pur (aucun DOM, aucune I/O).
 Direction stricte : `lib → data → domain → ui → views` (« est importé par »).
 
-**Modèle de données** (js/data/schema.js, commenté) : l'INTENTION (Modele/routine, mutable,
-champ `favori`) vs le FAIT (Seance, immuable, qui porte un `modeleSnapshot` copié et ses
-coefficients gelés). `Serie.at` (epoch ms) est l'horodatage de validation ; le repos réel en est
-DÉRIVÉ. `lestKg` est SIGNÉ (−20 = assistance élastique). `meta.lastPerf` est le seul dérivé
-persisté (reconstructible).
+**Modèle de données** (js/data/schema.js, commenté) : l'INTENTION (Modele/routine, mutable :
+`nom`, `items`, `origine`, `archived`) vs le FAIT (Seance, immuable, qui porte un `modeleSnapshot`
+copié et ses coefficients gelés). `Serie.at` (epoch ms) est l'horodatage de validation ; le repos
+réel en est DÉRIVÉ. `lestKg` est SIGNÉ (−20 = assistance élastique). `meta.lastPerf` est le seul
+dérivé persisté (reconstructible).
+⚠ `Modele.favori` est un champ VESTIGIAL : `nouveauModele` le pose encore, plus rien ne le lit
+depuis la v6 (seul `views/modeles.js`, écran orphelin, l'affiche). Même dette de nommage dans
+`views/historique.js` : le bouton `historique-favori` / `data-action="favori"` dessine un **`plus`**
+et crée une SÉANCE TYPE. Ne pas conclure de ces noms que les favoris existent — ils sont morts.
+
+**Écrans ORPHELINS** — `#/exercices` et `#/modeles` sont routés (boot.js) mais AUCUN lien de
+l'interface n'y mène (vérifié : seuls des commentaires les citent). Conséquence pratique déjà
+payée en v12 : un champ « affiché quelque part » peut n'être visible nulle part. Avant de
+travailler sur un affichage, vérifier qu'un utilisateur peut l'atteindre.
 
 **Écrans clés.** `views/seance-tableau.js` est l'écran de séance ACTUEL : tableau façon carnet —
 colonne exercice + colonnes de séries en GRILLE partagée (`--tab-cols`, posée par `majEntete`,
@@ -127,22 +150,39 @@ minimum 8 colonnes TOUTES visibles sans défilement), cellules à `data-etat`
 sert 3 routes (séance, routine, édition de routine) : packs → grille d'icônes triée par USAGE →
 lignes réglables. `ui/drawer-minuteur.js` (chrono + rebours, état = horodatages persistés,
 recalé sur visibilitychange/pageshow) est monté UNE fois par boot, hors routeur : il survit aux
-changements d'écran. `ui/chart.js` : multi-séries (≤4), et DEUX unités différentes = deux axes Y
-(gauche/droite) — au-delà, refus explicite.
+changements d'écran. `ui/chart.js` : multi-séries (≤4), une échelle Y par unité (2 au maximum,
+gauche/droite) — au-delà, refus explicite. ⚠ Ce double axe est un chemin MORT en pratique depuis
+la v7 : `progression.js` ne compare que des séries de MÊME unité, et « poids + reps » est rendu
+en deux graphes EMPILÉS. Le code existe, aucun appelant ne le déclenche : ne pas le réactiver
+sans relire la note v7 plus bas (double axe = anti-pattern n°1 de dataviz).
 
-**Icônes** (js/ui/icons.js, ~75 dessins) : convention stricte — l'icône d'un exercice du
-catalogue est son id privé de son préfixe (`cat:squat` → `'squat'`) ; résolution TOUJOURS par
-`iconePourExercice()` (repli pack puis générique), jamais `ex.icone` directement (les exercices
-créés par l'utilisateur n'en ont pas). Nouvel exercice catalogue = nouveau dessin + le champ
-`icone` est dans `CHAMPS_SYNCHRONISES` (catalog.js). `currentColor` partout ; le **cœur** est
-réservé aux FAVORIS, le cardio est le coureur qui transpire.
+**Icônes** (js/ui/icons.js, **77 dessins** — recompter à chaque ajout, le chiffre a déjà traîné
+deux versions de retard). Convention stricte : l'icône d'un exercice du catalogue est son id privé
+de son préfixe (`cat:squat` → `'squat'`). Résolution TOUJOURS par `iconePourExercice()`, dont la
+chaîne est : **① `ex.icone`** (logo CHOISI par l'utilisateur depuis la v11-v12, ou posé par
+catalog.js) → ② id sans préfixe → ③ pack déduit du matériel/mode → ④ générique. On ne lit donc
+jamais `ex.icone` en direct — non parce qu'il serait absent, mais parce que seule la chaîne
+complète garantit un dessin.
+⚠ **Jamais d'accès direct `ICONES[cle]`** : la clé provient d'un id d'exercice, et `usr:toString`
+est un nom légal. `icone()` et `iconePourExercice()` filtrent par
+`Object.prototype.hasOwnProperty` — sans cette garde, une clé héritée du prototype rendrait une
+fonction au lieu d'un dessin.
+Nouvel exercice catalogue = nouveau dessin + le champ `icone` est dans `CHAMPS_SYNCHRONISES`
+(catalog.js). `currentColor` partout ; le cardio est le coureur qui transpire — et le **cœur**
+n'est plus employé que par `views/modeles.js` (écran orphelin) : les favoris sont morts en v6, ne
+pas le recycler comme s'il était libre sans nettoyer cet écran.
 
 ## Préférences utilisateur (produit — à respecter dans toute évolution)
 
 - Interface VISUELLE : icônes, cartes, peu de texte. Saisie en séance = TABLEAU façon carnet.
 - Minuteur/chrono : dans le tiroir latéral uniquement, jamais dans le flux des séries.
-- PAS de popups de succès (les erreurs, si). PAS d'affichage de tonnage (le domaine le calcule
-  toujours ; seul l'affichage est retiré). PAS de réglage de temps de repos.
+- PAS de popups de succès (les erreurs, si).
+- PAS de tonnage dans les RÉSUMÉS (accueil, historique, détail, fin de séance) — mais la courbe
+  « Volume » de Progression EST le tonnage du domaine (`LIBELLES_METRIQUES['tonnage'] = 'Volume'`),
+  et c'est la métrique par DÉFAUT depuis la v8. Seul le mot « tonnage » est proscrit à l'écran.
+- PAS de réglage de repos par EXERCICE (retiré en v4 ; `item.reposSec` survit dans le schéma, sans
+  UI). Un réglage GLOBAL demeure et doit rester : Réglages → Séance → « Repos par défaut »
+  (15-900 s, `prefs.reposParDefautSec`, défaut 120).
 - Les exercices les plus utilisés passent devant ; date d'une séance modifiable (passé ou futur).
 - **Regarder n'est pas agir** (v13) : sélectionner une séance ne la démarre JAMAIS. Une séance
   ouverte par mégarde reste épinglée « en cours » sur l'accueil et sa clôture date un faux
@@ -151,12 +191,23 @@ réservé aux FAVORIS, le cardio est le coureur qui transpire.
 - Coût : limiter les agents (2-3 max, effort mesuré) — deux vagues massives ont épuisé son
   budget mensuel ; les petites retouches se font en direct.
 
-## État et risques connus (2026-07-24, v13 livrée)
+## État et risques connus (2026-07-25, v13 livrée)
+
+> **Comment lire ce journal.** Il descend de la vague la plus récente à la plus ancienne. Les DEUX
+> premières décrivent le code d'aujourd'hui ; au-delà, c'est de l'archéologie — un fait de la v6
+> peut avoir été défait en v9 sans que la ligne ait été retouchée. Ce qui garde toute sa valeur en
+> descendant, ce sont les lignes **⚠** : chacune est un piège déjà payé une fois, et le code n'en
+> porte pas toujours la trace. En cas de doute entre ce journal et le code, **le code gagne** —
+> puis on corrige la ligne ici.
 
 - v13 — regarder sans agir (retours d'un utilisateur testeur) :
   · **Aperçu d'une séance** : taper une tuile de l'accueil n'ouvre plus une séance, elle ouvre
     `ouvrirApercuModele` (views/accueil.js) — feuille listant les exercices et leurs cibles, puis
-    Lancer / Modifier / Renommer / Supprimer. Le crayon `.tuile-gerer` et son enveloppe
+    « Lancer la séance », et SEULEMENT si `estRoutine(modele)` : Modifier / Renommer / Supprimer.
+    Un modèle livré (`tpl:`) n'expose que « Lancer » — l'éditer écrirait une routine par-dessus le
+    catalogue (invariant n°9). ⚠ Une feuille qui porte plus de deux actions DOIT empiler son pied
+    (`flex-direction: column`) : en rangée, quatre boutons exigent 458 px et le dernier sort de
+    l'écran sans défilement possible — défaut vécu, mesuré, corrigé. Le crayon `.tuile-gerer` et son enveloppe
     `.tuile-hote` ont DISPARU (leur menu EST devenu l'aperçu) ; les règles CSS aussi.
     ⚠ Le plafond `MAX_SEANCES_EN_COURS` ne désarme plus les tuiles de modèle (elles ne démarrent
     plus rien) : c'est le bouton « Lancer » de la feuille qui refuse, en le disant.
