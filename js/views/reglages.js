@@ -13,7 +13,7 @@ import { h, on, delegate, vider } from '../lib/dom.js';
 import * as bus from '../lib/bus.js';
 import { formatFr, formatDuree, parseFr } from '../lib/num.js';
 import { dayKey, formatLong, joursEntre } from '../lib/dates.js';
-import { SCHEMA_VERSION, JOURS_AVANT_RAPPEL_EXPORT } from '../config.js';
+import { SCHEMA_VERSION, APP_VERSION, JOURS_AVANT_RAPPEL_EXPORT } from '../config.js';
 
 import * as store from '../data/store.js';
 import * as prefs from '../data/prefs.js';
@@ -25,7 +25,7 @@ import * as toast from '../ui/toast.js';
 import * as keypad from '../ui/keypad.js';
 import { icone } from '../ui/icons.js';
 import { estIOS, estStandalone, estInstallable, proposer } from '../ui/install.js';
-import { verifier } from '../ui/update.js';
+import { verifier, lireManifeste } from '../ui/update.js';
 import { ouvrirFeuille, fermerFeuille, aller } from '../ui/router.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -382,10 +382,21 @@ function monterReglages(conteneur, paramsInitiaux) {
   const etatMaj = h('span', { class: 'ligne-liste-secondaire', role: 'status' }, '');
   let verificationMajEnCours = false;
 
-  // v8 : groupe Application EPURE (retour utilisateur) — plus de version datee, plus de note
-  // CDN sous la recherche de mise a jour, plus de lien de diagnostic. La version du schema
-  // reste : c'est elle qu'on demande en cas de probleme d'import.
+  // v15 : la VERSION INSTALLEE revient dans l'ecran (retour utilisateur : « je crois que les mises
+  // à jour ne fonctionnent pas vraiment, rajoute la version, comme ça je vois quand ça se met à
+  // jour »). Elle avait ete retiree en v8 comme du bruit ; elle n'en est pas — c'est le seul moyen
+  // pour l'utilisateur de CONSTATER qu'une mise a jour a bien pris.
+  //
+  // ⚠ DEUX lignes, pas une. La version installee seule ne repond pas a la question posee (« suis-je
+  //   a jour ? ») : il faut la comparer a la version PUBLIEE. Et un echec de lecture ne doit jamais
+  //   se lire « à jour » — voir lireManifeste, qui rejette au lieu de deviner.
+  const versionInstallee = h('span', { class: 'ligne-liste-secondaire' }, APP_VERSION);
+  const versionPubliee = h('span', { class: 'ligne-liste-secondaire' }, '—');
+
   const groupeApplication = groupePliant({ nomIcone: 'recherche', titre: 'Application' },
+    // Aides COURTES : sur 375 px, deux phrases passent a trois lignes et la ligne enfle a 101 px.
+    ligneInfo('Version installée', versionInstallee, 'Celle qui tourne en ce moment.'),
+    ligneInfo('Version publiée', versionPubliee, 'La dernière mise en ligne.'),
     ligneInfo('Version du schéma de données',
       h('span', { class: 'ligne-liste-secondaire' }, String(SCHEMA_VERSION))),
     ligneAction('Rechercher une mise à jour',
@@ -434,6 +445,13 @@ function monterReglages(conteneur, paramsInitiaux) {
   // v8 : un groupe qui S'OUVRE se place en haut de l'ecran. Ouvert depuis le bas de la page
   // (tous les groupes deplies), son contenu se depliait ENTIEREMENT sous le pli de l'ecran et
   // « rien ne se passait » (bug rapporte sur le groupe Application, le dernier de la liste).
+  // La version publiee se lit a l'OUVERTURE du groupe, jamais au montage de l'ecran : c'est une
+  // requete reseau, et le groupe est ferme par defaut. La lire a chaque montage la ferait payer a
+  // tous ceux qui viennent seulement exporter leurs donnees.
+  desabos.push(on(groupeApplication, 'toggle', () => {
+    if (groupeApplication.open) majVersionPubliee();
+  }));
+
   for (const g of groupesParDefaut) {
     desabos.push(on(g.noeud, 'toggle', () => {
       if (g.noeud.open) g.noeud.scrollIntoView({ block: 'start' });
@@ -907,6 +925,33 @@ function monterReglages(conteneur, paramsInitiaux) {
   }
 
   /**
+   * Ligne « Version publiée ». Trois etats et trois seulement, parce qu'il y a trois faits
+   * distincts : identique a l'installee (a jour), differente (une mise a jour attend), ou
+   * ILLISIBLE (hors-ligne). ⚠ Ne jamais replier le troisieme sur le premier : afficher « à jour »
+   * quand on n'a pas pu demander est exactement le mensonge qui fait douter du mecanisme.
+   */
+  async function majVersionPubliee() {
+    versionPubliee.textContent = 'Vérification…';
+    versionPubliee.removeAttribute('data-etat');
+    try {
+      const manifeste = await lireManifeste();
+      if (detruit) return;
+      const publiee = (manifeste && manifeste.version) || '';
+      if (!publiee) {
+        versionPubliee.textContent = 'illisible';
+        return;
+      }
+      const aJour = publiee === APP_VERSION;
+      versionPubliee.textContent = publiee + (aJour ? ' · à jour' : ' · à installer');
+      versionPubliee.setAttribute('data-etat', aJour ? 'a-jour' : 'en-retard');
+    } catch (_) {
+      if (detruit) return;
+      versionPubliee.textContent = 'hors ligne';
+      versionPubliee.removeAttribute('data-etat');
+    }
+  }
+
+  /**
    * Verification manuelle de mise a jour. verifier({ force: true }) ignore le throttle de
    * 15 minutes et ne rejette jamais : elle rend une issue, traduite ici en toast. L'affichage
    * du bandeau « recharger », lui, reste entierement pilote par ui/update.js.
@@ -938,6 +983,9 @@ function monterReglages(conteneur, paramsInitiaux) {
       }
     } finally {
       verificationMajEnCours = false;
+      // La ligne « Version publiée » suit le meme fait : la rafraichir ici evite que l'utilisateur
+      // lise un chiffre vieux de dix minutes juste sous le bouton qu'il vient de taper.
+      majVersionPubliee();
     }
   }
 

@@ -50,12 +50,26 @@ désenregistrer le SW dans la console, ou dérouler le protocole PRECACHE/ACTIVE
 ⚠ **Purger le SW ne suffit PAS** (piège qui a coûté deux fois une demi-heure). `python -m
 http.server` n'envoie aucun `Cache-Control` : Chrome applique alors son heuristique (10 % du
 temps écoulé depuis `Last-Modified`) et sert pendant des HEURES un module vieux de trente
-secondes — y compris à un `import` ES, alors qu'un `fetch(..., {cache:'no-store'})` dans la même
-page renvoie, lui, le fichier corrigé. On croit donc à un bug de code là où il n'y a qu'un cache.
+secondes — y compris à un `import` ES. On croit donc à un bug de code là où il n'y a qu'un cache.
 **Protocole fiable, dans cet ordre** : purger caches + SW → charger la RACINE de l'app une fois
 (le SW réinstalle et précache avec `{cache:'reload'}`, seul chemin qui contourne le cache HTTP)
 → recharger la page à vérifier, qui est alors servie par ce précache neuf. Contrôle en une
 ligne : lire l'entrée du précache et y chercher une chaîne de la modification.
+
+⚠⚠ **Et surtout : dans une page CONTRÔLÉE par le SW, `fetch(url, {cache:'no-store'})` ne va PAS
+au réseau** pour un asset précaché — le worker s'interpose avant le cache HTTP et répond depuis
+son cache, `cache:` n'étant qu'une consigne au cache HTTP. Vérifier « le fichier servi » avec un
+`fetch` no-store depuis la page mesure donc le PRÉCACHE, pas le disque. C'est ce qui rend le piège
+ci-dessus si convaincant, et c'est faux dans les deux sens : on peut lire du neuf en croyant lire
+du vieux. Pour comparer au disque, utiliser `curl` / `md5sum` hors du navigateur, ou une URL
+cache-bustée (`?x=…`) que le précache ne contient pas. Corollaire rassurant : cette interposition
+est exactement ce qui rend la mise à jour de PRODUCTION fiable — seul le `fetch` interne au worker,
+en `{cache:'reload'}`, définit ce que l'utilisateur recevra.
+
+⚠ **Le plus rapide pour vérifier un changement en dev n'est PAS de purger** : c'est de dérouler un
+vrai cycle de version (bumper `version.json` + `APP_VERSION`, `verifier({force:true})`, cliquer
+« Recharger »). Le précache du worker va au réseau, donc le contenu est neuf par construction, et
+on teste le mécanisme de mise à jour en même temps. Quatre cycles enchaînés ainsi le 2026-07-25.
 
 ## Invariants absolus (chacun a déjà cassé une fois — d'où sa présence ici)
 
@@ -201,6 +215,9 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
   UI). Un réglage GLOBAL demeure et doit rester : Réglages → Séance → « Repos par défaut »
   (15-900 s, `prefs.reposParDefautSec`, défaut 120).
 - Les exercices les plus utilisés passent devant ; date d'une séance modifiable (passé ou futur).
+- **La version installée reste VISIBLE** (Réglages → Application, v15). L'utilisateur n'a aucun
+  autre moyen de savoir si une mise à jour a pris, et sans ce repère il conclut que le mécanisme est
+  cassé. Ne pas la retirer une seconde fois au nom de l'épure.
 - **Regarder n'est pas agir** (v13) : sélectionner une séance ne la démarre JAMAIS. Une séance
   ouverte par mégarde reste épinglée « en cours » sur l'accueil et sa clôture date un faux
   entraînement — un tap de plus vaut mieux qu'une donnée fausse.
@@ -217,6 +234,25 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
 > porte pas toujours la trace. En cas de doute entre ce journal et le code, **le code gagne** —
 > puis on corrige la ligne ici.
 
+- v15 — la version REVIENT dans les réglages (retour utilisateur : « je crois que les mises à jour
+  ne fonctionnent pas vraiment, rajoute la version, comme ça je vois quand ça se met à jour ») :
+  · Réglages → Application porte trois lignes : **Version installée** (`APP_VERSION`), **Version
+    publiée** (lue au réseau à l'OUVERTURE du groupe, jamais au montage de l'écran) et Version du
+    schéma. La v8 les avait retirées comme du bruit ; elles n'en sont pas — c'est le seul moyen pour
+    l'utilisateur de CONSTATER qu'une mise à jour a pris. Ne pas les retirer à nouveau.
+  · `ui/update.lireManifeste()` est désormais l'UNIQUE lecture cliente de `version.json`
+    (`verifier()` l'utilise aussi). Elle **rejette** au lieu de deviner : la ligne affiche « hors
+    ligne », jamais « à jour ». ⚠ Confondre « je n'ai pas pu demander » et « rien à faire » est
+    précisément ce qui fait douter du mécanisme.
+  · ⚠ Les deux états ne se distinguent pas par la teinte (`--succes` et `--accent` sont deux verts
+    indistinguables depuis la v5) : « à jour » est du texte vert nu, « à installer » une PASTILLE
+    pleine. Et son texte est en `--texte`, pas en `--accent` : mesuré à 4,36:1 sur `--accent-doux`,
+    sous le seuil de 4,5 pour du 14 px. La même paire vaut pour `.pastille[data-ton='accent']`,
+    inchangée (composant partagé, hors périmètre).
+  · **Le mécanisme de mise à jour a été vérifié de bout en bout**, quatre cycles : bandeau proposé
+    tout seul → clic « Recharger » → `page→sw ACTIVER` → `sw→page ACTIVE_OK` → rechargement →
+    `APP_VERSION` neuve, ancien cache de coquille purgé. Il n'était pas cassé. Ce qui manquait,
+    c'était le moyen de le CONSTATER.
 - v14 — le carnet devient un ONGLET, et prend le dessin de l'application (retour utilisateur :
   « à coté des autres courbes, le premier affiché quand on clique » + « je n'aime pas la DA ») :
   · **Barre d'onglets de Progression** : `Carnet | Volume | 1RM estimé | Charge max…`. La vue tient
@@ -354,7 +390,8 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
     (plus jamais 'pointerdown' : défiler sélectionnait un point) et seulement dans
     RAYON_TAP=26 unités du point (X ET Y) — tap à côté = referme la bulle.
   · **Réglages (2e commit)** : plus de lieux (machinerie dormante conservée), plus de version
-    datée ni de note CDN ni de lien diagnostic ; groupes remis à l'état PAR DÉFAUT quand la
+    datée (⚠ REVENUE en v15, et pour de bon) ni de note CDN ni de lien diagnostic ; groupes
+    remis à l'état PAR DÉFAUT quand la
     page est masquée (visibilitychange) ; un groupe qui s'ouvre se scrolle en vue (ouvert
     depuis le bas de page, il se dépliait entièrement sous le pli — « ça ne marche pas »).
   · **Composeur (2e commit)** : plus de puce « Séries » (elles s'ajoutent en salle) — ne reste
@@ -409,9 +446,15 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
 - v5 : thème VERT (le bleu est abandonné — ne pas le réintroduire), réglages en 5 `<details>`
   pliants, renommage de séance (`seance.nom` prime sur `modeleSnapshot.nom` partout),
   composeur sans réglage de répétitions (`repsCibles: null`).
-- `tests.html` : 230/230 en navigateur au 2026-07-25 (v14 comprise). ⚠ En dev local, purger
+- `tests.html` : 230/230 en navigateur au 2026-07-25 (v15 comprise). ⚠ En dev local, purger
   SW + caches AVANT de conclure à un bug : le précache sert d'anciens modules et un simple
-  reload ne suffit pas (il se ré-enregistre à chaque boot).
+  reload ne suffit pas (il se ré-enregistre à chaque boot). Voir le protocole complet en tête
+  de fichier — et sa version courte : dérouler un vrai cycle de version.
+- **Protocole de mise à jour : VÉRIFIÉ le 2026-07-25**, quatre cycles complets en navigateur
+  (précache automatique, bandeau, ACTIVER/ACTIVE_OK, purge de l'ancienne coquille, nouvelle
+  `APP_VERSION` en mémoire). Le doute de l'utilisateur venait de l'absence d'indicateur, pas
+  d'une panne. Avant d'aller déboguer sw.js sur un rapport de ce genre, demander les deux numéros
+  de Réglages → Application : ils tranchent en un coup d'œil.
 - `views/modeles.js` référence encore `favori` (bascule cœur) : écran secondaire, inerte
   depuis la v6 (plus rien ne lit le flag). À nettoyer à l'occasion, sans urgence.
 - Les écrans v2/v3/v4 n'ont PAS tous subi de revue adversariale complète (budget) : les défauts

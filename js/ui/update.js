@@ -287,6 +287,26 @@ function surveillerRegistration(reg) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Lit ./version.json — la SEULE source de verite sur la version publiee.
+ *
+ * ⚠ `no-store` obligatoire, et c'est l'unique endroit du client qui lit ce fichier : GitHub Pages
+ *   sert tout en `max-age=600`. Depuis le cache HTTP, ce fichier annoncerait sa propre version
+ *   pendant dix minutes de plus — et le kill switch, seule porte de sortie d'une version cassee,
+ *   serait injoignable. Le service worker a sa propre lecture, avec la meme option, pour la meme
+ *   raison (sw.js, install et PRECACHE).
+ * ⚠ Rejette en cas d'echec (hors-ligne, HTTP != 200) : l'appelant DOIT distinguer « a jour » de
+ *   « je n'ai pas pu savoir ». Les confondre, c'est afficher « a jour » a quelqu'un qui est en
+ *   retard de trois versions.
+ *
+ * @returns {Promise<{version: string, kill?: boolean, assets?: string[]}>}
+ */
+export async function lireManifeste() {
+  const reponse = await fetch('./version.json', { cache: 'no-store' });
+  if (!reponse.ok) throw new Error('version.json HTTP ' + reponse.status);
+  return reponse.json();
+}
+
+/**
  * Verifie la disponibilite d'une nouvelle version.
  * Ne rejette JAMAIS : hors-ligne, l'application revient au premier plan des dizaines de fois par
  * seance et un rejet non gere serait produit a chaque fois.
@@ -315,12 +335,7 @@ export async function verifier(options) {
   }
 
   try {
-    // ⚠ no-store obligatoire : GitHub Pages sert tout en max-age=600. Depuis le cache HTTP, ce
-    //   fichier annoncerait sa propre version pendant dix minutes de plus — et le kill switch,
-    //   qui est la seule porte de sortie d'une version cassee, serait injoignable.
-    const reponse = await fetch('./version.json', { cache: 'no-store' });
-    if (!reponse.ok) throw new Error('version.json HTTP ' + reponse.status);
-    const manifeste = await reponse.json();
+    const manifeste = await lireManifeste();
 
     // Kill switch : prioritaire sur tout le reste. Purge les caches et desenregistre le worker,
     // ce qui rend la main au reseau.
