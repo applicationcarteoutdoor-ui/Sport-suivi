@@ -21,7 +21,7 @@
 // ⚠ AUCUN etat fonctionnel dans requestAnimationFrame (invariant n°2).
 
 import { h, on, delegate, vider } from '../lib/dom.js';
-import { formatFr, formatDuree } from '../lib/num.js';
+import { formatFr } from '../lib/num.js';
 import { dayKey } from '../lib/dates.js';
 import * as store from '../data/store.js';
 import * as hot from '../data/hot.js';
@@ -29,6 +29,10 @@ import * as prefs from '../data/prefs.js';
 import { champsSaisieEntree, champsSaisie, pasChamp, nouveauPoids, LIBELLES_CATEGORIES } from '../data/schema.js';
 import * as session from '../domain/session.js';
 import * as prefill from '../domain/prefill.js';
+// Forme TABLEAU de l'unique formateur de serie : « 8 » au-dessus de « ×102,5 ». Elle a longtemps
+// vecu recopiee ici et dans seance-detail.js ; le carnet de progression aurait fait une troisieme
+// copie, donc elle est remontee dans le domaine, ou elle ne peut plus diverger d'un ecran a l'autre.
+import { resumeSerieCellule } from '../domain/metrics.js';
 import * as router from '../ui/router.js';
 import { icone, iconePourExercice } from '../ui/icons.js';
 import * as sheet from '../ui/sheet.js';
@@ -77,25 +81,6 @@ const COLONNES_MIN = 8;
 
 function nbColonnes(entree) {
   return Math.max(entree.series.length, totalCible(entree), COLONNES_MIN);
-}
-
-// Valeur principale (grande) et suffixes (petits) d'une cellule, derives des champs du mode.
-function texteCellule(entree, serie) {
-  const champs = champsSaisieEntree(entree);
-  let grand = '';
-  const petits = [];
-  for (const c of champs) {
-    const v = serie ? serie[c] : null;
-    if (!estNombre(v)) continue;
-    if (!grand) { grand = c === 'dureeSec' ? formatDuree(v) : formatFr(v); continue; }
-    if (c === 'chargeKg') petits.push('×' + formatFr(v));
-    else if (c === 'lestKg') { if (v !== 0) petits.push((v > 0 ? '+' : '') + formatFr(v)); }
-    else if (c === 'valeur') petits.push('n°' + formatFr(v));
-    else if (c === 'distanceM') petits.push(formatFr(v) + ' m');
-    else if (c === 'dureeSec') petits.push(formatDuree(v));
-    else petits.push(formatFr(v));
-  }
-  return { grand, petit: petits.join(' ') };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -222,7 +207,7 @@ export function mount(conteneur, params) {
       if (serie && serie.done === true) {
         btn.setAttribute('data-etat', 'faite');
         if (serie.kind === 'echauffement') btn.setAttribute('data-kind', 'echauffement');
-        const t = texteCellule(entree, serie);
+        const t = resumeSerieCellule(serie, entree);
         btn.appendChild(h('span', { class: 'tab-cellule-grand' }, t.grand || '✓'));
         if (t.petit) btn.appendChild(h('span', { class: 'tab-cellule-petit' }, t.petit));
       } else if (serie && i === entree.series.length - 1) {
@@ -239,7 +224,7 @@ export function mount(conteneur, params) {
         for (const c of champsSaisieEntree(entree)) {
           if (estNombre(serie[c])) fantome[c] = serie[c];
         }
-        const t = texteCellule(entree, fantome);
+        const t = resumeSerieCellule(fantome, entree);
         btn.appendChild(h('span', { class: 'tab-cellule-grand' }, t.grand || '·'));
         if (t.petit) btn.appendChild(h('span', { class: 'tab-cellule-petit' }, t.petit));
       } else if (serie) {

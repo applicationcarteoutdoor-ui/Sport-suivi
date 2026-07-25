@@ -103,7 +103,7 @@ import { parseFr, formatFr, arrondiAuPas, formatDuree, formatAllure } from './js
 
 import {
   e1rm, chargeEffectiveKg, tonnageEntree, tonnageSeance,
-  allureSecParKm, vitesseKmH, estRecord, resumeSerie
+  allureSecParKm, vitesseKmH, estRecord, resumeSerie, resumeSerieCellule
 } from './js/domain/metrics.js';
 import { valeursPour, rappelTextuel, SOURCES } from './js/domain/prefill.js';
 import { serieTemporelle, sensDe, resumeSemaine, tableauChronologique } from './js/domain/progression.js';
@@ -767,21 +767,38 @@ egal('resumeSerie affiche l\'assistance négative', resumeSerie(
 egal('resumeSerie machine sans profil : le cran, jamais un kilo inventé', resumeSerie(
   nouvelleSerie('machine', { reps: 10, valeur: 7.5 }), entreeDe(exMachine)), '10 × cran 7,5');
 
-// v13 — forme COMPACTE (pastilles du carnet). Le fait affiché doit être le MÊME que dans la
-// forme longue : seules l'unité et les espaces tombent. Une forme compacte qui perdrait le
-// signe du lest ferait lire « 20 » là où l'utilisateur était ASSISTÉ de 20 kg.
-egal('resumeSerie compact mode charge', resumeSerie(
-  nouvelleSerie('charge', { reps: 8, chargeKg: 60 }), entreeDe(exCharge), { compact: true }), '8×60');
-egal('resumeSerie compact garde le signe du lest', resumeSerie(
-  nouvelleSerie('poids-du-corps', { reps: 8, lestKg: 10 }), entreeDe(exTractions), { compact: true }), '8×+10');
-egal('resumeSerie compact garde le signe de l\'assistance', resumeSerie(
-  nouvelleSerie('poids-du-corps', { reps: 8, lestKg: -20 }), entreeDe(exTractions), { compact: true }), '8×-20');
-egal('resumeSerie compact : poids du corps sans lest, le nombre de reps seul', resumeSerie(
-  nouvelleSerie('poids-du-corps', { reps: 12 }), entreeDe(exTractions), { compact: true }), '12');
-egal('resumeSerie compact machine : le cran reste un cran', resumeSerie(
-  nouvelleSerie('machine', { reps: 10, valeur: 7.5 }), entreeDe(exMachine), { compact: true }), '10×c7,5');
-egal('resumeSerie sans options : la forme longue est INCHANGÉE', resumeSerie(
-  nouvelleSerie('charge', { reps: 8, chargeKg: 60 }), entreeDe(exCharge)), '8 × 60 kg');
+// v14 — forme TABLEAU : les cases des TROIS écrans en tableau (séance en salle, détail d'une
+// séance passée, carnet de progression). Elle a longtemps vécu recopiée dans deux vues sous le nom
+// texteCellule, sans qu'aucune assertion ne la couvre ; elle est maintenant dans le domaine, et
+// c'est ici qu'on vérifie qu'elle ne dérive pas. Deux faits comptent : la valeur PRINCIPALE est le
+// premier champ chiffré du mode (donc la durée d'un gainage, pas ses reps inexistantes), et le
+// lest garde son SIGNE — lire « 20 » là où l'utilisateur était ASSISTÉ de 20 kg est un contresens.
+memeObjet('cellule mode charge : les reps en grand, la charge en petit', resumeSerieCellule(
+  nouvelleSerie('charge', { reps: 8, chargeKg: 102.5 }), entreeDe(exCharge)),
+{ grand: '8', petit: '×102,5' });
+memeObjet('cellule poids du corps lesté : le signe du lest est conservé', resumeSerieCellule(
+  nouvelleSerie('poids-du-corps', { reps: 8, lestKg: 10 }), entreeDe(exTractions)),
+{ grand: '8', petit: '+10' });
+memeObjet('cellule assistance : le moins ne disparaît pas', resumeSerieCellule(
+  nouvelleSerie('poids-du-corps', { reps: 8, lestKg: -20 }), entreeDe(exTractions)),
+{ grand: '8', petit: '-20' });
+memeObjet('cellule sans lest : un lest nul ne s\'écrit pas', resumeSerieCellule(
+  nouvelleSerie('poids-du-corps', { reps: 12, lestKg: 0 }), entreeDe(exTractions)),
+{ grand: '12', petit: '' });
+memeObjet('cellule machine : le cran, jamais un kilo inventé', resumeSerieCellule(
+  nouvelleSerie('machine', { reps: 10, valeur: 7.5 }), entreeDe(exMachine)),
+{ grand: '10', petit: 'n°7,5' });
+memeObjet('cellule mode temps : la DURÉE est la valeur principale', resumeSerieCellule(
+  nouvelleSerie('temps', { dureeSec: 90 }), entreeDe(exGainage)),
+{ grand: '1:30', petit: '' });
+memeObjet('cellule cardio : durée en grand, distance en petit', resumeSerieCellule(
+  nouvelleSerie('cardio', { dureeSec: 1560, distanceM: 5200 }), entreeDe(exCourse)),
+{ grand: '26:00', petit: '5200 m' });
+// L'écran de séance appelle la fonction avec un FANTÔME de pré-remplissage, parfois vide.
+memeObjet('cellule sans série : deux chaînes vides, aucune exception',
+  resumeSerieCellule(null, entreeDe(exCharge)), { grand: '', petit: '' });
+egal('resumeSerie décrit la MÊME série en une phrase', resumeSerie(
+  nouvelleSerie('charge', { reps: 8, chargeKg: 102.5 }), entreeDe(exCharge)), '8 × 102,5 kg');
 
 groupe('metrics — estRecord et sa tolérance de demi-incrément');
 
@@ -883,8 +900,8 @@ vrai('les séries d\'échauffement n\'entrent pas dans le carnet',
   'aucun échauffement', montrer(carnet.map((l) => l.series.map((s) => s.kind))));
 egal('la ligne de janvier expose bien ses DEUX séries effectives',
   carnet[1].series.length, 2);
-egal('le formateur compact rend une pastille lisible depuis l\'entrée de la ligne',
-  resumeSerie(carnet[1].series[0], carnet[1].entree, { compact: true }), '8×60');
+memeObjet('une case du carnet se formate depuis l\'entrée de la ligne, pas depuis l\'exercice',
+  resumeSerieCellule(carnet[1].series[0], carnet[1].entree), { grand: '8', petit: '×60' });
 egal('n = 0 : aucune ligne, aucune exception',
   tableauChronologique(historique, exCharge.id, 0).length, 0);
 

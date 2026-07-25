@@ -23,9 +23,9 @@ PWA de suivi de musculation, **100 % hors-ligne**, mono-utilisateur, qui remplac
 cd ".."; python -m http.server 8123
 # puis ouvrir http://127.0.0.1:8123/Sport-suivi/
 
-# Tests (227 assertions : domaine pur, migrations, intégrité classes↔CSS, couture icônes) :
+# Tests (230 assertions : domaine pur, migrations, intégrité classes↔CSS, couture icônes) :
 #   ouvrir http://127.0.0.1:8123/Sport-suivi/tests.html — doit être 100 % vert.
-#   Le TITRE DE L'ONGLET porte le score (« ✓ 227/227 ») : c'est le seul contrôle à faire.
+#   Le TITRE DE L'ONGLET porte le score (« ✓ 230/230 ») : c'est le seul contrôle à faire.
 # Il n'y a pas de lanceur de test unitaire : tests.html EST le harnais (zéro dépendance), et il
 # n'a AUCUN filtre — le fichier entier s'exécute en moins d'une seconde. Pour isoler une
 # assertion, la recopier dans un `groupe()` temporaire en tête de fichier (et l'en retirer).
@@ -118,6 +118,14 @@ ligne : lire l'entrée du précache et y chercher une chaîne de la modification
     (`no-store`). Protocole PRECACHE/ACTIVER/KILL — ne pas y toucher sans relire le README.
     Le bandeau de mise à jour n'est différé QUE sur l'écran `#/seance` (une séance « en cours »
     qui traîne ailleurs ne doit jamais bloquer une mise à jour — bug vécu).
+17. **Une série ne se formate QUE dans `domain/metrics.js`**, en deux formes et deux seulement :
+    `resumeSerie` (une phrase — lignes de série, infobulles, rappel « dernière fois », voix) et
+    `resumeSerieCellule` (`{ grand, petit }` — les trois écrans en TABLEAU). Toutes deux dérivent
+    de `champsSaisieEntree`, donc de MODES : ajouter un mode ne les rouvre pas. Reformater une
+    série dans une vue fait diverger l'historique, le rappel et la courbe — trois écritures d'un
+    même fait qui finissent toujours par ne plus se ressembler. C'est arrivé : la forme cellule a
+    vécu recopiée dans deux vues jusqu'à la v14, sous le nom `texteCellule`, avec le commentaire
+    « copie EXACTE » pour seul garde-fou et aucune assertion.
 
 ## Architecture — la vue d'ensemble qui demande plusieurs fichiers
 
@@ -146,7 +154,11 @@ travailler sur un affichage, vérifier qu'un utilisateur peut l'atteindre.
 colonne exercice + colonnes de séries en GRILLE partagée (`--tab-cols`, posée par `majEntete`,
 minimum 8 colonnes TOUTES visibles sans défilement), cellules à `data-etat`
 (faite/attente/ratee/future), éditeur en feuille (steppers + pavé), « Terminer » dans la page.
-(`views/seance.js`, l'ancien accordéon, n'est plus routé mais reste livré.) `views/composeur.js`
+(`views/seance.js`, l'ancien accordéon, n'est plus routé mais reste livré.)
+⚠ **TROIS écrans partagent ce dessin de tableau** — celui-ci, `views/seance-detail.js` et, depuis la
+v14, le carnet de `views/progression.js`. Ils partagent le vocabulaire CSS (`.tab-*`, v2.css § 8 bis)
+et **le formateur de case** `domain/metrics.resumeSerieCellule` — pas leur cycle de vie. Retoucher
+`.tab-cellule` ou ce formateur se voit sur les trois : vérifier les trois. `views/composeur.js`
 sert 3 routes (séance, routine, édition de routine) : packs → grille d'icônes triée par USAGE →
 lignes réglables. `ui/drawer-minuteur.js` (chrono + rebours, état = horodatages persistés,
 recalé sur visibilitychange/pageshow) est monté UNE fois par boot, hors routeur : il survit aux
@@ -156,7 +168,7 @@ la v7 : `progression.js` ne compare que des séries de MÊME unité, et « poids
 en deux graphes EMPILÉS. Le code existe, aucun appelant ne le déclenche : ne pas le réactiver
 sans relire la note v7 plus bas (double axe = anti-pattern n°1 de dataviz).
 
-**Icônes** (js/ui/icons.js, **77 dessins** — recompter à chaque ajout, le chiffre a déjà traîné
+**Icônes** (js/ui/icons.js, **78 dessins** — recompter à chaque ajout, le chiffre a déjà traîné
 deux versions de retard). Convention stricte : l'icône d'un exercice du catalogue est son id privé
 de son préfixe (`cat:squat` → `'squat'`). Résolution TOUJOURS par `iconePourExercice()`, dont la
 chaîne est : **① `ex.icone`** (logo CHOISI par l'utilisateur depuis la v11-v12, ou posé par
@@ -175,6 +187,11 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
 ## Préférences utilisateur (produit — à respecter dans toute évolution)
 
 - Interface VISUELLE : icônes, cartes, peu de texte. Saisie en séance = TABLEAU façon carnet.
+- **Les CHIFFRES avant la tendance** (v14) : sur Progression, l'onglet ouvert est le CARNET, pas une
+  courbe. C'est lui qu'on vient lire en salle — la courbe dit qu'on progresse, le carnet dit quoi
+  charger aujourd'hui. Et le carnet a le même dessin que l'écran de saisie : demander « le même
+  style que l'application » est un retour récurrent, un écran qui invente sa mise en forme est un
+  écran qui sera rejeté.
 - Minuteur/chrono : dans le tiroir latéral uniquement, jamais dans le flux des séries.
 - PAS de popups de succès (les erreurs, si).
 - PAS de tonnage dans les RÉSUMÉS (accueil, historique, détail, fin de séance) — mais la courbe
@@ -200,6 +217,37 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
 > porte pas toujours la trace. En cas de doute entre ce journal et le code, **le code gagne** —
 > puis on corrige la ligne ici.
 
+- v14 — le carnet devient un ONGLET, et prend le dessin de l'application (retour utilisateur :
+  « à coté des autres courbes, le premier affiché quand on clique » + « je n'aime pas la DA ») :
+  · **Barre d'onglets de Progression** : `Carnet | Volume | 1RM estimé | Charge max…`. La vue tient
+    un état `vue` ('carnet' | 'courbe') À CÔTÉ de `metrique` : le carnet est l'affichage par défaut,
+    au montage ET à chaque exercice choisi (`onParams`). Un seul des deux affichages occupe la
+    place — `appliquerVue()` masque plages, courbe, aide et comparaison, ou le carnet.
+    ⚠ Quitter la courbe DÉTRUIT son fragment (`peindreCourbe` sort si `vue !== 'courbe'`) : laisser
+    vivre un SVG derrière un conteneur masqué, c'est garder ses écouteurs de pointeur.
+    ⚠ La carte record reste visible sous le carnet, habillée par `metrique` — qui n'est donc jamais
+    remise à null en changeant d'onglet.
+  · **DA du carnet** = le vocabulaire de classes du tableau de séance (`.tab-entete`, `.tab-coin`,
+    `.tab-col`, `.tab-rangee`, `.tab-sport`, `.tab-cellules`, `.tab-cellule`, `-grand`, `-petit`),
+    dans un cadre `.carnet-tableau`. Colonne de gauche = la DATE (+ son ancienneté) au lieu de
+    l'exercice, colonnes suivantes = S1…Sn, une case = valeur principale en gros + compléments en
+    petit. **Trois écrans, une seule géométrie de tableau** : séance en salle, détail d'une séance
+    passée, carnet. Les pastilles `.carnet-serie` de la v13 et les règles `.tableau-chrono` ont
+    disparu (plus aucun code ne les posait).
+    ⚠ Le nombre de colonnes (`--tab-cols`) est celui de la séance la PLUS FOURNIE des lignes
+    affichées, sans plafond : plafonner amputerait des séries réellement faites.
+  · **`resumeSerieCellule(serie, entree) → { grand, petit }`** rejoint `resumeSerie` dans
+    domain/metrics.js. Elle vivait RECOPIÉE dans seance-tableau.js et seance-detail.js sous le nom
+    `texteCellule`, avec « copie EXACTE » pour seul garde-fou et zéro assertion ; le carnet en
+    aurait fait une troisième. La forme `{ compact: true }` de la v13 a été RETIRÉE : les pastilles
+    qu'elle servait n'existent plus, et un paramètre sans consommateur est le défaut `favori`.
+  · ⚠ `.vue-progression .metriques .segment` passe de `flex: 1 1 0; min-width: 0` à `flex: 1 0 auto` :
+    avec cinq onglets (cardio) le shrink comprimait les libellés `nowrap` à 60 px et le texte
+    débordait par-dessus le voisin, sans ellipse pour le signaler. Au-delà de la largeur, c'est la
+    barre qui défile (`overflow-x: auto`, views.css).
+  · ⚠ La légende du carnet est dérivée de ce que le tableau AFFICHE, pas de la table des modes :
+    une planche est `lestable`, donc son mode déclare `lestKg`, et la légende annonçait « lest en
+    dessous » sous vingt cases sans aucun lest. Même piège que la légende figée de la v13.
 - v13 — regarder sans agir (retours d'un utilisateur testeur) :
   · **Aperçu d'une séance** : taper une tuile de l'accueil n'ouvre plus une séance, elle ouvre
     `ouvrirApercuModele` (views/accueil.js) — feuille listant les exercices et leurs cibles, puis
@@ -213,17 +261,13 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
     plus rien) : c'est le bouton « Lancer » de la feuille qui refuse, en le disant.
     ⚠ Les cartes de séance EN COURS gardent leur reprise en UN tap : l'aperçu ne les concerne pas.
   · **Carnet** (views/progression.js) : le tableau sous la courbe n'affiche plus « meilleure série
-    + nombre de séries » mais TOUTES les séries, une pastille chacune, date à gauche, plus récent
-    en haut. `tableauChronologique` expose désormais `entree` (coefficients GELÉS) pour que chaque
-    série se relise dans SON mode d'époque.
-    ⚠ `table-layout: fixed` : la largeur de colonne se pose sur le `<th>`, jamais sur un `<td>`
-    du corps — sinon elle est ignorée en silence et les deux colonnes se partagent l'écran.
-    ⚠ La grille des pastilles est en `auto-fill` (pas `auto-fit`) : c'est ce qui aligne la 1re
-    série de chaque séance sur la même colonne d'une ligne à l'autre, y compris quand une séance
-    en compte deux de moins. C'est tout l'intérêt du carnet.
-  · **resumeSerie a une forme COMPACTE** : `resumeSerie(serie, entree, { compact: true })` →
-    « 8×60 », « 8×+10 », « 12 », « 1:00 ». Elle vit dans domain/metrics.js et NULLE PART ailleurs :
-    l'unicité du formateur reste l'invariant, il a seulement deux longueurs.
+    + nombre de séries » mais TOUTES les séries, date à gauche, plus récent en haut.
+    `tableauChronologique` expose désormais `entree` (coefficients GELÉS) pour que chaque série se
+    relise dans SON mode d'époque — le seul point de cette vague encore intact.
+    ⚠ Sa MISE EN FORME (pastilles dans un `<table>`) et la forme `{ compact: true }` de
+    `resumeSerie` ont été REFONDUES en v14 : ne pas chercher de `<table>` ni de `.carnet-serie`.
+    Ce qui reste vrai de ces deux ⚠ : une colonne commune à toutes les lignes est TOUT l'intérêt
+    du carnet, et une largeur posée au mauvais endroit est ignorée en silence.
 - v12 — « Créer un exercice » affiné (retours utilisateur) :
   · Formulaire réordonné et allégé : **Nom → Mode de suivi (en tête) → Muscle principal →
     Logo → Lien vidéo**. Retirés : matériel et description (affichés seulement dans l'écran
@@ -289,6 +333,7 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
     seulement (maintenance et stockage retirés de l'écran, machinerie dormante).
   · **Progression** : les onglets de métriques s'étirent sur toute la largeur — la règle doit
     battre `.vue-progression .metriques .segment` (flex: 0 0 auto) à spécificité égale.
+    (v14 : `flex: 1 0 auto`, jamais de shrink — voir la vague v14.)
 
 - v8 en ligne :
   · **Panneau superposé** (ui/router.js) : une route `panneau: true` (boot.js — le détail
@@ -297,7 +342,8 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
     et abonnée — le retour la retrouve intacte, scroll compris. Accès direct/rechargement =
     pleine page (repli assumé). `fermerPanneau()` avant toute autre navigation.
   · **Progression** : « Volume » est la PREMIÈRE métrique (ordre de MODES.metriques =
-    métrique par défaut) ; pour un exercice seul, DEUX graphes toujours empilés — métrique
+    métrique par défaut — depuis la v14 le premier ONGLET est le carnet, mais la métrique par
+    défaut reste Volume : c'est elle qui habille la carte record et la courbe qu'on ouvre) ; pour un exercice seul, DEUX graphes toujours empilés — métrique
     choisie + `reps-total` (CUMUL des répétitions par séance, réducteur v8) ; le bouton
     « Poids + reps » a disparu. Un SECOND tap sur le même point ouvre la séance en panneau
     (`dernierPointVu`, aide écrite sous la courbe).
@@ -363,7 +409,7 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
 - v5 : thème VERT (le bleu est abandonné — ne pas le réintroduire), réglages en 5 `<details>`
   pliants, renommage de séance (`seance.nom` prime sur `modeleSnapshot.nom` partout),
   composeur sans réglage de répétitions (`repsCibles: null`).
-- `tests.html` : 227/227 en navigateur au 2026-07-25 (v13 comprise). ⚠ En dev local, purger
+- `tests.html` : 230/230 en navigateur au 2026-07-25 (v14 comprise). ⚠ En dev local, purger
   SW + caches AVANT de conclure à un bug : le précache sert d'anciens modules et un simple
   reload ne suffit pas (il se ré-enregistre à chaque boot).
 - `views/modeles.js` référence encore `favori` (bascule cœur) : écran secondaire, inerte

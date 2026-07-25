@@ -815,6 +815,16 @@ export const ICONES = {
 
   'coche': () => [PL('5,12.6 9.9,17.5 19,7.5')],
 
+  // Le CARNET : un cadre, une ligne d'en-tete, une colonne de gauche etroite (la date) et deux
+  // lignes. C'est le dessin de l'ecran qu'il ouvre — quatre traits suffisent a le dire, et a 14 px
+  // dans une puce, un cinquieme les aurait fait fusionner.
+  'carnet': () => [
+    R(3.4, 4.8, 17.2, 14.4, 2.2),
+    L(3.4, 9.2, 20.6, 9.2),
+    L(9.1, 4.8, 9.1, 19.2),
+    L(3.4, 14.2, 20.6, 14.2)
+  ],
+
   // Planche anatomique : personnage de FACE, bras legerement ecartes (bien moins ouverts que
   // 'poids-du-corps'), deux lignes de section sur le buste — c'est la CARTE du corps, pas un
   // exercice. Ouvre la vue « choisir par muscle » du composeur.

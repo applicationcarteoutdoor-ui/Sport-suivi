@@ -6,8 +6,11 @@
 // colonnes suivantes = les series realisees. Les classes (tab-entete, tab-coin, tab-col,
 // tab-rangee, tab-sport, tab-cellules, tab-cellule…) sont IDENTIQUES a celles de l'ecran de
 // seance : la feuille de style garantit UNE seule geometrie pour les deux ecrans. Les petites
-// fonctions de rendu (texteCellule, totalCible, exGele) sont RECOPIEES de seance-tableau.js
-// plutot qu'importees : les deux vues partagent un vocabulaire CSS, pas un cycle de vie.
+// petites fonctions de rendu (totalCible, exGele) sont RECOPIEES de seance-tableau.js plutot
+// qu'importees : les deux vues partagent un vocabulaire CSS, pas un cycle de vie.
+// ⚠ Exception : le texte d'une CELLULE ne se recopie plus. Il vient de domain/metrics.js
+//   (resumeSerieCellule), parce qu'un troisieme ecran en tableau — le carnet de progression — en
+//   aurait fait une troisieme copie « exacte » a maintenir a la main.
 //
 // Difference assumee avec l'ecran de salle : PAS de cellule « attente » ni « future » ici.
 // La seance est close, on n'affiche que l'existant — faites, non faites, echauffements.
@@ -42,6 +45,7 @@ import {
 } from '../data/schema.js';
 import * as store from '../data/store.js';
 import * as session from '../domain/session.js';
+import { resumeSerieCellule } from '../domain/metrics.js';
 import { icone, iconePourExercice } from '../ui/icons.js';
 import * as sheet from '../ui/sheet.js';
 import * as stepper from '../ui/stepper.js';
@@ -92,26 +96,6 @@ function totalCible(entree) {
   const c = (entree && entree.cibles) || {};
   if (!estNombre(c.series)) return 0;
   return c.series + (estNombre(c.seriesEchauffement) ? c.seriesEchauffement : 0);
-}
-
-// Valeur principale (grande) et suffixes (petits) d'une cellule, derives des champs du mode.
-// Copie EXACTE de seance-tableau.js : les deux ecrans doivent afficher la meme chose.
-function texteCellule(entree, serie) {
-  const champs = champsSaisieEntree(entree);
-  let grand = '';
-  const petits = [];
-  for (const c of champs) {
-    const v = serie ? serie[c] : null;
-    if (!estNombre(v)) continue;
-    if (!grand) { grand = c === 'dureeSec' ? formatDuree(v) : formatFr(v); continue; }
-    if (c === 'chargeKg') petits.push('×' + formatFr(v));
-    else if (c === 'lestKg') { if (v !== 0) petits.push((v > 0 ? '+' : '') + formatFr(v)); }
-    else if (c === 'valeur') petits.push('n°' + formatFr(v));
-    else if (c === 'distanceM') petits.push(formatFr(v) + ' m');
-    else if (c === 'dureeSec') petits.push(formatDuree(v));
-    else petits.push(formatFr(v));
-  }
-  return { grand, petit: petits.join(' ') };
 }
 
 /** Cibles GELEES sur l'entree — la copie du modele au lancement, jamais le modele d'aujourd'hui. */
@@ -283,7 +267,7 @@ export function mount(conteneur, params = {}) {
     if (serie.done === true) {
       btn.setAttribute('data-etat', 'faite');
       if (serie.kind === 'echauffement') btn.setAttribute('data-kind', 'echauffement');
-      const t = texteCellule(entree, serie);
+      const t = resumeSerieCellule(serie, entree);
       btn.appendChild(h('span', { class: 'tab-cellule-grand' }, t.grand || '✓'));
       if (t.petit) btn.appendChild(h('span', { class: 'tab-cellule-petit' }, t.petit));
     } else {

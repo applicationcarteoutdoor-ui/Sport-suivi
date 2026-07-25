@@ -4,8 +4,10 @@
 // La page se lit de HAUT EN BAS, sans mode cache :
 //   1. « Mes exercices » : grille d'icones des exercices REELLEMENT PRATIQUES (grandes tuiles).
 //   2. Une SECTION DETAIL pour l'exercice choisi, dans un ordre FIXE : carte record bien
-//      visible -> puces de metrique (libelles francais complets, jamais de jargon) -> puces de
-//      plage -> courbe -> tableau des dernieres seances.
+//      visible -> onglets d'affichage (libelles francais complets, jamais de jargon) -> puis, sur
+//      la meme place, UN SEUL affichage : le CARNET (par defaut) ou une COURBE avec ses plages.
+//      v14 : le carnet n'est plus sous la courbe mais a COTE d'elle, en premier onglet — retour
+//      utilisateur (« à coté des autres courbes, et le premier affiché quand on clique »).
 //   3. La comparaison est DISCRETE : un simple lien « Comparer a un autre exercice » sous la
 //      courbe, qui ouvre le selecteur et superpose la courbe choisie. L'appui long et la barre
 //      permanente de comparaison ont DISPARU — ils etaient la source principale de confusion.
@@ -16,11 +18,13 @@
 // Il n'existe aucune fonction rerender(). Changer d'exercice, de plage ou de metrique ne
 // remplace que les noeuds que la vue POSSEDE reellement :
 //   - la grille d'icones (reconstruite quand la LISTE change ; sinon on ne mute que des attributs),
-//   - l'en-tete de detail, la carte record, la barre de metriques, la zone de comparaison,
-//   - le corps du tableau chronologique,
+//   - l'en-tete de detail, la carte record, la barre d'onglets, la zone de comparaison,
+//   - l'en-tete de colonnes et le corps du carnet (son nombre de colonnes suit la seance la plus
+//     fournie, donc les deux se refont ensemble),
 //   - la courbe, qui est un FRAGMENT VIVANT : on appelle detruire() puis renderLineChart(),
 //     jamais vider() sur son conteneur (ui/chart.js le documente explicitement).
-// L'ossature, les segments de plage et l'en-tete du tableau ne sont JAMAIS retouches.
+// L'ossature et les segments de plage ne sont JAMAIS retouches : changer d'onglet ne fait que
+// basculer des `hidden` (appliquerVue) et repeindre l'affichage devenu visible.
 //
 // AUCUN test sur le mode de l'exercice ici : les metriques proposables viennent de
 // domain/progression.metriquesDisponibles(), qui les derive de MODES. Ajouter un mode demain
@@ -42,7 +46,7 @@ import {
 import {
   metriquesDisponibles, serieTemporelle, tableauChronologique, records
 } from '../domain/progression.js';
-import { resumeSerie } from '../domain/metrics.js';
+import { resumeSerie, resumeSerieCellule } from '../domain/metrics.js';
 import { icone, iconePourExercice } from '../ui/icons.js';
 import { renderLineChart } from '../ui/chart.js';
 import * as picker from '../ui/picker-exercice.js';
@@ -162,6 +166,12 @@ export function mount(conteneur, params = {}) {
   let pratiques = [];             // instantane courant de la grille
   let signatureGrille = '';       // pour ne reconstruire la grille QUE si la liste a change
 
+  // v14 : ce que montre la zone sous les onglets — le CARNET ou une COURBE. Le carnet est un
+  // onglet a part entiere, place AVANT les metriques et selectionne d'entree (retour utilisateur :
+  // « que ce soit le premier affiché quand on clique »). `metrique` reste resolue en parallele :
+  // elle habille la carte record et sert de destination quand on quitte le carnet.
+  let vue = 'carnet';             // 'carnet' | 'courbe'
+
   let nomPlage = prefs.lire().plageCourbe || '3m';
   if (PLAGES.indexOf(nomPlage) === -1) nomPlage = '3m';
 
@@ -203,9 +213,10 @@ export function mount(conteneur, params = {}) {
   // Contenu reconstruit a chaque changement d'exercice ou de metrique.
   const carteRecord = h('div', { class: 'carte-record' });
 
-  // Metriques : conteneur stable, contenu reconstruit a chaque changement de selection (le mode
-  // change, donc la liste change). Libelles = LIBELLES_METRIQUES, en toutes lettres.
-  const barreMetriques = h('div', { class: 'metriques', role: 'tablist', 'aria-label': 'Métrique affichée' });
+  // Onglets : conteneur stable, contenu reconstruit a chaque changement de selection (le mode
+  // change, donc la liste change). Libelles = LIBELLES_METRIQUES, en toutes lettres, precedes de
+  // l'onglet Carnet.
+  const barreMetriques = h('div', { class: 'metriques', role: 'tablist', 'aria-label': 'Affichage' });
 
   // Plages : segments statiques. Seul aria-selected bouge — jamais les noeuds.
   const segmentsPlage = h('div', { class: 'segments', role: 'tablist', 'aria-label': 'Plage affichée' },
@@ -244,28 +255,30 @@ export function mount(conteneur, params = {}) {
   // en a), tout en haut le plus récent ». C'est la page de droite du carnet papier : la courbe
   // donne la tendance, le carnet donne les chiffres exacts a reproduire aujourd'hui.
   //
-  // ⚠ Chaque serie est une PASTILLE dans une grille a colonnes fixes, jamais une colonne de
-  //   tableau : le nombre de series varie d'une seance a l'autre (3 un jour, 6 le suivant), et
-  //   un <table> a colonnes variables imposerait un defilement horizontal sur telephone. La
-  //   grille CSS aligne malgre tout la 1re serie de chaque ligne sur la 1re serie des autres,
-  //   ce qui est exactement ce qui rend l'evolution lisible d'un coup d'oeil.
-  const corpsTableau = h('tbody', {});
-  const tableau = h('table', { class: 'tableau-chrono tableau-carnet' },
-    h('thead', {},
-      h('tr', {},
-        h('th', { scope: 'col' }, 'Date'),
-        h('th', { scope: 'col' }, 'Séries')
-      )
-    ),
-    corpsTableau
-  );
+  // v14 — MEME DESSIN QUE L'ECRAN DE SEANCE (retour utilisateur : « je n'aime pas la DA,
+  // retravaille-la dans le même style que l'application »). Les pastilles de la v13 sont
+  // remplacees par le vocabulaire de classes du tableau de saisie (tab-entete, tab-coin, tab-col,
+  // tab-rangee, tab-sport, tab-cellules, tab-cellule) : colonne de gauche = la DATE au lieu de
+  // l'exercice, colonnes suivantes = S1, S2, S3… Trois ecrans, un seul dessin de tableau —
+  // seance en salle, detail d'une seance passee, carnet.
+  //
+  // ⚠ Une SEULE grille pour toutes les rangees (variable --tab-cols, posee par peindreCarnet) :
+  //   c'est ce qui fait tomber la serie n d'un jour exactement sous la serie n de la veille. Une
+  //   grille par rangee alignerait les dates et rien d'autre, ce qui vide le carnet de son sens.
+  const carnetEntete = h('div', { class: 'tab-entete' });
+  const carnetCorps = h('div', { class: 'tab-corps' });
+  const carnetTableau = h('div', { class: 'carnet-tableau' }, carnetEntete, carnetCorps);
 
-  const titreTableau = h('h3', { class: 'section-titre' }, 'Carnet');
+  // Etat vide TENU HORS de la grille : une rangee a colspan n'existe pas en CSS grid, et une
+  // fausse rangee d'une seule cellule elargirait silencieusement toutes les colonnes.
+  const carnetVide = h('p', { class: 'carnet-vide' });
 
-  // Sans cette ligne, « 8×60 » se lit comme une multiplication. Une phrase, jamais un tutoriel.
+  // Sans cette ligne, « 8 » au-dessus de « ×102,5 » ne se lit pas du premier coup.
   // ⚠ Son texte SUIT l'exercice affiche (voir legendeDe) : figee sur « répétitions × charge »,
   //   elle mentait sur trois des cinq modes — un gainage affiche « 1:30 », une sortie « 5,2 km ».
   const legendeTableau = h('p', { class: 'carnet-legende' });
+
+  const blocCarnet = h('div', { class: 'bloc-carnet' }, legendeTableau, carnetTableau, carnetVide);
 
   const blocDetail = h('section', { class: 'bloc-detail', hidden: true },
     enteteDetail,
@@ -276,9 +289,7 @@ export function mount(conteneur, params = {}) {
     hoteCourbe,
     aideCourbe,
     zoneComparaison,
-    titreTableau,
-    legendeTableau,
-    tableau
+    blocCarnet
   );
 
   const racine = h('section', { class: 'vue-progression' }, blocGrille, blocDetail);
@@ -460,6 +471,18 @@ export function mount(conteneur, params = {}) {
       metrique = dispo.some((m) => m.cle === preferee) ? preferee : (dispo[0] ? dispo[0].cle : null);
     }
 
+    // v14 : le CARNET ouvre la barre — c'est l'affichage par defaut, et il se lit avant les
+    // tendances. Il porte le SEUL pictogramme de la barre, parce qu'il est le seul onglet a ne
+    // pas montrer une courbe : l'icone annonce une difference de nature, pas une decoration.
+    barreMetriques.appendChild(h('button', {
+      type: 'button',
+      class: 'segment segment-carnet',
+      role: 'tab',
+      'data-action': 'vue',
+      'data-vue': 'carnet',
+      'aria-selected': vue === 'carnet' ? 'true' : 'false'
+    }, icone('carnet', { taille: 15 }), h('span', null, 'Carnet')));
+
     for (const m of dispo) {
       barreMetriques.appendChild(h('button', {
         type: 'button',
@@ -467,17 +490,38 @@ export function mount(conteneur, params = {}) {
         role: 'tab',
         'data-action': 'metrique',
         'data-metrique': m.cle,
-        'aria-selected': m.cle === metrique ? 'true' : 'false'
+        'aria-selected': vue === 'courbe' && m.cle === metrique ? 'true' : 'false'
       }, m.libelle));
     }
-    barreMetriques.hidden = dispo.length === 0;
+    // Jamais masquee : l'onglet Carnet existe meme pour un exercice fantome, sans fiche et donc
+    // sans aucune metrique — c'est justement le cas ou ses chiffres bruts sont la seule lecture.
+    barreMetriques.hidden = false;
   }
 
-  /** Selection d'une metrique : on ne repeint pas la barre, on mute deux attributs. */
-  function marquerMetrique() {
+  /** Selection d'un onglet : on ne repeint pas la barre, on mute des attributs. */
+  function marquerOnglets() {
     for (const b of barreMetriques.children) {
-      b.setAttribute('aria-selected', b.getAttribute('data-metrique') === metrique ? 'true' : 'false');
+      const cible = b.getAttribute('data-vue');
+      const choisi = cible
+        ? vue === cible
+        : vue === 'courbe' && b.getAttribute('data-metrique') === metrique;
+      b.setAttribute('aria-selected', choisi ? 'true' : 'false');
     }
+  }
+
+  /**
+   * Ce qui est VISIBLE depend de l'onglet : un seul des deux affichages occupe la place.
+   * ⚠ Les commandes d'un affichage absent sont MASQUEES, jamais laissees inertes : les plages ne
+   *   bornent que la courbe (le carnet montre toujours ses vingt dernieres seances), et proposer
+   *   « Comparer à un autre exercice » sous un tableau de chiffres ne veut rien dire.
+   */
+  function appliquerVue() {
+    const carnet = vue === 'carnet';
+    segmentsPlage.hidden = carnet;
+    hoteCourbe.hidden = carnet;
+    aideCourbe.hidden = carnet;
+    zoneComparaison.hidden = carnet;
+    blocCarnet.hidden = !carnet;
   }
 
   function marquerPlage() {
@@ -500,6 +544,10 @@ export function mount(conteneur, params = {}) {
   function peindreCourbe() {
     if (courbe) { courbe.detruire(); courbe = null; }
     afficherAvis(null);
+
+    // Onglet Carnet : le fragment vient d'etre detruit et rien n'est reconstruit. Le laisser vivre
+    // derriere un conteneur masque garderait ses ecouteurs de pointeur sur un SVG invisible.
+    if (vue !== 'courbe') return;
 
     if (!selection.length) return;
 
@@ -638,98 +686,139 @@ export function mount(conteneur, params = {}) {
   }
 
   /**
-   * Phrase de lecture des pastilles, DERIVEE de l'entree affichee.
+   * Phrase de lecture des cases, DERIVEE de ce que le tableau affiche vraiment.
    *
    * ⚠ Aucun test sur le nom d'un mode : on lit les CHAMPS DE SAISIE geles sur l'entree
-   *   (champsSaisieEntree, donc MODES). L'ordre des cas est celui de metrics.resumeSerie, qui
-   *   decide de la forme des pastilles : les deux se lisent cote a cote et ne peuvent pas diverger.
+   *   (champsSaisieEntree, donc MODES). L'ordre des cas est celui de metrics.resumeSerieCellule,
+   *   qui decide de la forme des cases : les deux se lisent cote a cote et ne peuvent pas diverger.
    */
-  function legendeDe(entree) {
-    const champs = entree ? champsSaisieEntree(entree) : [];
-    const a = (c) => champs.indexOf(c) !== -1;
+  function legendeDe(lignes) {
+    // Champs DECLARES par le mode gele de la seance la plus recente — c'est elle qu'on lit en
+    // premier, et resumeSerieCellule tire d'elle la forme des cases du haut.
+    const entree = lignes.length ? lignes[0].entree : null;
+    const declares = entree ? champsSaisieEntree(entree) : [];
+
+    // ⚠ Puis intersection avec ce qui est REELLEMENT CHIFFRE dans les lignes affichees. Le mode
+    //   declare le lest de TOUT exercice lestable : une planche sans lest affichait « lest en
+    //   dessous » sous vingt cases qui n'en portaient aucun, et une sortie sans distance aurait
+    //   annonce une distance absente. La legende decrit le tableau, pas la table des modes.
+    const vus = new Set();
+    for (const l of lignes) {
+      for (const serie of l.series) {
+        for (const c of declares) {
+          const v = serie[c];
+          if (!estNombre(v)) continue;
+          // Un lest nul ne s'ecrit pas dans la case (voir resumeSerieCellule) : il ne s'annonce
+          // donc pas non plus dans la legende.
+          if (c === 'lestKg' && v === 0) continue;
+          vus.add(c);
+        }
+      }
+    }
+    const a = (c) => vus.has(c);
+    // L'en-tete « S1 S2 S3… » dit deja ce qu'est une colonne — le meme en-tete que l'ecran de
+    // saisie. La legende n'a donc a expliquer que le contenu d'une CASE, et le sens de lecture.
     const fin = ' La séance la plus récente est en haut.';
-    if (a('distanceM')) return 'Distance parcourue, sortie par sortie.' + fin;
-    if (a('dureeSec') && !a('reps')) return 'Durée tenue, série par série.' + fin;
-    if (a('reps') && a('chargeKg')) return 'Répétitions × charge, série par série.' + fin;
-    if (a('reps') && a('valeur')) return 'Répétitions × cran de la machine, série par série.' + fin;
-    if (a('reps')) return 'Répétitions par série, lest compris quand il y en a.' + fin;
-    return 'Une pastille par série, dans l’ordre où elles ont été faites.' + fin;
+    if (a('distanceM')) return 'Durée en gros, distance en dessous.' + fin;
+    if (a('dureeSec') && !a('reps')) {
+      return (a('lestKg') ? 'Durée tenue, lest en dessous.' : 'Durée tenue, série par série.') + fin;
+    }
+    if (a('reps') && a('chargeKg')) return 'Répétitions en gros, charge en dessous.' + fin;
+    if (a('reps') && a('valeur')) return 'Répétitions en gros, cran de la machine en dessous.' + fin;
+    if (a('reps') && a('lestKg')) return 'Répétitions en gros, lest en dessous.' + fin;
+    if (a('reps')) return 'Répétitions par série.' + fin;
+    return 'Une case par série, dans l’ordre où elles ont été faites.' + fin;
   }
 
   /**
-   * CARNET des dernieres seances — TOUJOURS present sous la courbe.
+   * CARNET des dernieres seances — l'affichage par defaut de l'ecran.
    * C'est lui que l'on vient reellement lire : la courbe donne la tendance, le carnet donne les
    * chiffres exacts a reproduire aujourd'hui, serie par serie. En comparaison, il liste la serie
-   * PRINCIPALE : quatre carnets entrelaces ne se lisent pas, et le titre dit lequel est affiche.
+   * PRINCIPALE : quatre carnets entrelaces ne se lisent pas, et la legende dit lequel est affiche.
    */
-  function peindreTableau() {
-    vider(corpsTableau);
+  function peindreCarnet() {
+    vider(carnetEntete);
+    vider(carnetCorps);
     const id = principal();
 
-    titreTableau.textContent = id && selection.length > 1
-      ? `Carnet — ${nomDe(id)}`
-      : 'Carnet';
-
-    // ⚠ colspan aligne sur les DEUX colonnes reelles de l'en-tete : un colspan trop large
-    //   elargit silencieusement le tableau au-dela de sa grille.
-    if (!id) {
+    // Rien a lire : le tableau disparait entierement plutot que de montrer une grille vide, et la
+    // legende de lecture avec lui — elle n'expliquerait que du vide.
+    const dire = (texte) => {
+      carnetVide.textContent = texte;
+      carnetVide.hidden = false;
+      carnetTableau.hidden = true;
       legendeTableau.hidden = true;
-      corpsTableau.appendChild(h('tr', {},
-        h('td', { colspan: '2' }, 'Choisis un exercice pour voir son carnet.')));
-      return;
-    }
+    };
+
+    if (!id) { dire('Choisis un exercice pour voir son carnet.'); return; }
 
     const lignes = tableauChronologique(store.seances(), id, N_TABLEAU);
     if (!lignes.length) {
-      // Rien a lire : une legende de lecture n'expliquerait qu'un tableau vide.
-      legendeTableau.hidden = true;
-      corpsTableau.appendChild(h('tr', {},
-        h('td', { colspan: '2' }, store.historiquePret()
-          ? 'Aucune séance enregistrée avec cet exercice.'
-          : 'Chargement de l’historique…')));
+      dire(store.historiquePret()
+        ? 'Aucune séance enregistrée avec cet exercice.'
+        : 'Chargement de l’historique…');
       return;
     }
 
-    // La legende suit la seance la PLUS RECENTE : c'est son mode que les pastilles du haut —
-    // celles qu'on lit en premier — affichent.
-    legendeTableau.textContent = legendeDe(lignes[0].entree);
+    carnetVide.hidden = true;
+    carnetTableau.hidden = false;
+
+    // Colonnes = la seance la PLUS FOURNIE des lignes affichees, sans plafond : amputer la
+    // huitieme serie d'un jour pour tenir dans sept colonnes ferait mentir le carnet, alors qu'une
+    // colonne de plus ne coute que de la largeur. Toutes les rangees partagent ce nombre.
+    let cols = 1;
+    for (const l of lignes) cols = Math.max(cols, l.series.length);
+    carnetTableau.style.setProperty('--tab-cols', String(cols));
+
+    carnetEntete.appendChild(h('span', { class: 'tab-coin' }, 'Date'));
+    for (let i = 1; i <= cols; i++) {
+      carnetEntete.appendChild(h('span', { class: 'tab-col' }, 'S' + i));
+    }
+
+    // La legende suit la seance la PLUS RECENTE : c'est son mode que les cases du haut — celles
+    // qu'on lit en premier — affichent. En comparaison, elle nomme d'abord l'exercice montre.
+    legendeTableau.textContent = (selection.length > 1 ? `Carnet de ${nomDe(id)}. ` : '')
+      + legendeDe(lignes);
     legendeTableau.hidden = false;
 
     for (const l of lignes) {
-      const series = h('div', { class: 'carnet-series' });
-      for (const serie of l.series) {
-        // Forme COMPACTE dans la pastille, forme longue dans le titre et pour les lecteurs
-        // d'ecran : les deux viennent du meme formateur (domain/metrics.resumeSerie).
-        const court = resumeSerie(serie, l.entree, { compact: true });
-        const long = resumeSerie(serie, l.entree);
-        series.appendChild(h('span', {
-          class: 'carnet-serie',
+      const cellules = h('div', { class: 'tab-cellules' });
+      for (let i = 0; i < cols; i++) {
+        const serie = l.series[i] || null;
+        if (!serie) {
+          // Ce jour-la, cette serie n'existe pas. Un point tres attenue, pas une case vide : la
+          // grille reste lisible comme une grille, et l'absence se voit comme une absence.
+          cellules.appendChild(h('span', { class: 'tab-cellule', 'data-vide': 'oui' },
+            h('span', { class: 'tab-cellule-grand' }, '·')));
+          continue;
+        }
+        // Meme formateur que l'ecran de saisie (grand/petit), forme longue en infobulle.
+        const t = resumeSerieCellule(serie, l.entree);
+        const cel = h('span', {
+          class: 'tab-cellule',
           // Une serie ratee (« rackee avant la fin ») est un fait, pas un detail : elle explique
           // a elle seule pourquoi la courbe plonge ce jour-la.
-          'data-echec': serie && serie.echec === true ? 'oui' : 'non',
-          title: long,
-          'aria-label': long
-        }, court || '—'));
+          'data-echec': serie.echec === true ? 'oui' : 'non',
+          title: resumeSerie(serie, l.entree)
+        }, h('span', { class: 'tab-cellule-grand' }, t.grand || '—'));
+        if (t.petit) cel.appendChild(h('span', { class: 'tab-cellule-petit' }, t.petit));
+        cellules.appendChild(cel);
       }
 
-      corpsTableau.appendChild(h('tr', {},
-        h('td', { class: 'carnet-cellule-date' },
-          // Un bouton et non une ligne cliquable : cible tactile, focus clavier et role natifs.
-          h('button', {
-            type: 'button',
-            class: 'bouton bouton-fantome',
-            'data-action': 'ouvrir-seance',
-            'data-id': l.seanceId,
-            'aria-label': `Ouvrir la séance du ${formatLong(l.date)}`
-          }, formatCourt(l.date))
-        ),
-        h('td', {
-          class: 'carnet-cellule-series',
-          // Le tilde des valeurs non fiables (machine sans profil de plaques) vit deja dans la
-          // pastille via resumeSerie (« 8×c7 ») : ici on n'en porte que la mise en forme.
-          'data-fiable': l.meilleure && l.meilleure.fiable === false ? 'non' : 'oui'
-        }, series)
-      ));
+      // Colonne de gauche : la DATE, a la place de l'exercice de l'ecran de saisie. Un bouton et
+      // non une rangee cliquable — cible tactile, focus clavier et role natifs, et la seule cible
+      // tapable de la rangee (les cases, elles, ne sont pas des commandes ici).
+      const jour = h('button', {
+        type: 'button',
+        class: 'tab-sport',
+        'data-action': 'ouvrir-seance',
+        'data-id': l.seanceId,
+        'aria-label': `Ouvrir la séance du ${formatLong(l.date)}`
+      },
+        h('span', { class: 'carnet-jour-date' }, formatCourt(l.date)),
+        h('span', { class: 'carnet-jour-age' }, depuisQuand(l.date)));
+
+      carnetCorps.appendChild(h('div', { class: 'tab-rangee' }, jour, cellules));
     }
   }
 
@@ -739,10 +828,11 @@ export function mount(conteneur, params = {}) {
     marquerGrille();
     peindreEnteteDetail();
     peindreMetriques();     // resout `metrique` : DOIT preceder record et courbe
+    appliquerVue();
     peindreRecord();
     peindreCourbe();
     peindreComparaison();
-    peindreTableau();
+    peindreCarnet();
   }
 
   /** Repeint ce qui depend des donnees, sans toucher aux selecteurs (donc sans perdre le focus). */
@@ -757,7 +847,7 @@ export function mount(conteneur, params = {}) {
     }
     peindreRecord();
     peindreCourbe();
-    peindreTableau();
+    peindreCarnet();
   }
 
   // ── Selection ─────────────────────────────────────────────────────────────
@@ -833,11 +923,27 @@ export function mount(conteneur, params = {}) {
       return;
     }
 
+    if (action === 'vue') {
+      // Retour au carnet. `metrique` n'est PAS effacee : la carte record continue de l'habiller,
+      // et revenir a la courbe retrouve l'onglet qu'on avait choisi.
+      const nom = cible.getAttribute('data-vue');
+      if (!nom || nom === vue) return;
+      vue = nom;
+      marquerOnglets();
+      appliquerVue();
+      peindreCourbe();       // detruit le fragment vivant en quittant la courbe
+      peindreCarnet();
+      return;
+    }
+
     if (action === 'metrique') {
       const cle = cible.getAttribute('data-metrique');
-      if (!cle || cle === metrique) return;
+      if (!cle) return;
+      if (cle === metrique && vue === 'courbe') return;
       metrique = cle;
-      marquerMetrique();
+      vue = 'courbe';
+      marquerOnglets();
+      appliquerVue();
       peindreRecord();       // la carte record suit la metrique affichee
       peindreCourbe();
       return;
@@ -880,6 +986,9 @@ export function mount(conteneur, params = {}) {
       selection = [suivant];
       // Metrique remise a zero : celle du mode precedent n'existe peut-etre pas dans le nouveau.
       metrique = null;
+      // Et retour au CARNET : « le premier affiché quand on clique » vaut a chaque exercice
+      // choisi, pas seulement a l'ouverture de l'ecran.
+      vue = 'carnet';
       peindreSelection();
     },
 

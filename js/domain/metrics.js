@@ -206,7 +206,10 @@ export function estRecord(valeur, precedente, incrementKg, sens = 'haut') {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Formatage d'une serie — UNIQUE formateur du projet
+// Formatage d'une serie — UNIQUE formateur du projet, en DEUX formes
+//   · resumeSerie        -> une phrase (« 8 × 102,5 kg ») : lignes de serie, infobulles, voix
+//   · resumeSerieCellule -> deux lignes (« 8 » / « ×102,5 ») : les trois ecrans en TABLEAU
+// Les deux derivent des memes champs de saisie geles : elles ne peuvent pas diverger.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Repli utilise quand l'entree est absente (import degrade, serie orpheline) : on deduit les
@@ -217,10 +220,9 @@ function champsPresents(serie) {
 
 // Suffixe de lest, SIGNE : « +10 kg » lest, « -20 kg » assistance. Un lest nul ou absent ne
 // s'affiche pas : « 8 x +0 kg » se lit plus mal que « 8 reps ».
-// En forme COMPACTE l'unite tombe (« +10 ») : voir resumeSerie.
-function suffixeLest(serie, compact) {
+function suffixeLest(serie) {
   if (!estNombre(serie.lestKg) || serie.lestKg === 0) return '';
-  return (serie.lestKg > 0 ? '+' : '') + formatFr(serie.lestKg) + (compact ? '' : ' kg');
+  return (serie.lestKg > 0 ? '+' : '') + formatFr(serie.lestKg) + ' kg';
 }
 
 /**
@@ -233,34 +235,21 @@ function suffixeLest(serie, compact) {
  * ⚠ La forme est derivee de champsSaisieEntree(entree), donc de MODES : aucun test sur le nom
  *   d'un mode ici, et un mode ajoute demain se formate sans toucher a cette fonction.
  *
- * v13 — FORME COMPACTE (`{ compact: true }`) : « 8×60 », « 8×+10 », « 8 », « 1:30 », « 5,2 km ».
- *   Elle existe pour le CARNET de la vue Progression, ou chaque serie tient dans une pastille
- *   de moins de 60 px : vingt seances de quatre series, c'est quatre-vingts pastilles a l'ecran.
- *   ⚠ Elle vit ICI et non dans la vue, precisement pour ne pas rouvrir la porte qu'interdit
- *     l'avertissement ci-dessus : une seule fonction connait la forme d'une serie, dans ses deux
- *     longueurs. La forme longue reste celle des lecteurs d'ecran et des infobulles — une
- *     pastille « 8×60 » ne s'annonce pas a la voix.
- *
  * @param {object} serie
  * @param {object} [entree] entree de seance porteuse des coefficients GELES
- * @param {{compact?: boolean}} [options]
  * @returns {string}
  */
-export function resumeSerie(serie, entree, options) {
+export function resumeSerie(serie, entree) {
   if (!serie) return '';
-  const compact = !!(options && options.compact === true);
   const champs = entree ? champsSaisieEntree(entree) : champsPresents(serie);
   const a = (c) => champs.indexOf(c) !== -1;
-  const lest = a('lestKg') || !entree ? suffixeLest(serie, compact) : '';
+  const lest = a('lestKg') || !entree ? suffixeLest(serie) : '';
 
   // Cardio : la distance est optionnelle, la duree ne l'est pas.
   if (a('distanceM')) {
     const duree = formatDuree(serie.dureeSec);
     if (estNombre(serie.distanceM) && serie.distanceM > 0) {
       const km = formatFr(serie.distanceM / 1000);
-      // Compact : la distance seule. « 5,2 km en 26:00 » ne tient pas dans une pastille, et
-      // c'est la distance que l'on compare d'une sortie a l'autre.
-      if (compact) return `${km} km`;
       return duree ? `${km} km en ${duree}` : `${km} km`;
     }
     return duree;
@@ -276,16 +265,48 @@ export function resumeSerie(serie, entree, options) {
   if (!estNombre(serie.reps)) return '';
   const reps = formatFr(serie.reps);
 
-  if (a('chargeKg') && estNombre(serie.chargeKg)) {
-    const charge = formatFr(serie.chargeKg);
-    return compact ? `${reps}×${charge}` : `${reps} × ${charge} kg`;
-  }
+  if (a('chargeKg') && estNombre(serie.chargeKg)) return `${reps} × ${formatFr(serie.chargeKg)} kg`;
   // Sans profil de machine, le cran reste la seule verite disponible : on l'affiche tel quel
   // plutot qu'un kilo invente.
-  if (a('valeur') && estNombre(serie.valeur)) {
-    const cran = formatFr(serie.valeur);
-    return compact ? `${reps}×c${cran}` : `${reps} × cran ${cran}`;
+  if (a('valeur') && estNombre(serie.valeur)) return `${reps} × cran ${formatFr(serie.valeur)}`;
+  if (lest) return `${reps} × ${lest}`;
+  return `${reps} reps`;
+}
+
+/**
+ * Forme TABLEAU de la meme serie : une valeur PRINCIPALE (grande) et ses complements (petits),
+ * pour une case de tableau de deux lignes — « 8 » au-dessus de « ×102,5 ».
+ *
+ * ⚠ Deuxieme moitie de l'UNIQUE formateur, et non un second formateur. Les trois ecrans en
+ *   tableau (seance en salle, detail d'une seance passee, carnet de progression) doivent afficher
+ *   une serie a l'identique ; cette fonction a d'ailleurs vecu recopiee dans deux vues, avec le
+ *   commentaire « copie EXACTE » pour tout garde-fou. Elle vit ici pour que ce soit vrai par
+ *   construction, et pour qu'aucune vue n'ait a redecouvrir qu'un lest s'ecrit signe.
+ * ⚠ Meme derivation que resumeSerie : l'ORDRE des champs de saisie du mode gele decide de la
+ *   valeur principale (les reps pour une charge, la duree pour un gainage ou une sortie). Aucun
+ *   test sur le nom d'un mode, donc rien a rouvrir ici quand MODES gagne une ligne.
+ *
+ * @param {object} serie   peut n'etre qu'un fantome de pre-remplissage (champs partiels)
+ * @param {object} [entree] entree de seance porteuse des coefficients GELES
+ * @returns {{ grand: string, petit: string }} chaines vides si rien n'est chiffrable
+ */
+export function resumeSerieCellule(serie, entree) {
+  if (!serie) return { grand: '', petit: '' };
+  const champs = entree ? champsSaisieEntree(entree) : champsPresents(serie);
+  let grand = '';
+  const petits = [];
+  for (const c of champs) {
+    const v = serie[c];
+    if (!estNombre(v)) continue;
+    // Le PREMIER champ chiffre du mode est la valeur principale : c'est le nombre qu'on lit d'un
+    // coup d'oeil dans la colonne, les autres le qualifient.
+    if (!grand) { grand = c === 'dureeSec' ? formatDuree(v) : formatFr(v); continue; }
+    if (c === 'chargeKg') petits.push('×' + formatFr(v));
+    else if (c === 'lestKg') { if (v !== 0) petits.push((v > 0 ? '+' : '') + formatFr(v)); }
+    else if (c === 'valeur') petits.push('n°' + formatFr(v));
+    else if (c === 'distanceM') petits.push(formatFr(v) + ' m');
+    else if (c === 'dureeSec') petits.push(formatDuree(v));
+    else petits.push(formatFr(v));
   }
-  if (lest) return compact ? `${reps}×${lest}` : `${reps} × ${lest}`;
-  return compact ? reps : `${reps} reps`;
+  return { grand, petit: petits.join(' ') };
 }

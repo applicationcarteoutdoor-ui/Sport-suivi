@@ -444,39 +444,10 @@
   white-space: nowrap;
 }
 
-/* ⚠ Le tableau des 20 dernieres seances est TOUJOURS sous la courbe : c'est lui qui est
-   reellement consulte, la courbe ne donne que la tendance. */
-.tableau-chrono {
-  font-size: var(--txt-s);
-}
-
-.tableau-chrono th {
-  text-align: left;
-  padding: var(--esp-2) var(--esp-2);
-  border-bottom: 1px solid var(--bordure);
-  color: var(--texte-attenue);
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: var(--txt-xs);
-  letter-spacing: 0.03em;
-}
-
-.tableau-chrono td {
-  padding: var(--esp-2);
-  border-bottom: 1px solid var(--bordure);
-}
-
-.tableau-chrono td:last-child,
-.tableau-chrono th:last-child {
-  text-align: right;
-}
-
-/* Valeur non fiable : rendue en attenue et suffixee d'un tilde par le JS. Jamais un chiffre
-   presente comme certain. */
-.tableau-chrono [data-fiable='non'] {
-  color: var(--texte-attenue);
-  font-style: italic;
-}
+/* Le tableau des 20 dernieres seances — celui qui est REELLEMENT consulte, la courbe ne donnant
+   que la tendance — n'est plus un <table> depuis la v14 : c'est le CARNET, qui reprend la grille
+   du tableau de saisie (v2.css, sections 8 bis et 23). Les regles .tableau-chrono qui vivaient
+   ici ont donc ete retirees : plus aucun code ne posait ces classes. */
 
 /* ═════════════════════════════ Exercices ═════════════════════════════ */
 
