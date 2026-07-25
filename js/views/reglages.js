@@ -382,21 +382,28 @@ function monterReglages(conteneur, paramsInitiaux) {
   const etatMaj = h('span', { class: 'ligne-liste-secondaire', role: 'status' }, '');
   let verificationMajEnCours = false;
 
-  // v15 : la VERSION INSTALLEE revient dans l'ecran (retour utilisateur : « je crois que les mises
-  // à jour ne fonctionnent pas vraiment, rajoute la version, comme ça je vois quand ça se met à
-  // jour »). Elle avait ete retiree en v8 comme du bruit ; elle n'en est pas — c'est le seul moyen
-  // pour l'utilisateur de CONSTATER qu'une mise a jour a bien pris.
+  // v15 : la VERSION revient dans l'ecran (retour utilisateur : « je crois que les mises à jour ne
+  // fonctionnent pas vraiment, rajoute la version, comme ça je vois quand ça se met à jour »). Elle
+  // avait ete retiree en v8 comme du bruit ; elle n'en est pas — c'est le seul moyen pour
+  // l'utilisateur de CONSTATER qu'une mise a jour a bien pris.
   //
-  // ⚠ DEUX lignes, pas une. La version installee seule ne repond pas a la question posee (« suis-je
-  //   a jour ? ») : il faut la comparer a la version PUBLIEE. Et un echec de lecture ne doit jamais
-  //   se lire « à jour » — voir lireManifeste, qui rejette au lieu de deviner.
+  // v16 : UNE seule ligne, et un numero court (« V16 », voir APP_VERSION). La v15 en affichait deux
+  // — installee et publiee — ce qui obligeait a comparer deux chaines datees pour repondre a une
+  // question binaire. Le numero publie n'est plus AFFICHE : quand il differe, la ligne porte une
+  // pastille « Mise à jour disponible », qui dit quoi FAIRE plutot que quoi comparer.
+  //
+  // ⚠ Rien ne s'affiche quand la lecture reseau echoue : la pastille reste cachee. Le silence ne
+  //   ment pas (il n'affirme pas « à jour »), et le bouton juste en dessous, lui, tranche a voix
+  //   haute — « Application à jour. » ou « Vérification impossible. Es-tu hors ligne ? ».
   const versionInstallee = h('span', { class: 'ligne-liste-secondaire' }, APP_VERSION);
-  const versionPubliee = h('span', { class: 'ligne-liste-secondaire' }, '—');
+  const etiquetteMaj = h('span', {
+    class: 'ligne-liste-secondaire',
+    'data-etat': 'en-retard'
+  }, 'Mise à jour disponible');
+  etiquetteMaj.hidden = true;
 
   const groupeApplication = groupePliant({ nomIcone: 'recherche', titre: 'Application' },
-    // Aides COURTES : sur 375 px, deux phrases passent a trois lignes et la ligne enfle a 101 px.
-    ligneInfo('Version installée', versionInstallee, 'Celle qui tourne en ce moment.'),
-    ligneInfo('Version publiée', versionPubliee, 'La dernière mise en ligne.'),
+    ligneInfo('Version', h('span', { class: 'valeur-version' }, versionInstallee, etiquetteMaj)),
     ligneInfo('Version du schéma de données',
       h('span', { class: 'ligne-liste-secondaire' }, String(SCHEMA_VERSION))),
     ligneAction('Rechercher une mise à jour',
@@ -925,29 +932,21 @@ function monterReglages(conteneur, paramsInitiaux) {
   }
 
   /**
-   * Ligne « Version publiée ». Trois etats et trois seulement, parce qu'il y a trois faits
-   * distincts : identique a l'installee (a jour), differente (une mise a jour attend), ou
-   * ILLISIBLE (hors-ligne). ⚠ Ne jamais replier le troisieme sur le premier : afficher « à jour »
-   * quand on n'a pas pu demander est exactement le mensonge qui fait douter du mecanisme.
+   * Pastille « Mise à jour disponible ». Elle n'apparait QUE sur un fait etabli : la version
+   * publiee a ete lue, et elle differe de celle qui tourne.
+   * ⚠ Un echec de lecture la laisse cachee — il ne la fait pas apparaitre (on ne reclame pas une
+   *   mise a jour qu'on n'a pas vue) et il n'affirme rien non plus. C'est le bouton « Rechercher
+   *   une mise à jour » qui dit, lui, ce qui s'est passe.
    */
   async function majVersionPubliee() {
-    versionPubliee.textContent = 'Vérification…';
-    versionPubliee.removeAttribute('data-etat');
     try {
       const manifeste = await lireManifeste();
       if (detruit) return;
       const publiee = (manifeste && manifeste.version) || '';
-      if (!publiee) {
-        versionPubliee.textContent = 'illisible';
-        return;
-      }
-      const aJour = publiee === APP_VERSION;
-      versionPubliee.textContent = publiee + (aJour ? ' · à jour' : ' · à installer');
-      versionPubliee.setAttribute('data-etat', aJour ? 'a-jour' : 'en-retard');
+      etiquetteMaj.hidden = !publiee || publiee === APP_VERSION;
     } catch (_) {
       if (detruit) return;
-      versionPubliee.textContent = 'hors ligne';
-      versionPubliee.removeAttribute('data-etat');
+      etiquetteMaj.hidden = true;
     }
   }
 

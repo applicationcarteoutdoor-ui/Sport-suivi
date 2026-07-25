@@ -24,7 +24,17 @@ export const DB_VERSION = 1;
 
 // Version applicative. Doit rester alignee sur le champ `version` de version.json a chaque
 // deploiement : c'est la comparaison entre les deux qui declenche le bandeau de mise a jour.
-export const APP_VERSION = '2026-07-25-06';
+//
+// FORMAT : 'V' + un entier, incremente a CHAQUE deploiement, jamais reutilise, jamais remis a zero.
+// Retour utilisateur (v16) : « je veux que tu parles en V1, ou V2 et autre, pas en date ». Les
+// horodatages 'AAAA-MM-JJ-NN' des v1 a v15 ne se lisaient pas et ne se disaient pas au telephone.
+// Le compteur demarre a 16 pour tomber sur le numero de vague du journal de CLAUDE.md : « il est
+// en V16 » designe la vague v16, sans table de correspondance a tenir.
+//
+// ⚠ Aucun code ne COMPARE deux versions autrement que par egalite (update.js, sw.js) : le format
+//   est libre, mais il doit rester STABLE. En changer a nouveau ne casse rien, ce serait juste une
+//   deuxieme rupture de lecture dans l'historique des utilisateurs.
+export const APP_VERSION = 'V16';
 
 // Les 6 magasins IndexedDB, figes au premier commit.
 // `cle` = keyPath ; `index` = index secondaires a creer dans onUpgrade.

@@ -1152,31 +1152,29 @@ body:has(.bandeau-maj[data-ouvert='oui']) .coquille {
   color: var(--texte-attenue);
 }
 
-/* Version publiee (Reglages -> Application) : l'etat se lit d'un coup d'oeil, avant le texte.
-   Un echec de lecture, lui, garde le gris attenue par defaut : « hors ligne » n'est ni une bonne
-   ni une mauvaise nouvelle.
-
-   ⚠ Les deux etats ne se distinguent PAS par la teinte : --succes et --accent sont deux verts
-   indistinguables depuis le theme vert de la v5 (piege deja paye sur les courbes, cf. tokens.css).
-   « A jour » est du texte vert nu, « a installer » est une PASTILLE PLEINE — la difference est de
-   forme, donc lisible meme pour qui ne separe pas les deux verts. */
-.ligne-liste-secondaire[data-etat='a-jour'] {
-  color: var(--succes);
-  font-weight: 600;
+/* Ligne « Version » (Reglages -> Application) : le numero, et une pastille SEULEMENT quand une
+   mise a jour attend. Rien a signaler = rien d'affiche.
+   ⚠ La pastille ne se distingue pas par la TEINTE mais par la forme : --succes et --accent sont
+   deux verts indistinguables depuis le theme vert de la v5 (piege deja paye sur les courbes).
+   ⚠ Son texte est en --texte, PAS en --accent : mesure faite, --accent sur --accent-doux donne
+   4,36:1 en theme clair, sous le seuil de 4,5 pour du 14 px (gras a 700 ne suffit pas a passer en
+   « grand texte », qui commence a 18,66 px). L'aplat teinte porte l'identite d'accent ; le texte,
+   lui, doit se lire. */
+.valeur-version {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  justify-content: flex-end;
   font-variant-numeric: tabular-nums;
 }
 
-/* ⚠ Texte en --texte, PAS en --accent : mesure faite, --accent sur --accent-doux donne 4,36:1 en
-   theme clair, sous le seuil de 4,5 pour du 14 px (gras a 700 ne suffit pas a passer en « grand
-   texte », qui commence a 18,66 px). L'aplat teinte suffit a porter l'identite d'accent ; le texte,
-   lui, doit se lire. */
 .ligne-liste-secondaire[data-etat='en-retard'] {
   padding: 2px var(--esp-2);
   border-radius: var(--rayon-plein);
   background: var(--accent-doux);
   color: var(--texte);
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .ligne-liste[data-archive='oui'] .ligne-liste-principal {

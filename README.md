@@ -109,12 +109,16 @@ Aucun workflow d'integration continue n'est necessaire : il n'y a pas d'etape de
 
 A executer **dans cet ordre**, sans en sauter.
 
-1. **`version.json`** : `version` bumpee (format `AAAA-MM-JJ-NN`) et `assets` complete des
-   fichiers ajoutes ou renommes depuis la derniere release.
-2. **`js/config.js`** : `APP_VERSION` identique au champ `version` ci-dessus.
+1. **`version.json`** : `version` bumpee (format **`V` + entier**, ex. `V17`) et `assets` complete
+   des fichiers ajoutes ou renommes depuis la derniere release. Le compteur ne se reutilise ni ne
+   se remet a zero. Il a remplace l'ancien format date `AAAA-MM-JJ-NN` a partir de `V16` : un
+   numero se lit et se dit au telephone, une date ne se lit pas.
+2. **`js/config.js`** : `APP_VERSION` identique au champ `version` ci-dessus. Il est AFFICHE a
+   l'utilisateur (Reglages -> Application) : c'est son seul moyen de constater qu'une mise a jour
+   a pris, et le premier chiffre a demander sur un rapport de bug.
 3. **`verif.html`** sur l'URL deployee : **zero 404**. Il fetch chaque entree de `assets` et liste
    les manquants. Un seul manquant = l'application ne demarre pas en mode avion.
-4. **`tests.html`** : **zero echec**. 170 assertions sur `domain/`, `data/`, `lib/` et l'integrite
+4. **`tests.html`** : **zero echec**. 230 assertions sur `domain/`, `data/`, `lib/` et l'integrite
    du vocabulaire de classes CSS.
 
 > ⚠ `verif.html` et `tests.html` sont volontairement **hors de `version.json`** : ce sont des

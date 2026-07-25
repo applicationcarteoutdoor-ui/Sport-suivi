@@ -37,7 +37,8 @@ node --check js/views/seance-tableau.js
 #   ouvrir http://127.0.0.1:8123/Sport-suivi/verif.html
 
 # Livraison — LE rituel (voir aussi README.md, contrat de non-régression) :
-#   1. bumper "version" dans version.json (format AAAA-MM-JJ-NN)
+#   1. bumper "version" dans version.json (format « V » + entier, ex. V17 — jamais une date,
+#      jamais un numéro réutilisé ; il est AFFICHÉ dans Réglages → Application)
 #   2. aligner APP_VERSION dans js/config.js sur la MÊME valeur (sinon boucle de mise à jour)
 #   3. tout nouveau fichier livré doit être listé UN PAR UN dans version.json (jamais de glob) ;
 #      verif.html et tests.html restent VOLONTAIREMENT hors liste
@@ -69,7 +70,7 @@ en `{cache:'reload'}`, définit ce que l'utilisateur recevra.
 ⚠ **Le plus rapide pour vérifier un changement en dev n'est PAS de purger** : c'est de dérouler un
 vrai cycle de version (bumper `version.json` + `APP_VERSION`, `verifier({force:true})`, cliquer
 « Recharger »). Le précache du worker va au réseau, donc le contenu est neuf par construction, et
-on teste le mécanisme de mise à jour en même temps. Quatre cycles enchaînés ainsi le 2026-07-25.
+on teste le mécanisme de mise à jour en même temps. Cinq cycles enchaînés ainsi le 2026-07-25.
 
 ## Invariants absolus (chacun a déjà cassé une fois — d'où sa présence ici)
 
@@ -234,22 +235,32 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
 > porte pas toujours la trace. En cas de doute entre ce journal et le code, **le code gagne** —
 > puis on corrige la ligne ici.
 
+- v16 — la version se dit **`V16`**, et tient sur UNE ligne (retour utilisateur : « supprime version
+  installée et version publiée, mais juste version ; je veux que tu parles en V1, ou V2 et autre,
+  pas en date ») :
+  · **Format de version : `V` + entier**, incrémenté à chaque déploiement, jamais réutilisé, jamais
+    remis à zéro. Il remplace `AAAA-MM-JJ-NN` (v1→v15). Le compteur démarre à **16** pour tomber sur
+    le numéro de vague de ce journal : « il est en V16 » désigne la vague v16, sans correspondance à
+    tenir. ⚠ Aucun code ne compare deux versions autrement que par ÉGALITÉ (update.js, sw.js) : le
+    format est libre, mais une seconde rupture de lecture serait gratuite pour l'utilisateur.
+  · Réglages → Application : **une seule ligne « Version »**. Le numéro publié n'est plus affiché —
+    quand il diffère, la ligne porte une pastille « Mise à jour disponible », qui dit quoi FAIRE au
+    lieu de donner deux chaînes à comparer. La lecture réseau reste faite à l'OUVERTURE du groupe.
+    ⚠ Un échec de lecture laisse la pastille CACHÉE : le silence n'affirme rien, et c'est le bouton
+    juste en dessous qui tranche à voix haute.
 - v15 — la version REVIENT dans les réglages (retour utilisateur : « je crois que les mises à jour
   ne fonctionnent pas vraiment, rajoute la version, comme ça je vois quand ça se met à jour ») :
-  · Réglages → Application porte trois lignes : **Version installée** (`APP_VERSION`), **Version
-    publiée** (lue au réseau à l'OUVERTURE du groupe, jamais au montage de l'écran) et Version du
-    schéma. La v8 les avait retirées comme du bruit ; elles n'en sont pas — c'est le seul moyen pour
-    l'utilisateur de CONSTATER qu'une mise à jour a pris. Ne pas les retirer à nouveau.
+  · Réglages → Application porte deux lignes de version (⚠ ramenées à UNE en v16) : installée et
+    publiée. La v8 les avait retirées comme du bruit ; elles n'en sont pas — c'est le seul moyen
+    pour l'utilisateur de CONSTATER qu'une mise à jour a pris. Ne pas les retirer à nouveau.
   · `ui/update.lireManifeste()` est désormais l'UNIQUE lecture cliente de `version.json`
-    (`verifier()` l'utilise aussi). Elle **rejette** au lieu de deviner : la ligne affiche « hors
-    ligne », jamais « à jour ». ⚠ Confondre « je n'ai pas pu demander » et « rien à faire » est
-    précisément ce qui fait douter du mécanisme.
-  · ⚠ Les deux états ne se distinguent pas par la teinte (`--succes` et `--accent` sont deux verts
-    indistinguables depuis la v5) : « à jour » est du texte vert nu, « à installer » une PASTILLE
-    pleine. Et son texte est en `--texte`, pas en `--accent` : mesuré à 4,36:1 sur `--accent-doux`,
-    sous le seuil de 4,5 pour du 14 px. La même paire vaut pour `.pastille[data-ton='accent']`,
-    inchangée (composant partagé, hors périmètre).
-  · **Le mécanisme de mise à jour a été vérifié de bout en bout**, quatre cycles : bandeau proposé
+    (`verifier()` l'utilise aussi). Elle **rejette** au lieu de deviner. ⚠ Confondre « je n'ai pas
+    pu demander » et « rien à faire » est précisément ce qui fait douter du mécanisme.
+  · ⚠ La pastille ne se distingue pas par la teinte (`--succes` et `--accent` sont deux verts
+    indistinguables depuis la v5) mais par la FORME. Et son texte est en `--texte`, PAS en
+    `--accent` : mesuré à 4,36:1 sur `--accent-doux`, sous le seuil de 4,5 pour du 14 px. La même
+    paire vaut pour `.pastille[data-ton='accent']`, inchangée (composant partagé, hors périmètre).
+  · **Le mécanisme de mise à jour a été vérifié de bout en bout**, cinq cycles : bandeau proposé
     tout seul → clic « Recharger » → `page→sw ACTIVER` → `sw→page ACTIVE_OK` → rechargement →
     `APP_VERSION` neuve, ancien cache de coquille purgé. Il n'était pas cassé. Ce qui manquait,
     c'était le moyen de le CONSTATER.
@@ -446,15 +457,15 @@ pas le recycler comme s'il était libre sans nettoyer cet écran.
 - v5 : thème VERT (le bleu est abandonné — ne pas le réintroduire), réglages en 5 `<details>`
   pliants, renommage de séance (`seance.nom` prime sur `modeleSnapshot.nom` partout),
   composeur sans réglage de répétitions (`repsCibles: null`).
-- `tests.html` : 230/230 en navigateur au 2026-07-25 (v15 comprise). ⚠ En dev local, purger
+- `tests.html` : 230/230 en navigateur au 2026-07-25 (v16 comprise). ⚠ En dev local, purger
   SW + caches AVANT de conclure à un bug : le précache sert d'anciens modules et un simple
   reload ne suffit pas (il se ré-enregistre à chaque boot). Voir le protocole complet en tête
   de fichier — et sa version courte : dérouler un vrai cycle de version.
-- **Protocole de mise à jour : VÉRIFIÉ le 2026-07-25**, quatre cycles complets en navigateur
+- **Protocole de mise à jour : VÉRIFIÉ le 2026-07-25**, cinq cycles complets en navigateur
   (précache automatique, bandeau, ACTIVER/ACTIVE_OK, purge de l'ancienne coquille, nouvelle
   `APP_VERSION` en mémoire). Le doute de l'utilisateur venait de l'absence d'indicateur, pas
-  d'une panne. Avant d'aller déboguer sw.js sur un rapport de ce genre, demander les deux numéros
-  de Réglages → Application : ils tranchent en un coup d'œil.
+  d'une panne. Avant d'aller déboguer sw.js sur un rapport de ce genre, demander le numéro de
+  Réglages → Application (et s'il porte la pastille « Mise à jour disponible ») : ça tranche.
 - `views/modeles.js` référence encore `favori` (bascule cœur) : écran secondaire, inerte
   depuis la v6 (plus rien ne lit le flag). À nettoyer à l'occasion, sans urgence.
 - Les écrans v2/v3/v4 n'ont PAS tous subi de revue adversariale complète (budget) : les défauts
